@@ -378,10 +378,31 @@ double _driverAnimationEndBearing = 0.0;
 
   try {
     // اگر مسیر راننده هنوز ساخته نشده، ابتدا آن را بساز.
-    if (!_isDriverTripRouteVisible &&
+    final bool needsInitialRoute = !_isDriverTripRouteVisible &&
         !_isFetchingDriverTripRoute &&
         _originLatLng != null &&
-        _destinationLatLng != null) {
+        _destinationLatLng != null;
+
+    bool needsRerouteBecauseOffRoute = false;
+
+    if (_isDriverTripRouteVisible &&
+        !_isFetchingDriverTripRoute &&
+        _driverTripPolylinePoints.length >= 2) {
+      final LatLng snappedRaw = _snapToPolyline(rawPosition, _driverTripPolylinePoints);
+
+      final double distanceFromRoute = Geolocator.distanceBetween(
+        rawPosition.latitude,
+        rawPosition.longitude,
+        snappedRaw.latitude,
+        snappedRaw.longitude,
+      );
+
+      if (distanceFromRoute > 60) {
+        needsRerouteBecauseOffRoute = true;
+      }
+    }
+
+    if (needsInitialRoute || needsRerouteBecauseOffRoute) {
       await _drawDriverTripRoute(rawPosition);
     }
 
