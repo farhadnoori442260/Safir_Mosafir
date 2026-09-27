@@ -15,6 +15,7 @@ class SmartLocationSheet extends StatefulWidget {
   final bool isMapIdle;
   final bool isExpanded; 
   final ValueChanged<bool>? onExpandChanged;
+  final bool hasGpsDisruption; // اضافه شدن وضعیت اختلال سیگنال
 
   const SmartLocationSheet({
     super.key,
@@ -28,6 +29,7 @@ class SmartLocationSheet extends StatefulWidget {
     required this.isMapIdle,
     this.isExpanded = true,
     this.onExpandChanged,
+    this.hasGpsDisruption = true, // مقدار پیش‌فرض جهت نمایش
   });
 
   @override
@@ -37,6 +39,7 @@ class SmartLocationSheet extends StatefulWidget {
 class _SmartLocationSheetState extends State<SmartLocationSheet> {
   bool get _expanded => widget.isExpanded;
   static const Color destinationColor = Color(0xFF169365);
+  bool _showGpsWarningText = true;
 
   void _setExpanded(bool expanded) {
     if (widget.onExpandChanged != null) {
@@ -95,31 +98,58 @@ class _SmartLocationSheetState extends State<SmartLocationSheet> {
           alignment: Alignment.bottomCenter,
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              // دکمه جی‌پی‌اس شناور
+              // ویجت شناور GPS همراه با هشدار اختلال
               Padding(
                 padding: const EdgeInsets.only(left: 16, right: 16, bottom: 12),
                 child: Material(
                   color: Colors.white,
-                  shape: const CircleBorder(),
+                  borderRadius: BorderRadius.circular(24),
                   elevation: 4,
-                  shadowColor: Colors.black38,
+                  shadowColor: Colors.black26,
                   clipBehavior: Clip.antiAlias,
                   child: InkWell(
                     onTap: () {
                       HapticFeedback.lightImpact();
                       widget.onGpsTap();
+                      setState(() {
+                        _showGpsWarningText = !_showGpsWarningText;
+                      });
                     },
                     splashColor: AppColors.primaryBrand.withOpacity(0.15),
                     highlightColor: Colors.black.withOpacity(0.05),
-                    child: const SizedBox(
-                      width: 48,
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.fastOutSlowIn,
                       height: 48,
-                      child: Icon(
-                        Icons.my_location,
-                        size: 22,
-                        color: AppColors.textPrimary,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (widget.hasGpsDisruption && _showGpsWarningText) ...[
+                            const Icon(
+                              Icons.error_outline_rounded,
+                              size: 18,
+                              color: Color(0xFFD97706),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              "gps_disruption".tr().isEmpty ? "اختلال در موقعیت مکانی" : "gps_disruption".tr(),
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                          ] else
+                            const Icon(
+                              Icons.my_location,
+                              size: 22,
+                              color: AppColors.textPrimary,
+                            ),
+                        ],
                       ),
                     ),
                   ),
