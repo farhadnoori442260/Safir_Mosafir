@@ -449,23 +449,31 @@ double _driverCurrentBearing = 0.0;
         _driverTripPolylinePoints,
       );
 
-      if (snapped != null) {
-        markerPosition = snapped.point;
+      final LatLng? snapped = _snapToPolyline(
+  rawPosition,
+  _driverTripPolylinePoints,
+);
 
-        // برای جلوگیری از چرخش اشتباه،
-        // جهت مسیر را از خود مسیر محاسبه می‌کنیم.
-        final int segmentIndex = snapped.segmentIndex;
+if (snapped != null) {
+  markerPosition = snapped;
 
-        if (segmentIndex >= 0 &&
-            segmentIndex <
-                _driverTripPolylinePoints.length - 1) {
-          markerBearing = _calculateBearing(
-            _driverTripPolylinePoints[segmentIndex],
-            _driverTripPolylinePoints[segmentIndex + 1],
-          );
-        }
-      }
+  // جهت را از موقعیت قبلی ماشین به موقعیت جدید محاسبه می‌کنیم
+  if (_lastDriverLatLng != null) {
+    final double distance = Geolocator.distanceBetween(
+      _lastDriverLatLng!.latitude,
+      _lastDriverLatLng!.longitude,
+      markerPosition.latitude,
+      markerPosition.longitude,
+    );
+
+    if (distance > 1.0) {
+      markerBearing = _calculateBearing(
+        _lastDriverLatLng!,
+        markerPosition,
+      );
     }
+  }
+}
 
     // اولین دریافت موقعیت
     if (_driverLiveSymbol == null) {
@@ -501,10 +509,12 @@ double _driverCurrentBearing = 0.0;
 
     // اگر موقعیت تقریباً همان قبلی است، دوباره انیمیشن نساز
     final double distanceFromLast =
-        _calculateDistance(
-      _lastDriverLatLng!,
-      markerPosition,
-    );
+    Geolocator.distanceBetween(
+  _lastDriverLatLng!.latitude,
+  _lastDriverLatLng!.longitude,
+  markerPosition.latitude,
+  markerPosition.longitude,
+);
 
     if (distanceFromLast < 0.5) {
       return;
