@@ -327,7 +327,7 @@ double _driverAnimationEndBearing = 0.0;
     debugPrint('Error preparing driver car icon: $e');
   }
   }
-  Future<void> _animateDriverSymbol() async {
+  void _animateDriverSymbol() {
   if (!mounted ||
       _mapController == null ||
       _driverLiveSymbol == null ||
@@ -340,11 +340,17 @@ double _driverAnimationEndBearing = 0.0;
     _driverAnimationController.value,
   );
 
-  final double latitude = _driverAnimationStart!.latitude +
-      (_driverAnimationEnd!.latitude - _driverAnimationStart!.latitude) * t;
+  final double latitude =
+      _driverAnimationStart!.latitude +
+      (_driverAnimationEnd!.latitude -
+              _driverAnimationStart!.latitude) *
+          t;
 
-  final double longitude = _driverAnimationStart!.longitude +
-      (_driverAnimationEnd!.longitude - _driverAnimationStart!.longitude) * t;
+  final double longitude =
+      _driverAnimationStart!.longitude +
+      (_driverAnimationEnd!.longitude -
+              _driverAnimationStart!.longitude) *
+          t;
 
   double bearingDifference =
       _driverAnimationEndBearing - _driverAnimationStartBearing;
@@ -354,97 +360,119 @@ double _driverAnimationEndBearing = 0.0;
   }
 
   final double bearing =
-      (_driverAnimationStartBearing + bearingDifference * t + 360) % 360;
+      (_driverAnimationStartBearing +
+              bearingDifference * t +
+              360) %
+          360;
+
+  _driverCurrentBearing = bearing;
+
+  final SymbolOptions options = SymbolOptions(
+    geometry: LatLng(latitude, longitude),
+    iconRotate: bearing,
+    iconAnchor: 'center',
+  );
+
+  _pendingDriverSymbolOptions = options;
+
+  _flushDriverSymbolUpdate();
+  }
+  Future<void> _flushDriverSymbolUpdate() async {
+  if (_driverSymbolUpdateBusy) return;
+
+  if (!mounted ||
+      _mapController == null ||
+      _driverLiveSymbol == null) {
+    return;
+  }
+
+  _driverSymbolUpdateBusy = true;
 
   try {
-    await _mapController!.updateSymbol(
-      _driverLiveSymbol!,
-      SymbolOptions(
-        geometry: LatLng(latitude, longitude),
-        iconRotate: bearing,
-        iconAnchor: 'center',
-      ),
-    );
-  } catch (e) {
-    debugPrint('Driver animation update error: $e');
+    while (mounted &&
+        _mapController != null &&
+        _driverLiveSymbol != null) {
+      final SymbolOptions? options = _pendingDriverSymbolOptions;
+
+      if (options == null) {
+        break;
+      }
+
+      _pendingDriverSymbolOptions = null;
+
+      try {
+        await _mapController!.updateSymbol(
+          _driverLiveSymbol!,
+          options,
+        );
+      } catch (e) {
+        debugPrint(
+          '❌ Driver symbol update error: $e',
+        );
+        break;
+      }
+    }
+  } finally {
+    _driverSymbolUpdateBusy = false;
+
+    if (_pendingDriverSymbolOptions != null &&
+        mounted) {
+      Future.microtask(
+        _flushDriverSymbolUpdate,
+      );
+    }
   }
   }
 
   Future<void> _updateDriverMarkerOnMap(
   LatLng rawPosition,
-  double rawHeading,
+  double gpsBearing,
 ) async {
-  if (_mapController == null) return;
+  if (!mounted || _mapController == null) {
+    return;
+  }
 
   try {
-    // اگر مسیر راننده هنوز ساخته نشده، ابتدا آن را بساز.
-    final bool needsInitialRoute = !_isDriverTripRouteVisible &&
-        !_isFetchingDriverTripRoute &&
-        _originLatLng != null &&
-        _destinationLatLng != null;
-
-    bool needsRerouteBecauseOffRoute = false;
-
-    if (_isDriverTripRouteVisible &&
-        !_isFetchingDriverTripRoute &&
-        _driverTripPolylinePoints.length >= 2) {
-      final LatLng snappedRaw = _snapToPolyline(rawPosition, _driverTripPolylinePoints);
-
-      final double distanceFromRoute = Geolocator.distanceBetween(
-        rawPosition.latitude,
-        rawPosition.longitude,
-        snappedRaw.latitude,
-        snappedRaw.longitude,
-      );
-
-      if (distanceFromRoute > 60) {
-        needsRerouteBecauseOffRoute = true;
-      }
-    }
-
-    if (needsInitialRoute || needsRerouteBecauseOffRoute) {
-      await _drawDriverTripRoute(rawPosition);
-    }
-
     LatLng markerPosition = rawPosition;
-    double markerBearing = rawHeading;
+    double markerBearing = gpsBearing;
 
-    // GPS خام را روی نزدیک‌ترین نقطهٔ route قرار بده
-    // و زاویهٔ ماشین را از جهت خود route بگیر.
+    // اگر مسیر داریم، ماشین را روی مسیر قرار بده
     if (_driverTripPolylinePoints.length >= 2) {
-      markerPosition = _snapToPolyline(
+      final snapped = _snapToPolyline(
         rawPosition,
         _driverTripPolylinePoints,
       );
 
-      int nearestSegmentIndex = 0;
-      double nearestDistance = double.infinity;
+      if (snapped != null) {
+        markerPosition = snapped.point;
 
-      for (int i = 0; i < _driverTripPolylinePoints.length - 1; i++) {
-        final segmentStart = _driverTripPolylinePoints[i];
+        // برای جلوگیری از چرخش اشتباه،
+        // جهت مسیر را از خود مسیر محاسبه می‌کنیم.
+        final int segmentIndex = snapped.segmentIndex;
 
-        final distance = Geolocator.distanceBetween(
-          markerPosition.latitude,
-          markerPosition.longitude,
-          segmentStart.latitude,
-          segmentStart.longitude,
-        );
-
-        if (distance < nearestDistance) {
-          nearestDistance = distance;
-          nearestSegmentIndex = i;
+        if (segmentIndex >= 0 &&
+            segmentIndex <
+                _driverTripPolylinePoints.length - 1) {
+          markerBearing = _calculateBearing(
+            _driverTripPolylinePoints[segmentIndex],
+            _driverTripPolylinePoints[segmentIndex + 1],
+          );
         }
       }
-
-      markerBearing = _calculateBearing(
-        _driverTripPolylinePoints[nearestSegmentIndex],
-        _driverTripPolylinePoints[nearestSegmentIndex + 1],
-      );
     }
 
-    // بار اول: ماشین را بساز، animation لازم نیست.
+    // اولین دریافت موقعیت
     if (_driverLiveSymbol == null) {
-      _driverLiveSymbol = await _mapController!.addSymbol(
+      _driverAnimationStart = markerPosition;
+      _driverAnimationEnd = markerPosition;
+
+      _driverAnimationStartBearing = markerBearing;
+      _driverAnimationEndBearing = markerBearing;
+
+      _driverCurrentBearing = markerBearing;
+
+      _driverLiveSymbol =
+          await _mapController!.addSymbol(
         SymbolOptions(
           geometry: markerPosition,
           iconImage: 'driver-car-icon',
@@ -455,27 +483,111 @@ double _driverAnimationEndBearing = 0.0;
       );
 
       _lastDriverLatLng = markerPosition;
+      _lastDriverLocationUpdate = DateTime.now();
+
+      debugPrint(
+        '🚗 DRIVER MARKER CREATED: '
+        '$markerPosition',
+      );
+
       return;
     }
 
-    // آپدیت‌های بعدی: از جای فعلی به نقطهٔ جدید، نرم حرکت کن.
-    _driverAnimationStart = _lastDriverLatLng ?? markerPosition;
-    _driverAnimationEnd = markerPosition;
-    _driverAnimationStartBearing = _driverAnimationEndBearing;
-    _driverAnimationEndBearing = markerBearing;
+    // اگر موقعیت تقریباً همان قبلی است، دوباره انیمیشن نساز
+    final double distanceFromLast =
+        _calculateDistance(
+      _lastDriverLatLng!,
+      markerPosition,
+    );
 
-    // اگر update بعدی قبل از پایان animation رسید، حرکت قبلی را متوقف کن.
+    if (distanceFromLast < 0.5) {
+      return;
+    }
+
+    // --------------------------------------------
+    // زمان واقعی بین دو GPS Update
+    // --------------------------------------------
+
+    final DateTime now = DateTime.now();
+
+    int animationMs = 1000;
+
+    if (_lastDriverLocationUpdate != null) {
+      final int elapsed =
+          now
+              .difference(
+                _lastDriverLocationUpdate!,
+              )
+              .inMilliseconds;
+
+      animationMs = elapsed.clamp(
+        500,
+        2000,
+      );
+    }
+
+    _lastDriverLocationUpdate = now;
+
+    // --------------------------------------------
+    // Position
+    // --------------------------------------------
+
+    _driverAnimationStart =
+        _lastDriverLatLng ?? markerPosition;
+
+    _driverAnimationEnd = markerPosition;
+
+    // --------------------------------------------
+    // Bearing
+    // --------------------------------------------
+
+    _driverAnimationStartBearing =
+        _driverAnimationEndBearing;
+
+    double newBearing = markerBearing;
+
+    double bearingDifference =
+        newBearing -
+        _driverAnimationStartBearing;
+
+    if (bearingDifference.abs() > 180) {
+      newBearing =
+          _driverAnimationStartBearing +
+              (bearingDifference -
+                  360 * bearingDifference.sign);
+    }
+
+    _driverAnimationEndBearing =
+        (newBearing + 360) % 360;
+
+    // --------------------------------------------
+    // Animation duration
+    // --------------------------------------------
+
     _driverAnimationController.stop();
 
-    // مدت یک ثانیه برای حرکت طبیعی؛ بعداً در صورت نیاز تنظیم می‌کنیم.
     _driverAnimationController.duration =
-        const Duration(milliseconds: 1000);
+        Duration(
+      milliseconds: animationMs,
+    );
 
-    _driverAnimationController.forward(from: 0.0);
+    _driverAnimationController.forward(
+      from: 0.0,
+    );
 
     _lastDriverLatLng = markerPosition;
+
+    debugPrint(
+      '🚗 DRIVER MOVING: '
+      'lat=${markerPosition.latitude}, '
+      'lng=${markerPosition.longitude}, '
+      'bearing=$markerBearing, '
+      'animation=${animationMs}ms',
+    );
   } catch (e) {
-    debugPrint('Error updating animated driver symbol: $e');
+    debugPrint(
+      '❌ _updateDriverMarkerOnMap error: $e',
+    );
   }
   }
 
