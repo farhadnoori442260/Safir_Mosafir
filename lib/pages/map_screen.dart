@@ -142,6 +142,12 @@ LatLng? _driverAnimationEnd;
 
 double _driverAnimationStartBearing = 0.0;
 double _driverAnimationEndBearing = 0.0;
+  DateTime? _lastDriverLocationUpdate;
+
+bool _driverSymbolUpdateBusy = false;
+SymbolOptions? _pendingDriverSymbolOptions;
+
+double _driverCurrentBearing = 0.0;
 
   bool _isMapMoving = false;
   bool _isProgrammaticMove = false;
