@@ -156,6 +156,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
 
   /// 🔧 آخرین موقعیت خامی که از Firestore آمده (برای رسم مسیر تازه)
   LatLng? _latestDriverRaw;
+  double _latestDriverHeading = -1.0;
 
   /// 🔧 صف «آخرین مقدار برنده است» تا آپدیت‌ها هم‌زمان اجرا نشوند
   LatLng? _pendingDriverRawPosition;
@@ -183,7 +184,6 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
 
   bool _isMapMoving = false;
   bool _isProgrammaticMove = false;
-  bool _isUserGesture = false; // پرچم تشخیص لمس صفحه توسط دست کاربر
   bool _isSheetExpanded = true; 
   Timer? _debounceTimer;
 
@@ -349,6 +349,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
         // پشت سر هم (نه هم‌زمان) پردازش می‌شوند. قبلاً یک اسنپ‌شات قدیمی
         // (کش) که دیرتر تمام می‌شد، ماشین را دوباره به جای قدیمی برمی‌گرداند.
         _latestDriverRaw = position;
+        _latestDriverHeading = heading;
         _pendingDriverRawPosition = position;
         _pendingDriverRawHeading = heading;
         unawaited(_processPendingDriverUpdate());
@@ -502,13 +503,15 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
       // ───── زاویه ─────
       double markerBearing = _driverAnimationEndBearing;
 
-      if (_driverLiveSymbol == null) {
-        if (onRouteSnap != null) {
-          markerBearing = _calculateBearing(
-            _driverTripPolylinePoints[onRouteSnap.segmentIndex],
-            _driverTripPolylinePoints[onRouteSnap.segmentIndex + 1],
-          );
-        } else if (rawHeading >= 0) {
+      if (onRouteSnap != null) {
+        // 🔧 روی مسیر: همیشه زاویهٔ خودِ خیابان، حتی وقتی راننده ایستاده.
+        // (قبلاً وقتی ماشین حرکت نمی‌کرد زاویه ۰ = رو به شمال می‌ماند.)
+        markerBearing = _calculateBearing(
+          _driverTripPolylinePoints[onRouteSnap.segmentIndex],
+          _driverTripPolylinePoints[onRouteSnap.segmentIndex + 1],
+        );
+      } else if (_driverLiveSymbol == null) {
+        if (rawHeading > 0) {
           markerBearing = rawHeading;
         }
       } else if (previousTarget != null &&
@@ -696,6 +699,22 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
           traveled: <LatLng>[],
           remaining: fullRoute,
         );
+
+        // 🔧 مسیر آماده شد؛ ماشین را با مسیر هماهنگ کن (زاویه و چسبیدن).
+        // اگر راننده ثابت باشد آپدیت جدیدی نمی‌آید و ماشین با زاویهٔ
+        // قدیمی (شمال) می‌ماند.
+        if (_latestDriverRaw != null) {
+          _pendingDriverRawPosition = _latestDriverRaw;
+          _pendingDriverRawHeading = _latestDriverHeading;
+          unawaited(_processPendingDriverUpdate());
+        }
+
+        // 🔧 مسیر تازه آمد: ماشین را همان لحظه روی خط بگذار و با زاویهٔ
+        // خیابان بچرخان (بدون انتظار برای آپدیت بعدی راننده).
+        if (_latestDriverRaw != null) {
+          _pendingDriverRawPosition = _latestDriverRaw;
+          unawaited(_processPendingDriverUpdate());
+        }
       }
     } catch (e) {
       debugPrint('Error drawing driver trip route: $e');
@@ -884,7 +903,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
 
   Future<void> _handleGpsTap() async {
     HapticFeedback.lightImpact();
-    _animatedMapMove(_currentUserLatLng, 16.8);
+    _animatedMapMove(_currentUserLatLng, 17.8);
 
     try {
       Position pos = await Geolocator.getCurrentPosition(
@@ -907,15 +926,12 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
   }
 
   void _animatedMapMove(LatLng destLocation, double destZoom) {
-  if (_mapController == null) return;
-  
-  // 🔧 حتماً این خط قبل از animateCamera باشد
-  _isProgrammaticMove = true; 
-  
-  _mapController!.animateCamera(
-    CameraUpdate.newLatLngZoom(destLocation, destZoom),
-  );
-}
+    if (_mapController == null) return;
+    _isProgrammaticMove = true;
+    _mapController!.animateCamera(
+      CameraUpdate.newLatLngZoom(destLocation, destZoom),
+    );
+  }
 
   void _updateAddressFromCamera(LatLng center) {
     _debounceTimer?.cancel();
@@ -1010,7 +1026,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
       _originLatLng = currentCenter;
     });
 
-    _animatedMapMove(currentCenter, 16.8);
+    _animatedMapMove(currentCenter, 17.8);
 
     if (widget.serviceType == 'cargo') {
       CargoSheets.showSenderDialog(
@@ -1571,76 +1587,60 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
         resizeToAvoidBottomInset: false,
         body: Stack(
           children: [
-                        // 🗺️ ۱. نقشه تمام صفحه
+            // 🗺️ ۱. نقشه تمام صفحه
             RepaintBoundary(
-              child: Listener(
-                onPointerDown: (_) {
-                  _isUserGesture = true; // کاربر صفحه را لمس کرد
-                },
-                onPointerUp: (_) {
-                  Future.delayed(const Duration(milliseconds: 300), () {
-                    if (mounted) _isUserGesture = false;
-                  });
-                },
-                child: MapLibreMap(
-                  initialCameraPosition: CameraPosition(
-                    target: widget.targetLocation ?? _currentUserLatLng,
-                    zoom: 15.0,
-                  ),
-                  styleString: 'assets/map/style.json',
-                  myLocationEnabled: _currentStep < 3, 
-                  myLocationTrackingMode: MyLocationTrackingMode.tracking,
-                  myLocationRenderMode: MyLocationRenderMode.normal,
-                  trackCameraPosition: true,
-                  rotateGesturesEnabled: false,
-                  tiltGesturesEnabled: false,
-                  onMapCreated: (controller) {
-                    _mapController = controller;
-                    _isProgrammaticMove = true;
-                    if (widget.targetLocation != null) {
-                      _animatedMapMove(widget.targetLocation!, 17.8);
-                    }
-                  },
-                  onStyleLoadedCallback: () async {
-                    _isDriverIconAdded = false;
-                    await initDriverSymbolLayer();
-                  },
-                  onCameraMove: (CameraPosition position) {
-                    // 🔧 شرط اصلی: کشو فقط زمانی پایین می‌رود که دست کاربر روی صفحه باشد
-                    if (_isUserGesture && !_isProgrammaticMove) {
-                      if (!_isMapMoving) {
-                        _isMapMoving = true;
-                        if (_isSheetExpanded) {
-                          setState(() {
-                            _isSheetExpanded = false;
-                          });
-                        }
-                      }
-                    }
-                  },
-                  onCameraIdle: () {
-                    final bool wasProgrammaticMove = _isProgrammaticMove;
-
-                    if (_isMapMoving && mounted) {
-                      setState(() {
-                        _isMapMoving = false;
-                      });
-                    }
-
-                    Future.delayed(const Duration(milliseconds: 300), () {
-                      if (mounted) {
-                        _isProgrammaticMove = false;
-                      }
-                    });
-
-                    if (!wasProgrammaticMove && _currentStep < 2 && _mapController != null) {
-                      _updateAddressFromCamera(
-                        _mapController!.cameraPosition!.target,
-                      );
-                    }
-                  },
-                  onMapClick: (_, __) {},
+              child: MapLibreMap(
+                initialCameraPosition: CameraPosition(
+                  target: widget.targetLocation ?? _currentUserLatLng,
+                  zoom: 15.0,
                 ),
+                styleString: 'assets/map/style.json',
+                myLocationEnabled: _currentStep < 3, 
+                myLocationTrackingMode: MyLocationTrackingMode.tracking,
+                myLocationRenderMode: MyLocationRenderMode.normal,
+                trackCameraPosition: true,
+                rotateGesturesEnabled: false,
+                tiltGesturesEnabled: false,
+                onMapCreated: (controller) {
+                  _mapController = controller;
+                  _isProgrammaticMove = true;
+                  if (widget.targetLocation != null) {
+                    _animatedMapMove(widget.targetLocation!, 17.8);
+                  }
+                },
+                onStyleLoadedCallback: () async {
+                  _isDriverIconAdded = false;
+                  await initDriverSymbolLayer();
+                },
+                onCameraMove: (CameraPosition position) {
+                  if (!_isProgrammaticMove) {
+                    if (!_isMapMoving) {
+                      _isMapMoving = true;
+                      if (_isSheetExpanded) {
+                        setState(() {
+                          _isSheetExpanded = false;
+                        });
+                      }
+                    }
+                  }
+                },
+                onCameraIdle: () {
+                  final bool wasProgrammaticMove = _isProgrammaticMove;
+                  _isProgrammaticMove = false;
+
+                  if (_isMapMoving && mounted) {
+                    setState(() {
+                      _isMapMoving = false;
+                    });
+                  }
+
+                  if (!wasProgrammaticMove && _currentStep < 2 && _mapController != null) {
+                    _updateAddressFromCamera(
+                      _mapController!.cameraPosition!.target,
+                    );
+                  }
+                },
+                onMapClick: (_, __) {},
               ),
             ),
 
