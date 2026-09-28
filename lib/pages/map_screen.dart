@@ -99,6 +99,15 @@ class DriverCarMarker extends StatelessWidget {
   }
 }
 
+/// نتیجهٔ چسباندن یک نقطهٔ GPS به خط مسیر
+class _SnapResult {
+  final LatLng point;
+  final double distance;
+  final int segmentIndex;
+
+  const _SnapResult(this.point, this.distance, this.segmentIndex);
+}
+
 class SafirMapScreen extends StatefulWidget {
   final String serviceType;
   final String? pickerMode;
@@ -131,10 +140,12 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
   Symbol? _originSymbol;
   Symbol? _destinationSymbol;
 
+  // ───────── ردیابی زندهٔ راننده ─────────
   Symbol? _driverLiveSymbol;
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _driverLocationStreamSubscription;
   String? _assignedDriverId;
   Uint8List? _cachedDriverCarBytes;
+  bool _isDriverIconAdded = false;
   late AnimationController _driverAnimationController;
 
   LatLng? _driverAnimationStart;
@@ -142,6 +153,33 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
 
   double _driverAnimationStartBearing = 0.0;
   double _driverAnimationEndBearing = 0.0;
+
+  /// 🔧 آخرین موقعیت خامی که از Firestore آمده (برای رسم مسیر تازه)
+  LatLng? _latestDriverRaw;
+
+  /// 🔧 صف «آخرین مقدار برنده است» تا آپدیت‌ها هم‌زمان اجرا نشوند
+  LatLng? _pendingDriverRawPosition;
+  double _pendingDriverRawHeading = -1.0;
+  bool _isProcessingDriverUpdate = false;
+
+  /// 🔧 مبدأ و مقصد واقعی سفر (همان چیزی که در rides ذخیره شده)
+  LatLng? _tripOriginLatLng;
+  LatLng? _tripDestinationLatLng;
+
+  Line? _driverRouteLine; // خط آبی (باقی‌ماندهٔ مسیر)
+  Line? _driverTraveledLine; // خط خاکستری (مسیر طی‌شده)
+  int _driverProgressIndex = 0; // پیشرفت روی مسیر (فقط به جلو)
+  int _driverOffRouteCount = 0;
+  int _driverLastRenderedSegment = -1;
+  LatLng? _driverLastRenderedPoint;
+  LatLng? _driverDisplayLatLng; // موقعیت لحظه‌ایِ مارکر (وسط انیمیشن)
+  double _driverDisplayBearing = 0.0;
+  DateTime? _lastDriverUpdateAt;
+  DateTime? _lastDriverRouteFetchAt;
+  String? _driverRouteBuiltForStatus;
+
+  static const double _offRouteThresholdMeters = 50.0;
+  static const int _rerouteCooldownSeconds = 5;
 
   bool _isMapMoving = false;
   bool _isProgrammaticMove = false;
@@ -276,6 +314,10 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
     super.dispose();
   }
 
+  // ════════════════════════════════════════════════════════════
+  //  🚗 ردیابی زندهٔ راننده
+  // ════════════════════════════════════════════════════════════
+
   void _listenToDriverLiveLocation(String driverId) {
     if (_assignedDriverId == driverId && _driverLocationStreamSubscription != null) return;
 
@@ -286,19 +328,51 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
         .collection('driver_locations')
         .doc(driverId)
         .snapshots()
-        .listen((snapshot) async {
-      if (!snapshot.exists || snapshot.data() == null || _mapController == null) return;
+        .listen(
+      (snapshot) {
+        if (!snapshot.exists || snapshot.data() == null) return;
 
-      final data = snapshot.data()!;
-      final double? lat = double.tryParse(data['latitude']?.toString() ?? '');
-      final double? lng = double.tryParse(data['longitude']?.toString() ?? '');
-      final double heading = double.tryParse(data['heading']?.toString() ?? '') ?? 0.0;
+        final data = snapshot.data()!;
+        final double? lat = double.tryParse(data['latitude']?.toString() ?? '');
+        final double? lng = double.tryParse(data['longitude']?.toString() ?? '');
+        final double heading = double.tryParse(data['heading']?.toString() ?? '') ?? -1.0;
 
-      if (lat != null && lng != null) {
-        final driverLatLng = LatLng(lat, lng);
-        await _updateDriverMarkerOnMap(driverLatLng, heading);
+        if (lat == null || lng == null) return;
+
+        debugPrint('🚗 driver raw: $lat, $lng, heading: $heading '
+            '(fromCache: ${snapshot.metadata.isFromCache})');
+
+        final LatLng position = LatLng(lat, lng);
+
+        // 🔧 FIX: همیشه فقط «آخرین» مقدار نگه داشته می‌شود و آپدیت‌ها
+        // پشت سر هم (نه هم‌زمان) پردازش می‌شوند. قبلاً یک اسنپ‌شات قدیمی
+        // (کش) که دیرتر تمام می‌شد، ماشین را دوباره به جای قدیمی برمی‌گرداند.
+        _latestDriverRaw = position;
+        _pendingDriverRawPosition = position;
+        _pendingDriverRawHeading = heading;
+        unawaited(_processPendingDriverUpdate());
+      },
+      onError: (Object e) {
+        debugPrint('Driver location stream error: $e');
+      },
+    );
+  }
+
+  Future<void> _processPendingDriverUpdate() async {
+    if (_isProcessingDriverUpdate) return;
+    _isProcessingDriverUpdate = true;
+
+    try {
+      while (_pendingDriverRawPosition != null && mounted) {
+        final LatLng raw = _pendingDriverRawPosition!;
+        final double heading = _pendingDriverRawHeading;
+        _pendingDriverRawPosition = null;
+
+        await _updateDriverMarkerOnMap(raw, heading);
       }
-    });
+    } finally {
+      _isProcessingDriverUpdate = false;
+    }
   }
 
   Future<Uint8List?> _loadCarIconBytes() async {
@@ -322,6 +396,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
 
       if (carBytes != null) {
         await _mapController!.addImage('driver-car-icon', carBytes);
+        _isDriverIconAdded = true;
       }
     } catch (e) {
       debugPrint('Error preparing driver car icon: $e');
@@ -337,9 +412,9 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
       return;
     }
 
-    final double t = Curves.easeInOutCubic.transform(
-      _driverAnimationController.value,
-    );
+    // 🔧 حرکت خطی با سرعت ثابت (مثل MapScreenRoute) تا ماشین
+    // «پرتاب و توقف» نکند.
+    final double t = _driverAnimationController.value;
 
     final double latitude = _driverAnimationStart!.latitude +
         (_driverAnimationEnd!.latitude - _driverAnimationStart!.latitude) * t;
@@ -357,6 +432,10 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
     final double bearing =
         (_driverAnimationStartBearing + bearingDifference * t + 360) % 360;
 
+    // موقعیت لحظه‌ای مارکر؛ آپدیت بعدی از همین نقطه شروع می‌شود
+    _driverDisplayLatLng = LatLng(latitude, longitude);
+    _driverDisplayBearing = bearing;
+
     try {
       await _mapController!.updateSymbol(
         _driverLiveSymbol!,
@@ -371,6 +450,13 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
     }
   }
 
+  /// 🔧 منطق حرکت (برگرفته از MapScreenRoute تست‌شده):
+  ///  • چسباندن نقطه به مسیر (اگر ≤ ۵۰ متر) و پیشروی فقط «به جلو» روی مسیر
+  ///  • حرکت خطی با مدت‌زمان برابر فاصلهٔ واقعی بین دو آپدیت
+  ///  • انیمیشن از موقعیت لحظه‌ایِ مارکر شروع می‌شود (نه نقطهٔ قبلی)
+  ///  • زاویه از جهت حرکت (اگر بیش از ۳ متر جابه‌جا شده)
+  ///  • مسیر به «طی‌شده» (خاکستری) و «باقی‌مانده» (آبی) تقسیم می‌شود
+  ///  • مسیریابی مجدد فقط بعد از ۲ خوانش پیاپیِ خارج از مسیر
   Future<void> _updateDriverMarkerOnMap(
     LatLng rawPosition,
     double rawHeading,
@@ -378,72 +464,74 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
     if (_mapController == null) return;
 
     try {
-      final bool needsInitialRoute = !_isDriverTripRouteVisible &&
-          !_isFetchingDriverTripRoute &&
-          _originLatLng != null &&
-          _destinationLatLng != null;
+      LatLng markerTarget = rawPosition;
+      _SnapResult? onRouteSnap;
+      bool offRouteConfirmed = false;
 
-      bool needsRerouteBecauseOffRoute = false;
-
-      if (_isDriverTripRouteVisible &&
-          !_isFetchingDriverTripRoute &&
-          _driverTripPolylinePoints.length >= 2) {
-        final LatLng snappedRaw = _snapToPolyline(rawPosition, _driverTripPolylinePoints);
-
-        final double distanceFromRoute = Geolocator.distanceBetween(
-          rawPosition.latitude,
-          rawPosition.longitude,
-          snappedRaw.latitude,
-          snappedRaw.longitude,
-        );
-
-        if (distanceFromRoute > 60) {
-          needsRerouteBecauseOffRoute = true;
-        }
-      }
-
-      if (needsInitialRoute || needsRerouteBecauseOffRoute) {
-        await _drawDriverTripRoute(rawPosition);
-      }
-
-      LatLng markerPosition = rawPosition;
-      double markerBearing = rawHeading;
-
-      if (_driverTripPolylinePoints.length >= 2) {
-        markerPosition = _snapToPolyline(
+      if (_isDriverTripRouteVisible && _driverTripPolylinePoints.length >= 2) {
+        final _SnapResult? snap = _snapToPolylineDetailed(
           rawPosition,
           _driverTripPolylinePoints,
+          startIndex: _driverProgressIndex,
         );
 
-        int nearestSegmentIndex = 0;
-        double nearestDistance = double.infinity;
-
-        for (int i = 0; i < _driverTripPolylinePoints.length - 1; i++) {
-          final segmentStart = _driverTripPolylinePoints[i];
-
-          final distance = Geolocator.distanceBetween(
-            markerPosition.latitude,
-            markerPosition.longitude,
-            segmentStart.latitude,
-            segmentStart.longitude,
-          );
-
-          if (distance < nearestDistance) {
-            nearestDistance = distance;
-            nearestSegmentIndex = i;
-          }
+        if (snap != null && snap.distance <= _offRouteThresholdMeters) {
+          onRouteSnap = snap;
+          markerTarget = snap.point;
+          _driverProgressIndex = max(_driverProgressIndex, snap.segmentIndex);
+          _driverOffRouteCount = 0;
+        } else {
+          _driverOffRouteCount++;
+          offRouteConfirmed = _driverOffRouteCount >= 2;
         }
-
-        markerBearing = _calculateBearing(
-          _driverTripPolylinePoints[nearestSegmentIndex],
-          _driverTripPolylinePoints[nearestSegmentIndex + 1],
-        );
       }
+
+      _maybeRefreshDriverRoute(
+        rawPosition,
+        offRouteConfirmed: offRouteConfirmed,
+      );
+
+      if (!_isDriverIconAdded) {
+        await initDriverSymbolLayer();
+      }
+      if (_mapController == null) return;
+
+      final LatLng? previousTarget = _lastDriverLatLng;
+
+      // ───── زاویه ─────
+      double markerBearing = _driverAnimationEndBearing;
+
+      if (_driverLiveSymbol == null) {
+        if (onRouteSnap != null) {
+          markerBearing = _calculateBearing(
+            _driverTripPolylinePoints[onRouteSnap.segmentIndex],
+            _driverTripPolylinePoints[onRouteSnap.segmentIndex + 1],
+          );
+        } else if (rawHeading >= 0) {
+          markerBearing = rawHeading;
+        }
+      } else if (previousTarget != null &&
+          Geolocator.distanceBetween(
+                previousTarget.latitude,
+                previousTarget.longitude,
+                markerTarget.latitude,
+                markerTarget.longitude,
+              ) >
+              3) {
+        markerBearing = _calculateBearing(previousTarget, markerTarget);
+      }
+
+      // ───── مدت انیمیشن = فاصلهٔ واقعی بین دو آپدیت ─────
+      final DateTime now = DateTime.now();
+      final int dtMs = _lastDriverUpdateAt == null
+          ? 1000
+          : now.difference(_lastDriverUpdateAt!).inMilliseconds;
+      _lastDriverUpdateAt = now;
 
       if (_driverLiveSymbol == null) {
         _driverLiveSymbol = await _mapController!.addSymbol(
           SymbolOptions(
-            geometry: markerPosition,
+            geometry: markerTarget,
             iconImage: 'driver-car-icon',
             iconSize: 1.15,
             iconRotate: markerBearing,
@@ -451,26 +539,66 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
           ),
         );
 
-        _lastDriverLatLng = markerPosition;
-        return;
+        _lastDriverLatLng = markerTarget;
+        _driverDisplayLatLng = markerTarget;
+        _driverDisplayBearing = markerBearing;
+        _driverAnimationStartBearing = markerBearing;
+        _driverAnimationEndBearing = markerBearing;
+      } else {
+        _driverAnimationStart =
+            _driverDisplayLatLng ?? previousTarget ?? markerTarget;
+        _driverAnimationEnd = markerTarget;
+        _driverAnimationStartBearing = _driverDisplayBearing;
+        _driverAnimationEndBearing = markerBearing;
+
+        _driverAnimationController.stop();
+        _driverAnimationController.duration = Duration(
+          milliseconds: dtMs.clamp(400, 2500).toInt(),
+        );
+        _driverAnimationController.forward(from: 0.0);
+
+        _lastDriverLatLng = markerTarget;
       }
 
-      _driverAnimationStart = _lastDriverLatLng ?? markerPosition;
-      _driverAnimationEnd = markerPosition;
-      _driverAnimationStartBearing = _driverAnimationEndBearing;
-      _driverAnimationEndBearing = markerBearing;
-
-      _driverAnimationController.stop();
-
-      _driverAnimationController.duration =
-          const Duration(milliseconds: 1000);
-
-      _driverAnimationController.forward(from: 0.0);
-
-      _lastDriverLatLng = markerPosition;
+      // خط طی‌شده/باقی‌مانده را بعد از شروع حرکت مارکر آپدیت کن
+      if (onRouteSnap != null) {
+        await _renderDriverProgress(onRouteSnap);
+      }
     } catch (e) {
       debugPrint('Error updating animated driver symbol: $e');
     }
+  }
+
+  /// تصمیم می‌گیرد مسیر راننده باید دوباره کشیده شود یا نه (غیرمسدودکننده)
+  void _maybeRefreshDriverRoute(
+    LatLng raw, {
+    required bool offRouteConfirmed,
+  }) {
+    if (_isFetchingDriverTripRoute || _mapController == null) return;
+    if (_tripOriginLatLng == null || _tripDestinationLatLng == null) return;
+
+    final DateTime now = DateTime.now();
+    final bool cooledDown = _lastDriverRouteFetchAt == null ||
+        now.difference(_lastDriverRouteFetchAt!).inSeconds >=
+            _rerouteCooldownSeconds;
+
+    if (!cooledDown) return;
+
+    final bool needsRoute = !_isDriverTripRouteVisible ||
+        _driverRouteBuiltForStatus != _lastTripStatus ||
+        offRouteConfirmed;
+
+    if (needsRoute) {
+      _driverOffRouteCount = 0;
+      unawaited(_drawDriverTripRoute(raw));
+    }
+  }
+
+  /// وقتی وضعیت سفر عوض شد (مثلاً شروع سفر) فوراً مسیر جدید بکش
+  void _refreshDriverRouteNow() {
+    final LatLng? raw = _latestDriverRaw;
+    if (raw == null || _isFetchingDriverTripRoute) return;
+    unawaited(_drawDriverTripRoute(raw));
   }
 
   Future<List<LatLng>> _getOsrmPoints(
@@ -484,7 +612,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
       '?overview=full&geometries=geojson',
     );
 
-    final response = await http.get(url);
+    final response = await http.get(url).timeout(const Duration(seconds: 10));
 
     if (response.statusCode != 200) {
       throw Exception('OSRM route request failed');
@@ -510,46 +638,158 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
     }).toList();
   }
 
-  Future<void> _drawDriverTripRoute(LatLng driverPosition) async {
+  Future<void> _drawDriverTripRoute(LatLng driverPosition, {int attempt = 0}) async {
     if (_isFetchingDriverTripRoute || _mapController == null) return;
-    if (_originLatLng == null || _destinationLatLng == null) return;
+    if (_tripOriginLatLng == null || _tripDestinationLatLng == null) return;
 
     _isFetchingDriverTripRoute = true;
+    _lastDriverRouteFetchAt = DateTime.now();
+
+    final String? statusAtStart = _lastTripStatus;
+    bool refetchWithLatest = false;
 
     try {
-      final List<LatLng> driverToOrigin = await _getOsrmPoints(
-        driverPosition,
-        _originLatLng!,
-      );
+      final List<LatLng> fullRoute;
 
-      final List<LatLng> originToDestination = await _getOsrmPoints(
-        _originLatLng!,
-        _destinationLatLng!,
-      );
+      if (statusAtStart == TripStatus.onTrip) {
+        // سفر شروع شده: مسیر راننده تا مقصد
+        fullRoute = await _getOsrmPoints(driverPosition, _tripDestinationLatLng!);
+      } else {
+        // قبل از سوارشدن: راننده → مبدأ → مقصد
+        final List<LatLng> driverToOrigin =
+            await _getOsrmPoints(driverPosition, _tripOriginLatLng!);
+        final List<LatLng> originToDestination =
+            await _getOsrmPoints(_tripOriginLatLng!, _tripDestinationLatLng!);
 
-      final List<LatLng> fullRoute = <LatLng>[
-        ...driverToOrigin,
-        ...originToDestination.skip(1),
-      ];
+        fullRoute = <LatLng>[
+          ...driverToOrigin,
+          ...originToDestination.skip(1),
+        ];
+      }
 
-      if (!mounted || _mapController == null) return;
+      if (!mounted || _mapController == null || _assignedDriverId == null) return;
 
-      _driverTripPolylinePoints = fullRoute;
-      _isDriverTripRouteVisible = true;
+      // 🔧 اگر در حین گرفتن مسیر، راننده خیلی از نقطهٔ شروع دور شده،
+      // این مسیر کهنه است؛ رسمش نکن و با موقعیت تازه دوباره بگیر.
+      final LatLng? latest = _latestDriverRaw;
+      if (latest != null &&
+          attempt < 2 &&
+          Geolocator.distanceBetween(
+                driverPosition.latitude,
+                driverPosition.longitude,
+                latest.latitude,
+                latest.longitude,
+              ) >
+              40) {
+        refetchWithLatest = true;
+      } else {
+        _driverTripPolylinePoints = fullRoute;
+        _isDriverTripRouteVisible = true;
+        _driverRouteBuiltForStatus = statusAtStart;
+        _driverProgressIndex = 0;
+        _driverOffRouteCount = 0;
+        _driverLastRenderedSegment = -1;
+        _driverLastRenderedPoint = null;
 
+        await _renderDriverRouteLines(
+          traveled: <LatLng>[],
+          remaining: fullRoute,
+        );
+      }
+    } catch (e) {
+      debugPrint('Error drawing driver trip route: $e');
+    } finally {
+      _isFetchingDriverTripRoute = false;
+    }
+
+    if (refetchWithLatest && _latestDriverRaw != null) {
+      await _drawDriverTripRoute(_latestDriverRaw!, attempt: attempt + 1);
+    }
+  }
+
+  /// خط را به دو بخش تقسیم می‌کند: طی‌شده (خاکستری) و باقی‌مانده (آبی)
+  Future<void> _renderDriverProgress(_SnapResult snap) async {
+    if (_mapController == null || _isFetchingDriverTripRoute) return;
+
+    final List<LatLng> poly = _driverTripPolylinePoints;
+    if (snap.segmentIndex + 1 >= poly.length) return;
+
+    final LatLng? lastPoint = _driverLastRenderedPoint;
+    if (snap.segmentIndex == _driverLastRenderedSegment &&
+        lastPoint != null &&
+        Geolocator.distanceBetween(
+              lastPoint.latitude,
+              lastPoint.longitude,
+              snap.point.latitude,
+              snap.point.longitude,
+            ) <
+            3) {
+      return;
+    }
+
+    _driverLastRenderedSegment = snap.segmentIndex;
+    _driverLastRenderedPoint = snap.point;
+
+    final List<LatLng> traveled = <LatLng>[
+      for (int i = 0; i <= snap.segmentIndex; i++) poly[i],
+      snap.point,
+    ];
+    final List<LatLng> remaining = <LatLng>[
+      snap.point,
+      for (int i = snap.segmentIndex + 1; i < poly.length; i++) poly[i],
+    ];
+
+    await _renderDriverRouteLines(traveled: traveled, remaining: remaining);
+  }
+
+  Future<void> _renderDriverRouteLines({
+    required List<LatLng> traveled,
+    required List<LatLng> remaining,
+  }) async {
+    if (_mapController == null || remaining.isEmpty) return;
+
+    // یک خط با دو نقطهٔ یکسان روی نقشه دیده نمی‌شود
+    final List<LatLng> grey =
+        traveled.length >= 2 ? traveled : <LatLng>[remaining.first, remaining.first];
+
+    try {
+      if (_driverRouteLine != null && _driverTraveledLine != null) {
+        await _mapController!.updateLine(
+          _driverTraveledLine!,
+          LineOptions(geometry: grey),
+        );
+        await _mapController!.updateLine(
+          _driverRouteLine!,
+          LineOptions(geometry: remaining),
+        );
+        return;
+      }
+    } catch (_) {
+      // خط‌ها پاک شده‌اند؛ پایین‌تر دوباره اضافه می‌شوند
+      _driverRouteLine = null;
+      _driverTraveledLine = null;
+    }
+
+    try {
       await _mapController!.clearLines();
 
-      await _mapController!.addLine(
+      _driverTraveledLine = await _mapController!.addLine(
         LineOptions(
-          geometry: fullRoute,
+          geometry: grey,
+          lineColor: "#B0B7C3",
+          lineWidth: 5.5,
+        ),
+      );
+
+      _driverRouteLine = await _mapController!.addLine(
+        LineOptions(
+          geometry: remaining,
           lineColor: "#0066FF",
           lineWidth: 5.5,
         ),
       );
     } catch (e) {
-      debugPrint('Error drawing driver trip route: $e');
-    } finally {
-      _isFetchingDriverTripRoute = false;
+      debugPrint('Error rendering driver route lines: $e');
     }
   }
 
@@ -559,13 +799,31 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
     _driverLocationStreamSubscription = null;
     _assignedDriverId = null;
 
+    _pendingDriverRawPosition = null;
+    _latestDriverRaw = null;
     _lastDriverLatLng = null;
+    _driverAnimationStart = null;
+    _driverAnimationEnd = null;
     _driverTripPolylinePoints.clear();
     _isDriverTripRouteVisible = false;
     _isFetchingDriverTripRoute = false;
+    _driverRouteLine = null;
+    _driverTraveledLine = null;
+    _driverProgressIndex = 0;
+    _driverOffRouteCount = 0;
+    _driverLastRenderedSegment = -1;
+    _driverLastRenderedPoint = null;
+    _driverDisplayLatLng = null;
+    _lastDriverUpdateAt = null;
+    _driverRouteBuiltForStatus = null;
+    _lastDriverRouteFetchAt = null;
 
     if (_driverLiveSymbol != null && _mapController != null) {
-      await _mapController!.removeSymbol(_driverLiveSymbol!);
+      try {
+        await _mapController!.removeSymbol(_driverLiveSymbol!);
+      } catch (e) {
+        debugPrint('Error removing driver symbol: $e');
+      }
       _driverLiveSymbol = null;
     }
 
@@ -573,6 +831,10 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
       await _mapController!.clearLines();
     }
   }
+
+  // ════════════════════════════════════════════════════════════
+  //  📍 موقعیت مسافر
+  // ════════════════════════════════════════════════════════════
 
   Future<void> _startLiveLocationUpdates() async {
     try {
@@ -849,6 +1111,8 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
 
   Future<void> _clearPreviewRoute() async {
     _routePolylinePoints.clear();
+    _driverRouteLine = null;
+    _driverTraveledLine = null;
 
     if (_mapController != null) {
       await _mapController!.clearLines();
@@ -1032,6 +1296,17 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
 
     await _clearPreviewRoute();
 
+    // 🔧 مبدأ و مقصد واقعی سفر (همان‌هایی که در rides ذخیره می‌شود)
+    // تا مسیر راننده حتی وقتی مقصد با جستجو انتخاب شده هم کشیده شود.
+    _tripOriginLatLng = LatLng(
+      appInfo.pickUpLocation!.latitudePosition!,
+      appInfo.pickUpLocation!.longitudePosition!,
+    );
+    _tripDestinationLatLng = LatLng(
+      appInfo.dropOffLocation!.latitudePosition!,
+      appInfo.dropOffLocation!.longitudePosition!,
+    );
+
     setState(() {
       _driverTripPolylinePoints.clear();
       _lastDriverLatLng = null;
@@ -1039,6 +1314,18 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
       _isFetchingDriverTripRoute = false;
       _currentStep = 3;
     });
+    _latestDriverRaw = null;
+    _pendingDriverRawPosition = null;
+    _driverRouteLine = null;
+    _driverTraveledLine = null;
+    _driverProgressIndex = 0;
+    _driverOffRouteCount = 0;
+    _driverLastRenderedSegment = -1;
+    _driverLastRenderedPoint = null;
+    _driverDisplayLatLng = null;
+    _lastDriverUpdateAt = null;
+    _driverRouteBuiltForStatus = null;
+    _lastDriverRouteFetchAt = null;
     _hasPlayedAcceptedSound = false;
     _hasPlayedArrivedSound = false;
     _lastTripStatus = null;
@@ -1101,13 +1388,23 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
       tripStreamSubscription = tripRequestRef!.snapshots().listen((snapshot) {
         if (!snapshot.exists || snapshot.data() == null) return;
         
-        var data = snapshot.data() as Map<String, dynamic>;
-        String tripStatus = data["status"] ?? TripStatus.searching;
-        String driverId = data["driver_id"] ?? data["driverId"] ?? "";
+        final data = snapshot.data() as Map<String, dynamic>;
+        final String tripStatus = data["status"] ?? TripStatus.searching;
+        final String driverId = data["driver_id"] ?? data["driverId"] ?? "";
+
         if (_lastTripStatus != tripStatus) {
           _lastTripStatus = tripStatus;
           _playTripStatusSound(tripStatus);
+
+          // سفر شروع شد → مسیر باید از راننده تا مقصد باشد
+          if (tripStatus == TripStatus.onTrip) {
+            _refreshDriverRouteNow();
+          }
         }
+
+        final bool isDriverActive = tripStatus == TripStatus.accepted ||
+            tripStatus == TripStatus.arrived ||
+            tripStatus == TripStatus.onTrip;
 
         if (mounted) {
           setState(() {
@@ -1123,58 +1420,44 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
             _driverPlateNum = data["plate_num"] ?? data["plateNumber"] ?? "";
             _driverIsTempPlate = data["is_temp_plate"] ?? false;
 
-            if (tripStatus == TripStatus.accepted || 
-                tripStatus == TripStatus.arrived || 
-                tripStatus == TripStatus.onTrip) {
-              
-              setState(() {
-                _currentStep = 4;
-
-                nameDriver = data["driver_name"] ?? data["driverName"] ?? nameDriver;
-                phoneNumberDriver = data["driver_phone"] ?? data["driverPhone"] ?? phoneNumberDriver;
-                photoDriver = data["driver_photo"] ?? data["driverPhoto"] ?? photoDriver;
-                carDetailsDriver = data["car_details"] ?? data["carModel"] ?? carDetailsDriver;
-
-                _driverCarColor = data["car_color"] ?? data["carColor"] ?? "سفید";
-                _driverPlateProvince = data["plate_province"] ?? "کابل";
-                _driverPlateCategory = data["plate_category"] ?? "ش";
-                _driverPlateFarsiNum = data["plate_farsi_num"] ?? data["plateNumber"] ?? "";
-                _driverPlateNum = data["plate_num"] ?? data["plateNumber"] ?? "";
-                _driverIsTempPlate = data["is_temp_plate"] ?? false;
-              });
-
-              if (driverId.isNotEmpty && driverId != "waiting") {
-                _listenToDriverLiveLocation(driverId);
-              }
-            }
-
-            if (tripStatus == TripStatus.arrived) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text(
-                    "راننده به مبدأ شما رسید.",
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w400),
-                  ),
-                ),
-              );
+            if (isDriverActive) {
+              _currentStep = 4;
             }
 
             if (tripStatus == TripStatus.cancelledByDriver) {
               _currentStep = 2;
-              tripStreamSubscription?.cancel();
-              _stopListeningToDriverLocation();
-
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text(
-                    "سفر توسط سفیر لغو گردید.",
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w400),
-                  ),
-                  backgroundColor: Colors.red,
-                ),
-              );
             }
           });
+
+          if (isDriverActive && driverId.isNotEmpty && driverId != "waiting") {
+            _listenToDriverLiveLocation(driverId);
+          }
+
+          if (tripStatus == TripStatus.arrived) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  "راننده به مبدأ شما رسید.",
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w400),
+                ),
+              ),
+            );
+          }
+
+          if (tripStatus == TripStatus.cancelledByDriver) {
+            tripStreamSubscription?.cancel();
+            _stopListeningToDriverLocation();
+
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  "سفر توسط سفیر لغو گردید.",
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w400),
+                ),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
         }
 
         if (tripStatus == TripStatus.completed || tripStatus == TripStatus.ended) {
@@ -1306,6 +1589,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
                   }
                 },
                 onStyleLoadedCallback: () async {
+                  _isDriverIconAdded = false;
                   await initDriverSymbolLayer();
                 },
                 onCameraMove: (CameraPosition position) {
@@ -1644,29 +1928,52 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
     );
   }
 
-  // 🔹 ۱. متد پیدا کردن نزدیک‌ترین نقطه روی خط آبی مسیر
-  LatLng _snapToPolyline(LatLng gpsPoint, List<LatLng> polyline) {
-    if (polyline.isEmpty) return gpsPoint;
+  // 🔹 ۱. نزدیک‌ترین نقطه روی مسیر (فقط «به جلو» از نقطهٔ پیشرفت).
+  // این کار جلوی پرش به سمت برگشتِ مسیر (مثلاً دور برگردان) را می‌گیرد.
+  _SnapResult? _snapToPolylineDetailed(
+    LatLng gpsPoint,
+    List<LatLng> polyline, {
+    int startIndex = 0,
+    double maxAheadMeters = 600,
+  }) {
+    if (polyline.length < 2) return null;
+
+    final int from = max(0, min(startIndex - 1, polyline.length - 2));
 
     double minDistance = double.infinity;
-    LatLng closestPoint = polyline.first;
+    LatLng closestPoint = polyline[from];
+    int bestIndex = from;
+    double travelled = 0;
 
-    for (int i = 0; i < polyline.length - 1; i++) {
-      LatLng p1 = polyline[i];
-      LatLng p2 = polyline[i + 1];
+    for (int i = from; i < polyline.length - 1; i++) {
+      final LatLng a = polyline[i];
+      final LatLng b = polyline[i + 1];
 
-      LatLng projected = _getClosestPointOnSegment(gpsPoint, p1, p2);
-      double distance = Geolocator.distanceBetween(
-        gpsPoint.latitude, gpsPoint.longitude,
-        projected.latitude, projected.longitude,
+      final LatLng projected = _getClosestPointOnSegment(gpsPoint, a, b);
+
+      final double distance = Geolocator.distanceBetween(
+        gpsPoint.latitude,
+        gpsPoint.longitude,
+        projected.latitude,
+        projected.longitude,
       );
 
       if (distance < minDistance) {
         minDistance = distance;
         closestPoint = projected;
+        bestIndex = i;
       }
+
+      travelled += Geolocator.distanceBetween(
+        a.latitude,
+        a.longitude,
+        b.latitude,
+        b.longitude,
+      );
+      if (travelled > maxAheadMeters) break;
     }
-    return closestPoint;
+
+    return _SnapResult(closestPoint, minDistance, bestIndex);
   }
 
   // 🔹 ۲. متد تصویرسازی نقطه روی پاره‌خط
