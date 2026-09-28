@@ -13,9 +13,9 @@ class SmartLocationSheet extends StatefulWidget {
   final VoidCallback onSearchDestinationTap;
   final VoidCallback onGpsTap;
   final bool isMapIdle;
-  final bool isExpanded; 
+  final bool isExpanded;
   final ValueChanged<bool>? onExpandChanged;
-  final bool hasGpsDisruption; // اضافه شدن وضعیت اختلال سیگنال
+  final bool hasGpsDisruption; // وضعیت اختلال سیگنال
 
   const SmartLocationSheet({
     super.key,
@@ -29,7 +29,7 @@ class SmartLocationSheet extends StatefulWidget {
     required this.isMapIdle,
     this.isExpanded = true,
     this.onExpandChanged,
-    this.hasGpsDisruption = true, // مقدار پیش‌فرض جهت نمایش
+    this.hasGpsDisruption = false,
   });
 
   @override
@@ -39,7 +39,25 @@ class SmartLocationSheet extends StatefulWidget {
 class _SmartLocationSheetState extends State<SmartLocationSheet> {
   bool get _expanded => widget.isExpanded;
   static const Color destinationColor = Color(0xFF169365);
-  bool _showGpsWarningText = true;
+  late bool _showGpsWarningText;
+
+  @override
+  void initState() {
+    super.initState();
+    // متن هشدار فقط زمانی اتوماتیک باز می‌شود که اختلال شدید وجود داشته باشد
+    _showGpsWarningText = widget.hasGpsDisruption;
+  }
+
+  @override
+  void didUpdateWidget(covariant SmartLocationSheet oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // در صورت تغییر وضعیت اختلال GPS از سمت والد، مقدار به‌روزرسانی می‌شود
+    if (oldWidget.hasGpsDisruption != widget.hasGpsDisruption) {
+      setState(() {
+        _showGpsWarningText = widget.hasGpsDisruption;
+      });
+    }
+  }
 
   void _setExpanded(bool expanded) {
     if (widget.onExpandChanged != null) {
@@ -58,8 +76,8 @@ class _SmartLocationSheetState extends State<SmartLocationSheet> {
 
     if (fullAddress.isEmpty || fullAddress == originFallback || fullAddress == destFallback) {
       return {
-        'title': fullAddress.isEmpty 
-            ? ("fetching_address".tr().isEmpty ? "در حال دریافت آدرس..." : "fetching_address".tr()) 
+        'title': fullAddress.isEmpty
+            ? ("fetching_address".tr().isEmpty ? "در حال دریافت آدرس..." : "fetching_address".tr())
             : fullAddress,
         'subtitle': "exact_location_on_map".tr().isEmpty ? "موقعیت دقیق روی نقشه" : "exact_location_on_map".tr()
       };
@@ -72,7 +90,7 @@ class _SmartLocationSheetState extends State<SmartLocationSheet> {
       };
     }
     return {
-      'title': fullAddress, 
+      'title': fullAddress,
       'subtitle': "location_on_map".tr().isEmpty ? "موقعیت روی نقشه" : "location_on_map".tr()
     };
   }
@@ -98,9 +116,9 @@ class _SmartLocationSheetState extends State<SmartLocationSheet> {
           alignment: Alignment.bottomCenter,
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.end,
+            crossAxisAlignment: CrossAxisAlignment.start, // برای قرارگیری دکمه GPS در سمت راست (در محیط RTL)
             children: [
-              // ویجت شناور GPS همراه با هشدار اختلال
+              // ویجت شناور GPS
               Padding(
                 padding: const EdgeInsets.only(left: 16, right: 16, bottom: 12),
                 child: Material(
@@ -113,6 +131,7 @@ class _SmartLocationSheetState extends State<SmartLocationSheet> {
                     onTap: () {
                       HapticFeedback.lightImpact();
                       widget.onGpsTap();
+                      // با لمس کاربر، وضعیت باز/بسته بودن متن هشدار تغییر می‌کند
                       setState(() {
                         _showGpsWarningText = !_showGpsWarningText;
                       });
