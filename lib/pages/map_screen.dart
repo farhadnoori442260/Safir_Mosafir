@@ -883,7 +883,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
 
   Future<void> _handleGpsTap() async {
     HapticFeedback.lightImpact();
-    _animatedMapMove(_currentUserLatLng, 17.8);
+    _animatedMapMove(_currentUserLatLng, 16.8);
 
     try {
       Position pos = await Geolocator.getCurrentPosition(
@@ -1006,7 +1006,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
       _originLatLng = currentCenter;
     });
 
-    _animatedMapMove(currentCenter, 17.8);
+    _animatedMapMove(currentCenter, 16.8);
 
     if (widget.serviceType == 'cargo') {
       CargoSheets.showSenderDialog(
