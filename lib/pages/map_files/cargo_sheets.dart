@@ -651,27 +651,22 @@ class CargoSheets {
     );
   }
 
-  /// 📐 تابع محاسبه قیمت اختصاصی هر خودرو بر اساس مسافت (کیلومتر)
+    /// 📐 تابع محاسبه قیمت اختصاصی هر خودرو بر اساس مسافت (کیلومتر)
   static double calculateFareForVehicle(String vehicleId, double distanceInKm) {
-    double baseRate = 50.0;
-    double perKmRate = 20.0;
+    double baseRate = 35.0;
+    double perKmRate = 15.0;
 
-    switch (vehicleId) {
-      case 'zaranj':
-        baseRate = 60.0;
-        perKmRate = 25.0;
-        break;
-      case 'suzuki':
-        baseRate = 120.0;
-        perKmRate = 45.0;
-        break;
-      case 'mazda':
-        baseRate = 250.0;
-        perKmRate = 80.0;
-        break;
-      default:
-        baseRate = 50.0;
-        perKmRate = 20.0;
+    // بررسی بر اساس کلید یا شناسه
+    final id = vehicleId.toLowerCase();
+    if (id.contains('zaranj') || id.contains('زرنج') || id.contains('سه چرخ')) {
+      baseRate = 35.0;
+      perKmRate = 15.0;
+    } else if (id.contains('suzuki') || id.contains('سوزوکی') || id.contains('پیکاپ')) {
+      baseRate = 70.0;
+      perKmRate = 30.0;
+    } else if (id.contains('mazda') || id.contains('مازدا') || id.contains('کامیون')) {
+      baseRate = 150.0;
+      perKmRate = 50.0;
     }
 
     double calculatedFare = baseRate + (distanceInKm * perKmRate);
@@ -690,18 +685,18 @@ class CargoSheets {
     required VoidCallback onRequestTrip,
     bool isLoading = false,
   }) {
+    // لیست خودروها با نام‌های تک‌کلمه‌ای و کوتاه و آیکون‌های متناسب
     final List<Map<String, dynamic>> vehicles = [
-      {'id': 'zaranj', 'title': 'cargo.vehicle_zaranj'.tr(), 'icon': Icons.electric_rickshaw},
-      {'id': 'suzuki', 'title': 'cargo.vehicle_suzuki'.tr(), 'icon': Icons.local_shipping_outlined},
-      {'id': 'mazda', 'title': 'cargo.vehicle_mazda'.tr(), 'icon': Icons.fire_truck_outlined},
+      {'id': 'zaranj', 'title': 'زرنج', 'icon': Icons.electric_rickshaw},
+      {'id': 'suzuki', 'title': 'سوزوکی', 'icon': Icons.local_shipping_outlined},
+      {'id': 'mazda', 'title': 'مازدا', 'icon': Icons.fire_truck_outlined},
     ];
 
     final String senderText = 'cargo.sender'.tr();
     final String receiverText = 'cargo.receiver'.tr();
 
-    double currentFare = fareAmount > 0
-        ? fareAmount
-        : calculateFareForVehicle(selectedVehicleType, distanceInKm);
+    // محاسبه دقیق کرایه بر اساس نوع خودرو انتخاب شده
+    double currentFare = calculateFareForVehicle(selectedVehicleType, distanceInKm);
 
     return Positioned(
       bottom: 0,
@@ -747,56 +742,73 @@ class CargoSheets {
             ),
             const SizedBox(height: 12),
 
+            // 🎨 لیست انتخاب وسیله نقلیه (تراز منظم، نام کوتاه تک‌کلمه‌ای در زیر آیکون)
             SizedBox(
-              height: 88,
-              child: ListView.builder(
-                key: const PageStorageKey('cargo_vehicle_list'),
-                scrollDirection: Axis.horizontal,
-                itemCount: vehicles.length,
-                itemBuilder: (context, index) {
-                  final vehicle = vehicles[index];
-                  bool isSelected = selectedVehicleType == vehicle['id'];
+              height: 90,
+              child: Row(
+                children: vehicles.map((vehicle) {
+                  final String id = vehicle['id'] as String;
+                  final String title = vehicle['title'] as String;
+                  final IconData icon = vehicle['icon'] as IconData;
 
-                  return GestureDetector(
-                    onTap: () {
-                      onVehicleSelected(vehicle['id'] as String);
-                    },
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      width: 105,
-                      margin: const EdgeInsets.only(left: 8),
-                      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
-                      decoration: BoxDecoration(
-                        color: isSelected ? focusBlue.withOpacity(0.08) : Colors.grey[100],
+                  bool isSelected = selectedVehicleType == id ||
+                      selectedVehicleType.toLowerCase().contains(id);
+
+                  return Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: InkWell(
+                        onTap: () {
+                          onVehicleSelected(id);
+                        },
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: isSelected ? focusBlue : Colors.transparent,
-                          width: 1.5,
-                        ),
-                      ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            vehicle['icon'] as IconData,
-                            size: 28,
-                            color: isSelected ? focusBlue : AppColors.textSecondary,
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            vehicle['title'] as String,
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 13.5,
-                              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                              color: isSelected ? focusBlue : AppColors.textPrimary,
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? focusBlue.withOpacity(0.08)
+                                : Colors.grey[100],
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: isSelected ? focusBlue : Colors.transparent,
+                              width: 1.5,
                             ),
                           ),
-                        ],
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Icon(
+                                icon,
+                                size: 30,
+                                color: isSelected
+                                    ? focusBlue
+                                    : AppColors.textSecondary,
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                title,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: isSelected
+                                      ? FontWeight.w700
+                                      : FontWeight.w500,
+                                  color: isSelected
+                                      ? focusBlue
+                                      : AppColors.textPrimary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
                   );
-                },
+                }).toList(),
               ),
             ),
             const Divider(height: 24),
@@ -806,19 +818,26 @@ class CargoSheets {
               children: [
                 Text(
                   'cargo.payer_side'.tr(),
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+                  style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary),
                 ),
                 Row(
                   children: [
                     ChoiceChip(
-                      label: Text(senderText, style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600)),
+                      label: Text(senderText,
+                          style: const TextStyle(
+                              fontSize: 13.5, fontWeight: FontWeight.w600)),
                       selected: paymentPayer == senderText,
                       selectedColor: focusBlue.withOpacity(0.15),
                       onSelected: (v) => onPayerChanged(senderText),
                     ),
                     const SizedBox(width: 8),
                     ChoiceChip(
-                      label: Text(receiverText, style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600)),
+                      label: Text(receiverText,
+                          style: const TextStyle(
+                              fontSize: 13.5, fontWeight: FontWeight.w600)),
                       selected: paymentPayer == receiverText,
                       selectedColor: focusBlue.withOpacity(0.15),
                       onSelected: (v) => onPayerChanged(receiverText),
@@ -837,11 +856,15 @@ class CargoSheets {
                   children: [
                     Text(
                       'cargo.total_fare'.tr(),
-                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textSecondary),
+                      style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textSecondary),
                     ),
                     AnimatedSwitcher(
                       duration: const Duration(milliseconds: 200),
-                      transitionBuilder: (Widget child, Animation<double> animation) {
+                      transitionBuilder:
+                          (Widget child, Animation<double> animation) {
                         return FadeTransition(opacity: animation, child: child);
                       },
                       child: Text(
@@ -859,8 +882,10 @@ class CargoSheets {
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF1BAB58),
-                    padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 28, vertical: 12),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
                     elevation: 0,
                   ),
                   onPressed: isLoading ? null : onRequestTrip,
@@ -868,7 +893,8 @@ class CargoSheets {
                       ? const SizedBox(
                           height: 20,
                           width: 20,
-                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                          child: CircularProgressIndicator(
+                              color: Colors.white, strokeWidth: 2),
                         )
                       : Text(
                           'cargo.submit_order'.tr(),
@@ -886,4 +912,4 @@ class CargoSheets {
       ),
     );
   }
-}
+
