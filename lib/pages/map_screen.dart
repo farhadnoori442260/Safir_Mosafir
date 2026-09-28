@@ -906,12 +906,15 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
   }
 
   void _animatedMapMove(LatLng destLocation, double destZoom) {
-    if (_mapController == null) return;
-    _isProgrammaticMove = true;
-    _mapController!.animateCamera(
-      CameraUpdate.newLatLngZoom(destLocation, destZoom),
-    );
-  }
+  if (_mapController == null) return;
+  
+  // 🔧 حتماً این خط قبل از animateCamera باشد
+  _isProgrammaticMove = true; 
+  
+  _mapController!.animateCamera(
+    CameraUpdate.newLatLngZoom(destLocation, destZoom),
+  );
+}
 
   void _updateAddressFromCamera(LatLng center) {
     _debounceTimer?.cancel();
@@ -1593,34 +1596,41 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
                   await initDriverSymbolLayer();
                 },
                 onCameraMove: (CameraPosition position) {
-                  if (!_isProgrammaticMove) {
-                    if (!_isMapMoving) {
-                      _isMapMoving = true;
-                      if (_isSheetExpanded) {
-                        setState(() {
-                          _isSheetExpanded = false;
-                        });
-                      }
-                    }
-                  }
-                },
-                onCameraIdle: () {
-                  final bool wasProgrammaticMove = _isProgrammaticMove;
-                  _isProgrammaticMove = false;
+  if (!_isProgrammaticMove) {
+    if (!_isMapMoving) {
+      _isMapMoving = true;
+      if (_isSheetExpanded) {
+        setState(() {
+          _isSheetExpanded = false;
+        });
+      }
+    }
+  }
+},
+onCameraIdle: () {
+  final bool wasProgrammaticMove = _isProgrammaticMove;
 
-                  if (_isMapMoving && mounted) {
-                    setState(() {
-                      _isMapMoving = false;
-                    });
-                  }
+  if (_isMapMoving && mounted) {
+    setState(() {
+      _isMapMoving = false;
+    });
+  }
 
-                  if (!wasProgrammaticMove && _currentStep < 2 && _mapController != null) {
-                    _updateAddressFromCamera(
-                      _mapController!.cameraPosition!.target,
-                    );
-                  }
-                },
-                onMapClick: (_, __) {},
+  // 🔧 تغییر اصلی اینجاست: تاخیر در تغییر وضعیت _isProgrammaticMove
+  Future.delayed(const Duration(milliseconds: 300), () {
+    if (mounted) {
+      _isProgrammaticMove = false;
+    }
+  });
+
+  if (!wasProgrammaticMove && _currentStep < 2 && _mapController != null) {
+    _updateAddressFromCamera(
+      _mapController!.cameraPosition!.target,
+    );
+  }
+},
+onMapClick: (_, __) {},
+
               ),
             ),
 
