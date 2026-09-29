@@ -657,5 +657,7 @@
   "chat_safir_driver_label": "Safir Driver",
   "chat_no_messages_yet": "No messages sent yet",
   "chat_type_message_hint": "Type your message...",
-  "gps_disruption": "Location Signal Disruption"
+  "gps_disruption": "Location Signal Disruption",
+  "msg_driver_hint": "Message",
+  "payment_btn_label": "Payment"
 }
