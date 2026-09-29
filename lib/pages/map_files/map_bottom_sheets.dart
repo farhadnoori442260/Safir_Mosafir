@@ -888,7 +888,7 @@ class MapBottomSheets {
               color: Colors.white,
               borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
               boxShadow: [
-                BoxBoxShadow(
+                BoxShadow(
                   color: Colors.black12,
                   blurRadius: 15,
                   spreadRadius: 2,
