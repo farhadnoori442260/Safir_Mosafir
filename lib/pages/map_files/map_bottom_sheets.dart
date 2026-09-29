@@ -518,7 +518,7 @@ class MapBottomSheets {
     );
   }
 
-  // 🔴 دیالوگ دلایل لغو — قبل/بعد از قبول راننده متفاوت است
+  // 🔴 دیالوگ دلایل لغو
   static void _showCancelReasonDialog(
     BuildContext context,
     VoidCallback onConfirmCancel, {
@@ -528,41 +528,17 @@ class MapBottomSheets {
     String? selectedReasonKey;
 
     final List<Map<String, String>> searchingReasons = [
-      {
-        'key': 'cancel_reason_hurry',
-        'fallback': 'cancel_reason_hurry'.tr()
-      },
-      {
-        'key': 'cancel_reason_changed_mind',
-        'fallback': 'cancel_reason_changed_mind'.tr()
-      },
-      {
-        'key': 'cancel_reason_modify_trip',
-        'fallback': 'cancel_reason_modify_trip'.tr()
-      },
-      {
-        'key': 'cancel_reason_other',
-        'fallback': 'cancel_reason_other'.tr()
-      },
+      {'key': 'cancel_reason_hurry', 'fallback': 'cancel_reason_hurry'.tr()},
+      {'key': 'cancel_reason_changed_mind', 'fallback': 'cancel_reason_changed_mind'.tr()},
+      {'key': 'cancel_reason_modify_trip', 'fallback': 'cancel_reason_modify_trip'.tr()},
+      {'key': 'cancel_reason_other', 'fallback': 'cancel_reason_other'.tr()},
     ];
 
     final List<Map<String, String>> afterAcceptReasons = [
-      {
-        'key': 'cancel_reason_driver_too_far',
-        'fallback': 'cancel_reason_driver_too_far'.tr()
-      },
-      {
-        'key': 'cancel_reason_no_longer_needed',
-        'fallback': 'cancel_reason_no_longer_needed'.tr()
-      },
-      {
-        'key': 'cancel_reason_wrong_address',
-        'fallback': 'cancel_reason_wrong_address'.tr()
-      },
-      {
-        'key': 'cancel_reason_other',
-        'fallback': 'cancel_reason_other'.tr()
-      },
+      {'key': 'cancel_reason_driver_too_far', 'fallback': 'cancel_reason_driver_too_far'.tr()},
+      {'key': 'cancel_reason_no_longer_needed', 'fallback': 'cancel_reason_no_longer_needed'.tr()},
+      {'key': 'cancel_reason_wrong_address', 'fallback': 'cancel_reason_wrong_address'.tr()},
+      {'key': 'cancel_reason_other', 'fallback': 'cancel_reason_other'.tr()},
     ];
 
     final List<Map<String, String>> reasons =
@@ -626,8 +602,7 @@ class MapBottomSheets {
                       ),
                       child: Text(
                         'cancel_after_accept_warning'.tr(),
-                        style:
-                            TextStyle(fontSize: 12, color: Colors.amber.shade900),
+                        style: TextStyle(fontSize: 12, color: Colors.amber.shade900),
                       ),
                     ),
                   ],
@@ -903,6 +878,9 @@ class MapBottomSheets {
             'plate_farsi_num': plateFarsiNumDriver.isNotEmpty ? plateFarsiNumDriver : plateNumDriver,
             'plate_num': plateNumDriver,
             'is_temp_plate': isTempPlateDriver,
+            // 🔗 اضافه کردن متون ترجمه‌شده کلیدها برای اتصال قطعی به ویجت کارت راننده
+            'message_button_label': 'msg_driver_hint'.tr(),
+            'payment_button_label': 'payment_btn_label'.tr(),
           };
 
           return Container(
@@ -910,7 +888,7 @@ class MapBottomSheets {
               color: Colors.white,
               borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
               boxShadow: [
-                BoxShadow(
+                BoxBoxShadow(
                   color: Colors.black12,
                   blurRadius: 15,
                   spreadRadius: 2,
