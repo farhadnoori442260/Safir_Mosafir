@@ -158,6 +158,11 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
   LatLng? _latestDriverRaw;
   double _latestDriverHeading = -1.0;
 
+  /// 🔎 فقط برای عیب‌یابی: تعداد و زمان آخرین باری که از Firestore
+  /// موقعیت راننده رسیده، تا مستقیم روی گوشی دیده شود بدون نیاز به لاگ.
+  int _debugDriverUpdateCount = 0;
+  String _debugDriverInfo = 'هنوز داده‌ای از راننده نرسیده';
+
   /// 🔧 صف «آخرین مقدار برنده است» تا آپدیت‌ها هم‌زمان اجرا نشوند
   LatLng? _pendingDriverRawPosition;
   double _pendingDriverRawHeading = -1.0;
@@ -345,6 +350,17 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
             '(fromCache: ${snapshot.metadata.isFromCache})');
 
         final LatLng position = LatLng(lat, lng);
+
+        _debugDriverUpdateCount++;
+        final DateTime now = DateTime.now();
+        final String hh = now.hour.toString().padLeft(2, '0');
+        final String mm = now.minute.toString().padLeft(2, '0');
+        final String ss = now.second.toString().padLeft(2, '0');
+        _debugDriverInfo =
+            'بروزرسانی #$_debugDriverUpdateCount — $hh:$mm:$ss\n'
+            'lat: ${lat.toStringAsFixed(6)}  lng: ${lng.toStringAsFixed(6)}'
+            '${snapshot.metadata.isFromCache ? "  (کش)" : "  (سرور)"}';
+        if (mounted) setState(() {});
 
         // 🔧 FIX: همیشه فقط «آخرین» مقدار نگه داشته می‌شود و آپدیت‌ها
         // پشت سر هم (نه هم‌زمان) پردازش می‌شوند. قبلاً یک اسنپ‌شات قدیمی
@@ -1730,6 +1746,32 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
                         ),
                       ),
                     ],
+                  ),
+                ),
+              ),
+
+            // 🔎 نشانگر عیب‌یابی موقت — بعد از رفع مشکل حذفش کن
+            if (_currentStep >= 3)
+              Positioned(
+                top: statusBarHeight + 64,
+                left: 16,
+                right: 16,
+                child: IgnorePointer(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.75),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      _debugDriverInfo,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontFamily: 'monospace',
+                      ),
+                    ),
                   ),
                 ),
               ),
