@@ -180,7 +180,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
   String? _driverRouteBuiltForStatus;
 
   static const double _offRouteThresholdMeters = 50.0;
-  static const int _rerouteCooldownSeconds = 5;
+  static const int _rerouteCooldownSeconds = 2;
 
   bool _isMapMoving = false;
   bool _isProgrammaticMove = false;
@@ -701,19 +701,12 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
           remaining: fullRoute,
         );
 
-        // 🔧 مسیر آماده شد؛ ماشین را با مسیر هماهنگ کن (زاویه و چسبیدن).
-        // اگر راننده ثابت باشد آپدیت جدیدی نمی‌آید و ماشین با زاویهٔ
-        // قدیمی (شمال) می‌ماند.
+        // 🔧 مسیر آماده شد؛ ماشین را همان لحظه با مسیر هماهنگ کن (زاویه
+        // و چسبیدن)، بدون انتظار برای آپدیت بعدی راننده. اگر راننده ثابت
+        // باشد، بدون این خط ماشین با زاویهٔ قدیمی (شمال) می‌ماند.
         if (_latestDriverRaw != null) {
           _pendingDriverRawPosition = _latestDriverRaw;
           _pendingDriverRawHeading = _latestDriverHeading;
-          unawaited(_processPendingDriverUpdate());
-        }
-
-        // 🔧 مسیر تازه آمد: ماشین را همان لحظه روی خط بگذار و با زاویهٔ
-        // خیابان بچرخان (بدون انتظار برای آپدیت بعدی راننده).
-        if (_latestDriverRaw != null) {
-          _pendingDriverRawPosition = _latestDriverRaw;
           unawaited(_processPendingDriverUpdate());
         }
       }
