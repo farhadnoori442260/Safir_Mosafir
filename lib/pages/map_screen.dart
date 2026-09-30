@@ -154,42 +154,34 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
   double _driverAnimationStartBearing = 0.0;
   double _driverAnimationEndBearing = 0.0;
 
-  /// 🔧 آخرین موقعیت خامی که از Firestore آمده (برای رسم مسیر تازه)
   LatLng? _latestDriverRaw;
   double _latestDriverHeading = -1.0;
 
-  /// 🔎 فقط برای عیب‌یابی: تعداد و زمان آخرین باری که از Firestore
-  /// موقعیت راننده رسیده، تا مستقیم روی گوشی دیده شود بدون نیاز به لاگ.
-  int _debugDriverUpdateCount = 0;
-  String _debugDriverInfo = 'هنوز داده‌ای از راننده نرسیده';
-
-  /// 🔧 صف «آخرین مقدار برنده است» تا آپدیت‌ها هم‌زمان اجرا نشوند
   LatLng? _pendingDriverRawPosition;
   double _pendingDriverRawHeading = -1.0;
   bool _isProcessingDriverUpdate = false;
 
-  /// 🔧 مبدأ و مقصد واقعی سفر (همان چیزی که در rides ذخیره شده)
   LatLng? _tripOriginLatLng;
   LatLng? _tripDestinationLatLng;
 
-  Line? _driverRouteLine; // خط آبی (باقی‌ماندهٔ مسیر)
-  Line? _driverTraveledLine; // خط خاکستری (مسیر طی‌شده)
-  int _driverProgressIndex = 0; // پیشرفت روی مسیر (فقط به جلو)
+  Line? _driverRouteLine; 
+  Line? _driverTraveledLine; 
+  int _driverProgressIndex = 0; 
   int _driverOffRouteCount = 0;
   int _driverLastRenderedSegment = -1;
   LatLng? _driverLastRenderedPoint;
-  LatLng? _driverDisplayLatLng; // موقعیت لحظه‌ایِ مارکر (وسط انیمیشن)
+  LatLng? _driverDisplayLatLng; 
   double _driverDisplayBearing = 0.0;
   DateTime? _lastDriverUpdateAt;
   DateTime? _lastDriverRouteFetchAt;
   String? _driverRouteBuiltForStatus;
 
-  static const double _offRouteThresholdMeters = 50.0;
+  static const double _offRouteThresholdMeters = 25.0;
   static const int _rerouteCooldownSeconds = 2;
 
   bool _isMapMoving = false;
   bool _isProgrammaticMove = false;
-  bool _isUserGesture = false; // پرچم تشخیص لمس صفحه توسط دست کاربر
+  bool _isUserGesture = false; 
   bool _isSheetExpanded = true; 
   Timer? _debounceTimer;
 
@@ -284,6 +276,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
       vsync: this,
       duration: const Duration(milliseconds: 1000),
     )..addListener(_animateDriverSymbol);
+
     selectedVehicle = widget.serviceType;
     if (selectedVehicle == "Bike") {
       _selectedCategory = 1;
@@ -303,7 +296,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
     _debounceTimer?.cancel();
     _positionStreamSubscription?.cancel();
     tripStreamSubscription?.cancel();
-    _driverLocationStreamSubscription?.cancel();
+    _stopListeningToDriverLocation();
     _senderNameController.dispose();
     _senderPhoneController.dispose();
     _senderAddressController.dispose();
@@ -346,25 +339,8 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
 
         if (lat == null || lng == null) return;
 
-        debugPrint('🚗 driver raw: $lat, $lng, heading: $heading '
-            '(fromCache: ${snapshot.metadata.isFromCache})');
-
         final LatLng position = LatLng(lat, lng);
 
-        _debugDriverUpdateCount++;
-        final DateTime now = DateTime.now();
-        final String hh = now.hour.toString().padLeft(2, '0');
-        final String mm = now.minute.toString().padLeft(2, '0');
-        final String ss = now.second.toString().padLeft(2, '0');
-        _debugDriverInfo =
-            'بروزرسانی #$_debugDriverUpdateCount — $hh:$mm:$ss\n'
-            'lat: ${lat.toStringAsFixed(6)}  lng: ${lng.toStringAsFixed(6)}'
-            '${snapshot.metadata.isFromCache ? "  (کش)" : "  (سرور)"}';
-        if (mounted) setState(() {});
-
-        // 🔧 FIX: همیشه فقط «آخرین» مقدار نگه داشته می‌شود و آپدیت‌ها
-        // پشت سر هم (نه هم‌زمان) پردازش می‌شوند. قبلاً یک اسنپ‌شات قدیمی
-        // (کش) که دیرتر تمام می‌شد، ماشین را دوباره به جای قدیمی برمی‌گرداند.
         _latestDriverRaw = position;
         _latestDriverHeading = heading;
         _pendingDriverRawPosition = position;
@@ -431,8 +407,6 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
       return;
     }
 
-    // 🔧 حرکت خطی با سرعت ثابت (مثل MapScreenRoute) تا ماشین
-    // «پرتاب و توقف» نکند.
     final double t = _driverAnimationController.value;
 
     final double latitude = _driverAnimationStart!.latitude +
@@ -451,7 +425,6 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
     final double bearing =
         (_driverAnimationStartBearing + bearingDifference * t + 360) % 360;
 
-    // موقعیت لحظه‌ای مارکر؛ آپدیت بعدی از همین نقطه شروع می‌شود
     _driverDisplayLatLng = LatLng(latitude, longitude);
     _driverDisplayBearing = bearing;
 
@@ -469,13 +442,6 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
     }
   }
 
-  /// 🔧 منطق حرکت (برگرفته از MapScreenRoute تست‌شده):
-  ///  • چسباندن نقطه به مسیر (اگر ≤ ۵۰ متر) و پیشروی فقط «به جلو» روی مسیر
-  ///  • حرکت خطی با مدت‌زمان برابر فاصلهٔ واقعی بین دو آپدیت
-  ///  • انیمیشن از موقعیت لحظه‌ایِ مارکر شروع می‌شود (نه نقطهٔ قبلی)
-  ///  • زاویه از جهت حرکت (اگر بیش از ۳ متر جابه‌جا شده)
-  ///  • مسیر به «طی‌شده» (خاکستری) و «باقی‌مانده» (آبی) تقسیم می‌شود
-  ///  • مسیریابی مجدد فقط بعد از ۲ خوانش پیاپیِ خارج از مسیر
   Future<void> _updateDriverMarkerOnMap(
     LatLng rawPosition,
     double rawHeading,
@@ -517,12 +483,9 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
 
       final LatLng? previousTarget = _lastDriverLatLng;
 
-      // ───── زاویه ─────
       double markerBearing = _driverAnimationEndBearing;
 
-      if (onRouteSnap != null) {
-        // 🔧 روی مسیر: همیشه زاویهٔ خودِ خیابان، حتی وقتی راننده ایستاده.
-        // (قبلاً وقتی ماشین حرکت نمی‌کرد زاویه ۰ = رو به شمال می‌ماند.)
+      if (onRouteSnap != null && onRouteSnap.segmentIndex + 1 < _driverTripPolylinePoints.length) {
         markerBearing = _calculateBearing(
           _driverTripPolylinePoints[onRouteSnap.segmentIndex],
           _driverTripPolylinePoints[onRouteSnap.segmentIndex + 1],
@@ -542,7 +505,6 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
         markerBearing = _calculateBearing(previousTarget, markerTarget);
       }
 
-      // ───── مدت انیمیشن = فاصلهٔ واقعی بین دو آپدیت ─────
       final DateTime now = DateTime.now();
       final int dtMs = _lastDriverUpdateAt == null
           ? 1000
@@ -581,7 +543,6 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
         _lastDriverLatLng = markerTarget;
       }
 
-      // خط طی‌شده/باقی‌مانده را بعد از شروع حرکت مارکر آپدیت کن
       if (onRouteSnap != null) {
         await _renderDriverProgress(onRouteSnap);
       }
@@ -590,7 +551,6 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
     }
   }
 
-  /// تصمیم می‌گیرد مسیر راننده باید دوباره کشیده شود یا نه (غیرمسدودکننده)
   void _maybeRefreshDriverRoute(
     LatLng raw, {
     required bool offRouteConfirmed,
@@ -615,7 +575,6 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
     }
   }
 
-  /// وقتی وضعیت سفر عوض شد (مثلاً شروع سفر) فوراً مسیر جدید بکش
   void _refreshDriverRouteNow() {
     final LatLng? raw = _latestDriverRaw;
     if (raw == null || _isFetchingDriverTripRoute) return;
@@ -673,10 +632,8 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
       final List<LatLng> fullRoute;
 
       if (statusAtStart == TripStatus.onTrip) {
-        // سفر شروع شده: مسیر راننده تا مقصد
         fullRoute = await _getOsrmPoints(driverPosition, _tripDestinationLatLng!);
       } else {
-        // قبل از سوارشدن: راننده → مبدأ → مقصد
         final List<LatLng> driverToOrigin =
             await _getOsrmPoints(driverPosition, _tripOriginLatLng!);
         final List<LatLng> originToDestination =
@@ -690,8 +647,6 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
 
       if (!mounted || _mapController == null || _assignedDriverId == null) return;
 
-      // 🔧 اگر در حین گرفتن مسیر، راننده خیلی از نقطهٔ شروع دور شده،
-      // این مسیر کهنه است؛ رسمش نکن و با موقعیت تازه دوباره بگیر.
       final LatLng? latest = _latestDriverRaw;
       if (latest != null &&
           attempt < 2 &&
@@ -717,9 +672,6 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
           remaining: fullRoute,
         );
 
-        // 🔧 مسیر آماده شد؛ ماشین را همان لحظه با مسیر هماهنگ کن (زاویه
-        // و چسبیدن)، بدون انتظار برای آپدیت بعدی راننده. اگر راننده ثابت
-        // باشد، بدون این خط ماشین با زاویهٔ قدیمی (شمال) می‌ماند.
         if (_latestDriverRaw != null) {
           _pendingDriverRawPosition = _latestDriverRaw;
           _pendingDriverRawHeading = _latestDriverHeading;
@@ -737,7 +689,6 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
     }
   }
 
-  /// خط را به دو بخش تقسیم می‌کند: طی‌شده (خاکستری) و باقی‌مانده (آبی)
   Future<void> _renderDriverProgress(_SnapResult snap) async {
     if (_mapController == null || _isFetchingDriverTripRoute) return;
 
@@ -778,7 +729,6 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
   }) async {
     if (_mapController == null || remaining.isEmpty) return;
 
-    // یک خط با دو نقطهٔ یکسان روی نقشه دیده نمی‌شود
     final List<LatLng> grey =
         traveled.length >= 2 ? traveled : <LatLng>[remaining.first, remaining.first];
 
@@ -795,7 +745,6 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
         return;
       }
     } catch (_) {
-      // خط‌ها پاک شده‌اند؛ پایین‌تر دوباره اضافه می‌شوند
       _driverRouteLine = null;
       _driverTraveledLine = null;
     }
@@ -1326,8 +1275,6 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
 
     await _clearPreviewRoute();
 
-    // 🔧 مبدأ و مقصد واقعی سفر (همان‌هایی که در rides ذخیره می‌شود)
-    // تا مسیر راننده حتی وقتی مقصد با جستجو انتخاب شده هم کشیده شود.
     _tripOriginLatLng = LatLng(
       appInfo.pickUpLocation!.latitudePosition!,
       appInfo.pickUpLocation!.longitudePosition!,
@@ -1426,7 +1373,6 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
           _lastTripStatus = tripStatus;
           _playTripStatusSound(tripStatus);
 
-          // سفر شروع شد → مسیر باید از راننده تا مقصد باشد
           if (tripStatus == TripStatus.onTrip) {
             _refreshDriverRouteNow();
           }
@@ -1597,11 +1543,11 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
         resizeToAvoidBottomInset: false,
         body: Stack(
           children: [
-                        // 🗺️ ۱. نقشه تمام صفحه
+            // 🗺️ ۱. نقشه تمام صفحه
             RepaintBoundary(
               child: Listener(
                 onPointerDown: (_) {
-                  _isUserGesture = true; // کاربر صفحه را لمس کرد
+                  _isUserGesture = true; 
                 },
                 onPointerUp: (_) {
                   Future.delayed(const Duration(milliseconds: 300), () {
@@ -1632,7 +1578,6 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
                     await initDriverSymbolLayer();
                   },
                   onCameraMove: (CameraPosition position) {
-                    // 🔧 شرط اصلی: کشو فقط زمانی پایین می‌رود که دست کاربر روی صفحه باشد
                     if (_isUserGesture && !_isProgrammaticMove) {
                       if (!_isMapMoving) {
                         _isMapMoving = true;
@@ -1746,32 +1691,6 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
                         ),
                       ),
                     ],
-                  ),
-                ),
-              ),
-
-            // 🔎 نشانگر عیب‌یابی موقت — بعد از رفع مشکل حذفش کن
-            if (_currentStep >= 3)
-              Positioned(
-                top: statusBarHeight + 64,
-                left: 16,
-                right: 16,
-                child: IgnorePointer(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.75),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Text(
-                      _debugDriverInfo,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 11,
-                        fontFamily: 'monospace',
-                      ),
-                    ),
                   ),
                 ),
               ),
@@ -2000,8 +1919,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
     );
   }
 
-  // 🔹 ۱. نزدیک‌ترین نقطه روی مسیر (فقط «به جلو» از نقطهٔ پیشرفت).
-  // این کار جلوی پرش به سمت برگشتِ مسیر (مثلاً دور برگردان) را می‌گیرد.
+  // 🔹 ۱. نزدیک‌ترین نقطه روی مسیر (فقط «به جلو» از نقطهٔ پیشرفت)
   _SnapResult? _snapToPolylineDetailed(
     LatLng gpsPoint,
     List<LatLng> polyline, {
@@ -2065,7 +1983,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
     return LatLng(y1 + t * dy, x1 + t * dx);
   }
 
-  // 🔹 ۳. متد محاسبه زاویه صاف حرکت در امتداد مسیر خیابان
+  // 🔹 ۳. متد محاسبه زاویه حرکت در امتداد مسیر خیابان
   double _calculateBearing(LatLng start, LatLng end) {
     double startLatRad = start.latitude * pi / 180;
     double startLngRad = start.longitude * pi / 180;
