@@ -154,34 +154,38 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
   double _driverAnimationStartBearing = 0.0;
   double _driverAnimationEndBearing = 0.0;
 
+  /// 🔧 آخرین موقعیت خامی که از Firestore آمده (برای رسم مسیر تازه)
   LatLng? _latestDriverRaw;
   double _latestDriverHeading = -1.0;
 
+  /// 🔧 صف «آخرین مقدار برنده است» تا آپدیت‌ها هم‌زمان اجرا نشوند
   LatLng? _pendingDriverRawPosition;
   double _pendingDriverRawHeading = -1.0;
   bool _isProcessingDriverUpdate = false;
 
+  /// 🔧 مبدأ و مقصد واقعی سفر (همان چیزی که در rides ذخیره شده)
   LatLng? _tripOriginLatLng;
   LatLng? _tripDestinationLatLng;
 
-  Line? _driverRouteLine; 
-  Line? _driverTraveledLine; 
-  int _driverProgressIndex = 0; 
+  Line? _driverRouteLine; // خط آبی (باقی‌ماندهٔ مسیر)
+  Line? _driverTraveledLine; // خط خاکستری (مسیر طی‌شده)
+  int _driverProgressIndex = 0; // پیشرفت روی مسیر (فقط به جلو)
   int _driverOffRouteCount = 0;
   int _driverLastRenderedSegment = -1;
   LatLng? _driverLastRenderedPoint;
-  LatLng? _driverDisplayLatLng; 
+  LatLng? _driverDisplayLatLng; // موقعیت لحظه‌ایِ مارکر (وسط انیمیشن)
   double _driverDisplayBearing = 0.0;
   DateTime? _lastDriverUpdateAt;
   DateTime? _lastDriverRouteFetchAt;
   String? _driverRouteBuiltForStatus;
 
+  // 🔧 اصلاح باگ: کاهش آستانه خروج از مسیر به ۲۵ متر جهت تشخیص دقیق در کوچه و خیابان‌های شهری
   static const double _offRouteThresholdMeters = 25.0;
   static const int _rerouteCooldownSeconds = 2;
 
   bool _isMapMoving = false;
   bool _isProgrammaticMove = false;
-  bool _isUserGesture = false; 
+  bool _isUserGesture = false; // پرچم تشخیص لمس صفحه توسط دست کاربر
   bool _isSheetExpanded = true; 
   Timer? _debounceTimer;
 
@@ -276,7 +280,6 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
       vsync: this,
       duration: const Duration(milliseconds: 1000),
     )..addListener(_animateDriverSymbol);
-
     selectedVehicle = widget.serviceType;
     if (selectedVehicle == "Bike") {
       _selectedCategory = 1;
@@ -296,7 +299,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
     _debounceTimer?.cancel();
     _positionStreamSubscription?.cancel();
     tripStreamSubscription?.cancel();
-    _stopListeningToDriverLocation();
+    _driverLocationStreamSubscription?.cancel();
     _senderNameController.dispose();
     _senderPhoneController.dispose();
     _senderAddressController.dispose();
@@ -338,6 +341,9 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
         final double heading = double.tryParse(data['heading']?.toString() ?? '') ?? -1.0;
 
         if (lat == null || lng == null) return;
+
+        debugPrint('🚗 driver raw: $lat, $lng, heading: $heading '
+            '(fromCache: ${snapshot.metadata.isFromCache})');
 
         final LatLng position = LatLng(lat, lng);
 
@@ -483,9 +489,10 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
 
       final LatLng? previousTarget = _lastDriverLatLng;
 
+      // ───── زاویه ─────
       double markerBearing = _driverAnimationEndBearing;
 
-      if (onRouteSnap != null && onRouteSnap.segmentIndex + 1 < _driverTripPolylinePoints.length) {
+      if (onRouteSnap != null) {
         markerBearing = _calculateBearing(
           _driverTripPolylinePoints[onRouteSnap.segmentIndex],
           _driverTripPolylinePoints[onRouteSnap.segmentIndex + 1],
@@ -505,6 +512,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
         markerBearing = _calculateBearing(previousTarget, markerTarget);
       }
 
+      // ───── مدت انیمیشن = فاصلهٔ واقعی بین دو آپدیت ─────
       final DateTime now = DateTime.now();
       final int dtMs = _lastDriverUpdateAt == null
           ? 1000
@@ -1547,7 +1555,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
             RepaintBoundary(
               child: Listener(
                 onPointerDown: (_) {
-                  _isUserGesture = true; 
+                  _isUserGesture = true;
                 },
                 onPointerUp: (_) {
                   Future.delayed(const Duration(milliseconds: 300), () {
@@ -1616,7 +1624,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
             ),
 
             // 📍 ۲. پین شناور در وسط نقشه
-           if (_currentStep < 2)
+            if (_currentStep < 2)
               IgnorePointer(
                 child: Center(
                   child: Stack(
@@ -1924,7 +1932,8 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
     LatLng gpsPoint,
     List<LatLng> polyline, {
     int startIndex = 0,
-    double maxAheadMeters = 600,
+    // 🔧 اصلاح باگ: کاهش فاصله جستجوی مسیر پیش‌رو به ۱۰۰ متر جهت جلوگیری از پرش روی خطوط دورتر در ساختار شهری
+    double maxAheadMeters = 100,
   }) {
     if (polyline.length < 2) return null;
 
@@ -1983,7 +1992,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
     return LatLng(y1 + t * dy, x1 + t * dx);
   }
 
-  // 🔹 ۳. متد محاسبه زاویه حرکت در امتداد مسیر خیابان
+  // 🔹 ۳. متد محاسبه زاویه صاف حرکت در امتداد مسیر خیابان
   double _calculateBearing(LatLng start, LatLng end) {
     double startLatRad = start.latitude * pi / 180;
     double startLngRad = start.longitude * pi / 180;
