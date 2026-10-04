@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:shamsi_date/shamsi_date.dart';
 import 'package:safir_passengers/theme/app_colors.dart';
 
 class ScheduleTripSheet extends StatefulWidget {
@@ -29,13 +30,28 @@ class _ScheduleTripSheetState extends State<ScheduleTripSheet> {
     _selectedTime = TimeOfDay.fromDateTime(now);
   }
 
+  // 🗓️ تبدیل تاریخ انتخابی به رشته هجری شمسی (مثلاً ۱۴۰۵/۰۷/۱۳)
+  String get _jalaliFormattedDate {
+    Jalali j = Jalali.fromDateTime(_selectedDate);
+    String month = j.month.toString().padLeft(2, '0');
+    String day = j.day.toString().padLeft(2, '0');
+    return '${j.year}/$month/$day';
+  }
+
+  // ⏰ فرمت نمایش ساعت (مثلاً ۱۷:۴۶)
+  String get _formattedTime {
+    final hour = _selectedTime.hour.toString().padLeft(2, '0');
+    final minute = _selectedTime.minute.toString().padLeft(2, '0');
+    return '$hour:$minute';
+  }
+
   Future<void> _pickDate() async {
     HapticFeedback.lightImpact();
     final picked = await showDatePicker(
       context: context,
       initialDate: _selectedDate,
       firstDate: DateTime.now(),
-      lastDate: DateTime.now().add(const Duration(days: 7)),
+      lastDate: DateTime.now().add(const Duration(days: 30)),
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
@@ -96,11 +112,13 @@ class _ScheduleTripSheetState extends State<ScheduleTripSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final dateFormat = DateFormat('yyyy/MM/dd');
-    final timeFormat = DateFormat('HH:mm');
-
     return Padding(
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.only(
+        left: 20,
+        right: 20,
+        top: 16,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -120,7 +138,7 @@ class _ScheduleTripSheetState extends State<ScheduleTripSheet> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'opt_schedule'.tr(),
+                'opt_schedule'.tr().isNotEmpty ? 'opt_schedule'.tr() : 'زمان‌بندی سفر',
                 style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -136,21 +154,21 @@ class _ScheduleTripSheetState extends State<ScheduleTripSheet> {
           const SizedBox(height: 16),
           Row(
             children: [
+              // کارت انتخاب تاریخ هجری شمسی
               Expanded(
                 child: _buildPickerCard(
-                  title: 'select_date_title'.tr(),
-                  value: dateFormat.format(_selectedDate),
+                  title: 'select_date_title'.tr().isNotEmpty ? 'select_date_title'.tr() : 'انتخاب تاریخ',
+                  value: _jalaliFormattedDate,
                   icon: Icons.calendar_today_outlined,
                   onTap: _pickDate,
                 ),
               ),
               const SizedBox(width: 12),
+              // کارت انتخاب زمان
               Expanded(
                 child: _buildPickerCard(
-                  title: 'select_time_title'.tr(),
-                  value: timeFormat.format(
-                    DateTime(2026, 1, 1, _selectedTime.hour, _selectedTime.minute),
-                  ),
+                  title: 'select_time_title'.tr().isNotEmpty ? 'select_time_title'.tr() : 'انتخاب زمان',
+                  value: _formattedTime,
                   icon: Icons.access_time_outlined,
                   onTap: _pickTime,
                 ),
@@ -158,11 +176,18 @@ class _ScheduleTripSheetState extends State<ScheduleTripSheet> {
             ],
           ),
           const SizedBox(height: 20),
+          // دکمه ثبت و تأیید زمان‌بندی
           SizedBox(
             width: double.infinity,
             height: 48,
             child: ElevatedButton(
               onPressed: () {
+                if (_selectedDate.isBefore(DateTime.now())) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('زمان انتخابی نمی‌تواند در گذشته باشد.')),
+                  );
+                  return;
+                }
                 HapticFeedback.mediumImpact();
                 widget.onScheduleConfirmed(_selectedDate);
                 Navigator.pop(context);
@@ -175,7 +200,7 @@ class _ScheduleTripSheetState extends State<ScheduleTripSheet> {
                 ),
               ),
               child: Text(
-                'confirm_schedule_btn'.tr(),
+                'confirm_schedule_btn'.tr().isNotEmpty ? 'confirm_schedule_btn'.tr() : 'تأیید زمان‌بندی',
                 style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
