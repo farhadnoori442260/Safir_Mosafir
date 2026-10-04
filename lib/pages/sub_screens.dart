@@ -313,9 +313,9 @@ class MessagesScreen extends StatelessWidget {
                           padding: const EdgeInsets.only(top: 4.0),
                           child: Text(
                             body,
-                            style: const TextStyle(fontSize: 12, color: Colors.black70),
+                            style: TextStyle(fontSize: 12, color: Colors.black.withOpacity(0.7)),
                           ),
-                        ),
+                       ),
                         trailing: Text(
                           time,
                           style: const TextStyle(fontSize: 10, color: Colors.grey),
