@@ -41,6 +41,14 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+
+            <!-- 🔗 لینک اختصاصی برای باز شدن برنامه راننده -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="safirdriver" android:host="open" />
+            </intent-filter>
         </activity>
 
         <!-- اکتیویتی مربوط به برش عکس -->
