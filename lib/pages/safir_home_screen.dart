@@ -104,18 +104,20 @@ class _SafirHomeScreenState extends State<SafirHomeScreen> with SingleTickerProv
     }
   }
 
-  void _navigateToService(String serviceId, String type) async {
+    void _navigateToService(String serviceId, String type) async {
     if (serviceId == 'register') {
       final Uri appUri = Uri.parse("safirdriver://open");
       final Uri storeUri = Uri.parse("https://safirapp.com/download-driver"); 
 
       try {
-        bool launched = await launchUrl(
-          appUri,
-          mode: LaunchMode.externalApplication,
-        );
+        bool isInstalled = await canLaunchUrl(appUri);
 
-        if (!launched) {
+        if (isInstalled) {
+          await launchUrl(
+            appUri,
+            mode: LaunchMode.externalNonBrowserApplication,
+          );
+        } else {
           await launchUrl(
             storeUri,
             mode: LaunchMode.externalApplication,
@@ -156,7 +158,7 @@ class _SafirHomeScreenState extends State<SafirHomeScreen> with SingleTickerProv
   Widget build(BuildContext context) {
     final bool isRTL = Directionality.of(context) == TextDirection.rtl;
 
-    final List<Map<String, dynamic>> services = [
+   final List<Map<String, dynamic>> services = [
       {
         'title': 'service_car'.tr().isEmpty ? 'سفیر' : 'service_car'.tr(),
         'subtitle': 'taxi_subtitle'.tr().isEmpty ? 'تاکسی آنلاین شهری' : 'taxi_subtitle'.tr(),
