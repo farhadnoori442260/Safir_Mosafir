@@ -1,4 +1,6 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -6,13 +8,15 @@ final Color safirBrandColor = const Color(0xFF1B7A57);
 final Color safirAccentColor = const Color(0xFF22C55E);
 
 // ----------------------------------------------------
-// ۱. صفحه تاریخچه سفرها
+// ۱. صفحه تاریخچه سفرها (متصل به Firestore)
 // ----------------------------------------------------
 class TripsScreen extends StatelessWidget {
   const TripsScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final String? currentUserId = FirebaseAuth.instance.currentUser?.uid;
+
     return DefaultTabController(
       length: 3,
       child: Scaffold(
@@ -36,14 +40,84 @@ class TripsScreen extends StatelessWidget {
             ],
           ),
         ),
-        body: TabBarView(
-          children: [
-            _buildEmptyState(context, Icons.history, "trips_history_empty_msg"),
-            _buildEmptyState(context, Icons.directions_car_filled_outlined, "no_active_trips"),
-            _buildEmptyState(context, Icons.cancel_outlined, "no_canceled_trips"),
-          ],
-        ),
+        body: currentUserId == null
+            ? _buildEmptyState(context, Icons.history, "trips_history_empty_msg")
+            : StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance.collection('rides').snapshots(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return Center(child: CircularProgressIndicator(color: safirBrandColor));
+                  }
+
+                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                    return _buildEmptyState(context, Icons.history, "trips_history_empty_msg");
+                  }
+
+                  var userRides = snapshot.data!.docs.where((doc) {
+                    var data = doc.data() as Map<String, dynamic>;
+                    String pId = data['passenger_id'] ?? data['passengerId'] ?? data['userID'] ?? '';
+                    return pId == currentUserId;
+                  }).toList();
+
+                  var completed = userRides.where((doc) {
+                    String st = (doc.data() as Map<String, dynamic>)['status']?.toString().toLowerCase() ?? '';
+                    return st == 'completed' || st == 'ended';
+                  }).toList();
+
+                  var active = userRides.where((doc) {
+                    String st = (doc.data() as Map<String, dynamic>)['status']?.toString().toLowerCase() ?? '';
+                    return st == 'searching' || st == 'accepted' || st == 'arrived' || st == 'ontrip' || st == 'on_trip';
+                  }).toList();
+
+                  var canceled = userRides.where((doc) {
+                    String st = (doc.data() as Map<String, dynamic>)['status']?.toString().toLowerCase() ?? '';
+                    return st.contains('cancel');
+                  }).toList();
+
+                  return TabBarView(
+                    children: [
+                      _buildRidesList(context, completed, "trips_history_empty_msg"),
+                      _buildRidesList(context, active, "no_active_trips"),
+                      _buildRidesList(context, canceled, "no_canceled_trips"),
+                    ],
+                  );
+                },
+              ),
       ),
+    );
+  }
+
+  Widget _buildRidesList(BuildContext context, List<QueryDocumentSnapshot> docs, String emptyMsgKey) {
+    if (docs.isEmpty) {
+      return _buildEmptyState(context, Icons.history, emptyMsgKey);
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: docs.length,
+      itemBuilder: (context, index) {
+        var data = docs[index].data() as Map<String, dynamic>;
+        String origin = data['originAddress'] ?? data['origin_address'] ?? data['pickup_address'] ?? '-';
+        String destination = data['destinationAddress'] ?? data['destination_address'] ?? data['dropoff_address'] ?? '-';
+        String fare = data['fareAmount']?.toString() ?? data['fare']?.toString() ?? '0';
+
+        return Card(
+          elevation: 0,
+          margin: const EdgeInsets.only(bottom: 12),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(color: Colors.grey.shade200),
+          ),
+          child: ListTile(
+            contentPadding: const EdgeInsets.all(16),
+            title: Text("$origin ➔ $destination", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+            subtitle: Padding(
+              padding: const EdgeInsets.only(top: 8.0),
+              child: Text("کرایه: $fare افغانی", style: TextStyle(color: safirBrandColor, fontWeight: FontWeight.bold)),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -150,13 +224,15 @@ class InviteFriendsScreen extends StatelessWidget {
 }
 
 // ----------------------------------------------------
-// ۳. صفحه پیام‌ها
+// ۳. صفحه پیام‌ها (کاملاً متصل به Firestore و پیام‌های ادمین)
 // ----------------------------------------------------
 class MessagesScreen extends StatelessWidget {
   const MessagesScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final String? currentUserId = FirebaseAuth.instance.currentUser?.uid;
+
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
@@ -168,24 +244,88 @@ class MessagesScreen extends StatelessWidget {
         foregroundColor: Colors.white,
         centerTitle: true,
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          Card(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            elevation: 0,
-            child: ListTile(
-              leading: CircleAvatar(
-                backgroundColor: safirBrandColor.withOpacity(0.1),
-                child: Icon(Icons.mark_email_read_outlined, color: safirBrandColor),
-              ),
-              title: Text("welcome_title".tr(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-              subtitle: Text("messages_desc".tr(), style: const TextStyle(fontSize: 12)),
-              trailing: Text("today".tr(), style: const TextStyle(fontSize: 10, color: Colors.grey)),
+      body: currentUserId == null
+          ? Center(child: Text("messages_desc".tr()))
+          : StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('users')
+                  .doc(currentUserId)
+                  .collection('notifications')
+                  .orderBy('timestamp', descending: true)
+                  .snapshots(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return Center(child: CircularProgressIndicator(color: safirBrandColor));
+                }
+
+                if (snapshot.hasError) {
+                  return Center(child: Text("error_occurred".tr()));
+                }
+
+                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.mark_email_read_outlined, size: 64, color: Colors.grey.shade300),
+                        const SizedBox(height: 12),
+                        Text(
+                          "هیچ پیامی دریافت نشده است",
+                          style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                var notifications = snapshot.data!.docs;
+
+                return ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: notifications.length,
+                  itemBuilder: (context, index) {
+                    var data = notifications[index].data() as Map<String, dynamic>;
+                    String title = data['title'] ?? 'اطلاعیه سفیر';
+                    String body = data['body'] ?? '';
+                    String time = '';
+
+                    if (data['timestamp'] != null && data['timestamp'] is Timestamp) {
+                      DateTime date = (data['timestamp'] as Timestamp).toDate();
+                      time = "${date.hour}:${date.minute.toString().padLeft(2, '0')}";
+                    } else {
+                      time = "today".tr();
+                    }
+
+                    return Card(
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      elevation: 0,
+                      margin: const EdgeInsets.only(bottom: 10),
+                      child: ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: safirBrandColor.withOpacity(0.1),
+                          child: Icon(Icons.notifications_active_outlined, color: safirBrandColor),
+                        ),
+                        title: Text(
+                          title,
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                        ),
+                        subtitle: Padding(
+                          padding: const EdgeInsets.only(top: 4.0),
+                          child: Text(
+                            body,
+                            style: const TextStyle(fontSize: 12, color: Colors.black70),
+                          ),
+                        ),
+                        trailing: Text(
+                          time,
+                          style: const TextStyle(fontSize: 10, color: Colors.grey),
+                        ),
+                      ),
+                    );
+                  },
+                );
+              },
             ),
-          ),
-        ],
-      ),
     );
   }
 }
