@@ -392,11 +392,13 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
   /// 🔧 بر اساس نوع سفر (باربری) یا وسیلهٔ انتخاب‌شده (موترسایکل/ماشین)
   /// مسیر فایل آیکن و شناسهٔ تصویر مربوطه را برمی‌گرداند. اگر اسم فایل‌ها
   /// در پروژه فرق دارد، فقط رشته‌های 'assets/images/...' را اینجا عوض کن.
-  ({String assetPath, String imageId}) _resolveDriverIconInfo() {
+  ({String assetPath, String imageId, double rotationOffsetDegrees})
+      _resolveDriverIconInfo() {
     if (widget.serviceType == 'cargo') {
       return (
         assetPath: 'assets/images/tracking_cargo.png',
         imageId: 'driver-icon-cargo',
+        rotationOffsetDegrees: 0,
       );
     }
 
@@ -404,13 +406,17 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
       return (
         assetPath: 'assets/images/tracking_bike.png',
         imageId: 'driver-icon-bike',
+        rotationOffsetDegrees: 0,
       );
     }
 
     // پیش‌فرض: ماشین (شامل "Car"، "Auto" و سفر بین‌شهری)
+    // 🔧 عکس ماشین برعکس آچاوره طراحی شده (جلوش رو به پایین است، نه بالا)،
+    // برای همین ۱۸۰ درجه جبران می‌کنیم.
     return (
       assetPath: 'assets/images/tracking_car.png',
       imageId: 'driver-icon-car',
+      rotationOffsetDegrees: 180,
     );
   }
 
@@ -570,6 +576,12 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
               3) {
         markerBearing = _calculateBearing(previousTarget, markerTarget);
       }
+
+      // 🔧 فایل‌های آیکن لزوماً با جلو رو به بالا (۰ درجه) طراحی نشده‌اند.
+      // این افست همون زاویه‌ای که محاسبه کردیم رو می‌چرخونه تا جلوی هر
+      // آیکن واقعاً هم‌جهت با خط/حرکت بشه. اگه بعد از این هنوز یکی از
+      // وسیله‌ها برعکس بود، فقط همین عدد رو براش عوض کن (۹۰، ۱۸۰، یا ۲۷۰).
+      markerBearing = (markerBearing + _resolveDriverIconInfo().rotationOffsetDegrees + 360) % 360;
 
       // ───── مدت انیمیشن = فاصلهٔ واقعی بین دو آپدیت ─────
       final DateTime now = DateTime.now();
