@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:easy_localization/easy_localization.dart';
+import 'package:easy_localization/easy_localization.dart' hide TextDirection;
 import 'package:shamsi_date/shamsi_date.dart';
 import 'package:safir_passengers/theme/app_colors.dart';
 
@@ -30,28 +30,34 @@ class _ScheduleTripSheetState extends State<ScheduleTripSheet> {
     _selectedTime = TimeOfDay.fromDateTime(now);
   }
 
-  // 🗓️ تبدیل تاریخ انتخابی به رشته هجری شمسی (مثلاً ۱۴۰۵/۰۷/۱۳)
-  String get _jalaliFormattedDate {
+  // 🗓️ تبدیل به نام برج‌های خورشیدی افغانستان (حمل، ثور، جوزا...)
+  String get _afghanFormattedDate {
     Jalali j = Jalali.fromDateTime(_selectedDate);
-    String month = j.month.toString().padLeft(2, '0');
-    String day = j.day.toString().padLeft(2, '0');
-    return '${j.year}/$month/$day';
+    const afghanMonths = [
+      'حمل', 'ثور', 'جوزا', 'سرطان', 'اسد', 'سنبله',
+      'میزان', 'عقرب', 'قوس', 'جدی', 'دلو', 'حوت'
+    ];
+    String monthName = afghanMonths[j.month - 1];
+    return '${j.day} $monthName ${j.year}';
   }
 
-  // ⏰ فرمت نمایش ساعت (مثلاً ۱۷:۴۶)
+  // ⏰ فرمت نمایش ساعت
   String get _formattedTime {
     final hour = _selectedTime.hour.toString().padLeft(2, '0');
     final minute = _selectedTime.minute.toString().padLeft(2, '0');
     return '$hour:$minute';
   }
 
+  // 📅 تقویم با لوکال افغانستان (fa_AF) جهت نمایش ماه‌های حمل، ثور و...
   Future<void> _pickDate() async {
     HapticFeedback.lightImpact();
+    
     final picked = await showDatePicker(
       context: context,
       initialDate: _selectedDate,
       firstDate: DateTime.now(),
       lastDate: DateTime.now().add(const Duration(days: 30)),
+      locale: const Locale('fa', 'AF'), // 🇦🇫 تنظیم لوکال به افغانستان
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
@@ -61,10 +67,14 @@ class _ScheduleTripSheetState extends State<ScheduleTripSheet> {
               onSurface: AppColors.textPrimary,
             ),
           ),
-          child: child!,
+          child: Directionality(
+            textDirection: TextDirection.rtl,
+            child: child!,
+          ),
         );
       },
     );
+
     if (picked != null) {
       setState(() {
         _selectedDate = DateTime(
@@ -154,11 +164,11 @@ class _ScheduleTripSheetState extends State<ScheduleTripSheet> {
           const SizedBox(height: 16),
           Row(
             children: [
-              // کارت انتخاب تاریخ هجری شمسی
+              // کارت انتخاب تاریخ
               Expanded(
                 child: _buildPickerCard(
                   title: 'select_date_title'.tr().isNotEmpty ? 'select_date_title'.tr() : 'انتخاب تاریخ',
-                  value: _jalaliFormattedDate,
+                  value: _afghanFormattedDate,
                   icon: Icons.calendar_today_outlined,
                   onTap: _pickDate,
                 ),
