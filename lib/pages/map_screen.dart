@@ -411,12 +411,13 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
     }
 
     // پیش‌فرض: ماشین (شامل "Car"، "Auto" و سفر بین‌شهری)
-    // 🔧 عکس ماشین برعکس آچاوره طراحی شده (جلوش رو به پایین است، نه بالا)،
-    // برای همین ۱۸۰ درجه جبران می‌کنیم.
+    // 🔧 اصلاح: عکس ماشین نیازی به جبران زاویه نداشت؛ افست ۱۸۰ قبلی اشتباه
+    // بود (بر اساس یک مقایسهٔ گمراه‌کننده، چون آن‌موقع فایل موترسایکل
+    // وجود نداشت و هر دو حالت در واقع همین عکس ماشین بودند).
     return (
       assetPath: 'assets/images/tracking_car.png',
       imageId: 'driver-icon-car',
-      rotationOffsetDegrees: 180,
+      rotationOffsetDegrees: 0,
     );
   }
 
@@ -453,9 +454,42 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
         await _mapController!.addImage(info.imageId, iconBytes);
         _addedDriverIconIds.add(info.imageId);
         _driverIconImageIdLoaded = info.imageId;
+        return;
       }
+
+      // 🔧 فایل مورد نظر (مثلاً tracking_bike.png) پیدا نشد. به‌جای این‌که
+      // شناسهٔ قبلی (و احتمالاً نامرتبط) بماند، صریحاً برمی‌گردیم به آیکن
+      // ماشین — که مطمئنیم وجود دارد — تا زاویهٔ چرخش هم با چیزی که واقعاً
+      // روی نقشه نشان داده می‌شود هماهنگ بماند.
+      debugPrint(
+        '⚠️ آیکن «${info.assetPath}» پیدا نشد؛ موقتاً از آیکن ماشین استفاده می‌شود.',
+      );
+
+      if (!_addedDriverIconIds.contains('driver-icon-car')) {
+        final Uint8List? carBytes =
+            await _loadDriverIconBytes('assets/images/tracking_car.png');
+        if (carBytes != null) {
+          await _mapController!.addImage('driver-icon-car', carBytes);
+          _addedDriverIconIds.add('driver-icon-car');
+        }
+      }
+      _driverIconImageIdLoaded = 'driver-icon-car';
     } catch (e) {
       debugPrint('Error preparing driver icon: $e');
+    }
+  }
+
+  /// 🔧 افست چرخش را بر اساس آیکنی که *واقعاً* روی نقشه نشان داده می‌شود
+  /// برمی‌گرداند (نه آن‌چه که فقط در تئوری باید نشان داده شود)، تا اگر
+  /// آیکن مدنظر لود نشده و به ماشین برگشتیم، زاویه هم با آن هماهنگ شود.
+  double _currentDriverIconRotationOffset() {
+    // هر سه آیکن (ماشین/موترسایکل/باربری) بدون نیاز به جبران، درست می‌ایستند.
+    switch (_driverIconImageIdLoaded) {
+      case 'driver-icon-bike':
+      case 'driver-icon-cargo':
+      case 'driver-icon-car':
+      default:
+        return 0;
     }
   }
 
@@ -581,7 +615,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
       // این افست همون زاویه‌ای که محاسبه کردیم رو می‌چرخونه تا جلوی هر
       // آیکن واقعاً هم‌جهت با خط/حرکت بشه. اگه بعد از این هنوز یکی از
       // وسیله‌ها برعکس بود، فقط همین عدد رو براش عوض کن (۹۰، ۱۸۰، یا ۲۷۰).
-      markerBearing = (markerBearing + _resolveDriverIconInfo().rotationOffsetDegrees + 360) % 360;
+      markerBearing = (markerBearing + _currentDriverIconRotationOffset() + 360) % 360;
 
       // ───── مدت انیمیشن = فاصلهٔ واقعی بین دو آپدیت ─────
       final DateTime now = DateTime.now();
@@ -1208,22 +1242,23 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
       selectedVehicle: selectedVehicle,
       customOrigin: originLatLng,
       customDestination: destLatLng,
-      onRouteFetched: (points, fare, durationText, arrivalTime) async {
+      onRouteFetched: (points, fare, durationText, arrivalTime, distanceKm) async {
         if (mounted) {
-          double totalMeters = 0.0;
-          for (int i = 0; i < points.length - 1; i++) {
-            totalMeters += Geolocator.distanceBetween(
-              points[i].latitude,
-              points[i].longitude,
-              points[i + 1].latitude,
-              points[i + 1].longitude,
-            );
-          }
-
           setState(() {
             _routePolylinePoints = points;
-            _tripDistanceInKm = totalMeters / 1000.0;
-            actualFareAmount = fare;
+            // 🔧 FIX: به‌جای جمع‌زدن مجدد نقاط polyline (که با فاصلهٔ واقعی
+            // OSRM فرق می‌کرد)، مستقیماً همان عددی که OSRM از روی مسیر
+            // واقعی جاده حساب کرده استفاده می‌شود — همانی که برای کرایه
+            // هم استفاده می‌شود، پس این دو دیگر با هم ناهماهنگ نیستند.
+            _tripDistanceInKm = distanceKm;
+            // 🔧 FIX: برای باربری، قیمت باید از فرمول مخصوص CargoSheets
+            // (بر اساس نوع ماشین انتخاب‌شده) بیاد، نه از کرایهٔ عمومی تاکسی
+            // که _fetchRoute برمی‌گرداند — وگرنه عددی که روی صفحه می‌بینی
+            // با عددی که واقعاً ثبت می‌شود یکی نیست.
+            actualFareAmount = widget.serviceType == 'cargo'
+                ? CargoSheets.calculateFareForVehicle(
+                    _cargoSelectedVehicle, _tripDistanceInKm)
+                : fare;
             _tripDurationText = durationText;
             _estimatedArrivalTime = arrivalTime;
           });
@@ -1932,7 +1967,16 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
                       distanceInKm: _tripDistanceInKm,
                       selectedVehicleType: _cargoSelectedVehicle,
                       onVehicleSelected: (vehicleId) {
-                        setState(() => _cargoSelectedVehicle = vehicleId);
+                        setState(() {
+                          _cargoSelectedVehicle = vehicleId;
+                          // 🔧 FIX: همزمان با تغییر ماشین، قیمت واقعی هم
+                          // دقیقاً با همون چیزی که روی صفحه نشان داده می‌شود
+                          // هماهنگ می‌شود.
+                          actualFareAmount = CargoSheets.calculateFareForVehicle(
+                            vehicleId,
+                            _tripDistanceInKm,
+                          );
+                        });
                       },
                       paymentPayer: _cargoPaymentPayer,
                       onPayerChanged: (payer) {
