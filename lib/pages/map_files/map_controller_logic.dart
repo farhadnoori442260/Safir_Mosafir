@@ -17,11 +17,16 @@ class MapControllerLogic {
     required String selectedVehicle,
     LatLng? customOrigin,
     LatLng? customDestination,
+    // 🔧 FIX: مسافت دقیقی که خودِ OSRM برای این مسیر محاسبه کرده هم به
+    // تماس‌گیرنده پاس داده می‌شود، تا دیگر لازم نباشد با جمع کردن فاصلهٔ
+    // تک‌تک نقاط پالی‌لاین (که کمی نادقیق‌تر از عدد خودِ OSRM است) دوباره
+    // بازسازی شود.
     required Function(
-      List<LatLng> points, 
-      double fare, 
-      String durationText, 
-      String arrivalTime
+      List<LatLng> points,
+      double fare,
+      String durationText,
+      String arrivalTime,
+      double distanceInKm,
     ) onRouteFetched,
   }) async {
     try {
@@ -95,8 +100,8 @@ class MapControllerLogic {
               break;
           }
 
-          // 📤 تحویل خروجی به UI
-          onRouteFetched(points, actualFare, durationText, arrivalTime);
+          // 📤 تحویل خروجی به UI — همراه با مسافت دقیق خودِ OSRM
+          onRouteFetched(points, actualFare, durationText, arrivalTime, distanceInKm);
         }
       } else {
         debugPrint("OSRM HTTP Failed with status: ${response.statusCode}");
@@ -109,6 +114,9 @@ class MapControllerLogic {
   }
 
   /// 🚀 تابع ارسال درخواست سفر به Firestore به همراه ثبت فیلدهای زمان
+  /// ⚠️ توجه: این تابع در حال حاضر در جریان واقعی اپ (map_screen.dart →
+  /// startTrip) صدا زده نمی‌شود؛ آن تابع مستقیماً سند rides را خودش
+  /// می‌سازد. این متد اینجا نگه داشته شده ولی روی رفتار فعلی اپ اثری ندارد.
   static DocumentReference makeTripRequest({
     required BuildContext context,
     required double actualFareAmount,
