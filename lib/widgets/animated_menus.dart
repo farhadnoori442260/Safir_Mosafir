@@ -1,36 +1,37 @@
-import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
-import 'package:firebase_database/firebase_database.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:easy_localization/easy_localization.dart' hide TextDirection;
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 
-import 'package:safir_passengers/pages/settings_screen.dart';
-import 'package:safir_passengers/pages/user_profile_screen.dart';
-import 'package:safir_passengers/pages/sub_screens.dart';
 import 'package:safir_passengers/global/global_var.dart';
+import 'package:safir_passengers/pages/settings_screen.dart';
+import 'package:safir_passengers/pages/sub_screens.dart';
+import 'package:safir_passengers/pages/user_profile_screen.dart';
 
 const Color primaryAccent = Color(0xFF1B7A57);
 const Color darkTextColor = Color(0xFF0F172A);
-const Color borderLightColor = Color(0xFFF1F5F9);
-const Color appBarBorderColor = Color(0xFFCBD5E1); // 🟢 خط جداکننده پررنگ‌تر برای AppBar
+const Color menuIconBackground = Color(0xFFF1F5F9);
 
 Future<void> _makeSupportCall(BuildContext context) async {
   String phone = '+93700000000';
 
   try {
-    final DatabaseReference adminRef = FirebaseDatabase.instance
-        .ref()
-        .child('admin_settings')
-        .child('support_phone');
+    final DocumentSnapshot<Map<String, dynamic>> snapshot =
+        await FirebaseFirestore.instance
+            .collection('admin_settings')
+            .doc('support')
+            .get();
 
-    final DataSnapshot snapshot = await adminRef.get();
+    final Map<String, dynamic>? data = snapshot.data();
+    final String? firestorePhone = data?['support_phone']?.toString();
 
-    if (snapshot.exists && snapshot.value != null) {
-      phone = snapshot.value.toString();
+    if (firestorePhone != null && firestorePhone.trim().isNotEmpty) {
+      phone = firestorePhone.trim();
     }
   } catch (e) {
-    debugPrint('خطا در دریافت شماره پشتیبانی: $e');
+    debugPrint('خطا در دریافت شماره پشتیبانی از Firestore: $e');
   }
 
   final Uri launchUri = Uri(
@@ -45,7 +46,10 @@ Future<void> _makeSupportCall(BuildContext context) async {
       SnackBar(
         content: Text(
           'can_not_make_call'.tr(args: [phone]),
-          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w400),
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w400,
+          ),
         ),
       ),
     );
@@ -102,7 +106,7 @@ void _showDiscountModal(BuildContext context) {
                       'discount_code'.tr(),
                       style: const TextStyle(
                         fontSize: 14,
-                        fontWeight: FontWeight.w600, // 🟢 تغییر به w600
+                        fontWeight: FontWeight.w600,
                         color: darkTextColor,
                       ),
                     ),
@@ -126,11 +130,17 @@ void _showDiscountModal(BuildContext context) {
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: primaryAccent, width: 1.5),
+                      borderSide: const BorderSide(
+                        color: primaryAccent,
+                        width: 1.5,
+                      ),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: borderLightColor, width: 1.5),
+                      borderSide: const BorderSide(
+                        color: Color(0xFFE2E8F0),
+                        width: 1,
+                      ),
                     ),
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: 16,
@@ -146,6 +156,7 @@ void _showDiscountModal(BuildContext context) {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: primaryAccent,
                       elevation: 0,
+                      shadowColor: Colors.transparent,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -153,7 +164,8 @@ void _showDiscountModal(BuildContext context) {
                     onPressed: isLoading
                         ? null
                         : () async {
-                            final String code = discountController.text.trim();
+                            final String code =
+                                discountController.text.trim().toUpperCase();
 
                             if (code.isEmpty) return;
 
@@ -162,12 +174,11 @@ void _showDiscountModal(BuildContext context) {
                             });
 
                             try {
-                              final DatabaseReference couponRef = FirebaseDatabase.instance
-                                  .ref()
-                                  .child('coupons')
-                                  .child(code);
-
-                              final DataSnapshot snapshot = await couponRef.get();
+                              final DocumentSnapshot<Map<String, dynamic>>
+                                  snapshot = await FirebaseFirestore.instance
+                                      .collection('coupons')
+                                      .doc(code)
+                                      .get();
 
                               if (!context.mounted) return;
 
@@ -175,14 +186,23 @@ void _showDiscountModal(BuildContext context) {
                                 isLoading = false;
                               });
 
-                              if (snapshot.exists) {
+                              final Map<String, dynamic>? couponData =
+                                  snapshot.data();
+
+                              final bool isActive =
+                                  couponData?['isActive'] != false;
+
+                              if (snapshot.exists && isActive) {
                                 Navigator.pop(sheetContext);
 
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
                                     content: Text(
                                       'discount_applied_success'.tr(),
-                                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w500,
+                                      ),
                                     ),
                                     backgroundColor: const Color(0xFF22C55E),
                                   ),
@@ -192,7 +212,10 @@ void _showDiscountModal(BuildContext context) {
                                   SnackBar(
                                     content: Text(
                                       'discount_invalid'.tr(),
-                                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w500,
+                                      ),
                                     ),
                                     backgroundColor: Colors.red,
                                   ),
@@ -208,8 +231,13 @@ void _showDiscountModal(BuildContext context) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
                                   content: Text(
-                                    'error_occurred'.tr(args: [e.toString()]),
-                                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                                    'error_occurred'.tr(
+                                      args: [e.toString()],
+                                    ),
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w500,
+                                    ),
                                   ),
                                 ),
                               );
@@ -229,7 +257,7 @@ void _showDiscountModal(BuildContext context) {
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 14,
-                              fontWeight: FontWeight.w600, // 🟢 تغییر به w600
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                   ),
@@ -252,6 +280,8 @@ void _showAboutAppDialog(BuildContext context) {
         child: AlertDialog(
           backgroundColor: Colors.white,
           surfaceTintColor: Colors.white,
+          elevation: 0,
+          shadowColor: Colors.transparent,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
           ),
@@ -266,7 +296,7 @@ void _showAboutAppDialog(BuildContext context) {
                 'about_app'.tr(),
                 style: const TextStyle(
                   fontSize: 14,
-                  fontWeight: FontWeight.w600, // 🟢 تغییر به w600
+                  fontWeight: FontWeight.w600,
                   color: darkTextColor,
                 ),
               ),
@@ -289,7 +319,7 @@ void _showAboutAppDialog(BuildContext context) {
                 style: const TextStyle(
                   color: primaryAccent,
                   fontSize: 14,
-                  fontWeight: FontWeight.w600, // 🟢 تغییر به w600
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ),
@@ -319,6 +349,7 @@ class _ProfileAnimatedMenuState extends State<ProfileAnimatedMenu> {
     if (userName.trim().isNotEmpty) {
       return userName.trim();
     }
+
     return 'user_default'.tr();
   }
 
@@ -326,6 +357,7 @@ class _ProfileAnimatedMenuState extends State<ProfileAnimatedMenu> {
     if (userPhone.trim().isNotEmpty) {
       return userPhone.trim();
     }
+
     return '09907027123';
   }
 
@@ -338,6 +370,7 @@ class _ProfileAnimatedMenuState extends State<ProfileAnimatedMenu> {
         surfaceTintColor: Colors.white,
         elevation: 0,
         scrolledUnderElevation: 0,
+        shadowColor: Colors.transparent,
         automaticallyImplyLeading: false,
         leading: IconButton(
           tooltip: 'back'.tr(),
@@ -347,10 +380,6 @@ class _ProfileAnimatedMenuState extends State<ProfileAnimatedMenu> {
             size: 20,
           ),
           onPressed: () => Navigator.pop(context),
-        ),
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(1),
-          child: Container(color: appBarBorderColor, height: 1), // 🟢 خط جداکننده پررنگ‌تر
         ),
       ),
       body: SafeArea(
@@ -436,104 +465,73 @@ class _ProfileAnimatedMenuState extends State<ProfileAnimatedMenu> {
   }
 
   Widget _buildProfileHeader() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: borderLightColor,
-          width: 1.5,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.02),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+        onTap: () async {
+          await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const UserProfileScreen(),
+            ),
+          );
+
+          if (mounted) {
+            setState(() {});
+          }
+        },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 18,
+            vertical: 20,
           ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(16),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(16),
-          onTap: () async {
-            await Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => const UserProfileScreen(),
-              ),
-            );
-            if (mounted) {
-              setState(() {});
-            }
-          },
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 20),
-            child: Row(
-              children: [
-                Container(
+          child: Row(
+            children: [
+              ClipOval(
+                child: Image.asset(
+                  'assets/images/default_profile.png',
                   width: 60,
                   height: 60,
-                  padding: const EdgeInsets.all(3),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: borderLightColor,
-                      width: 1.5,
+                  fit: BoxFit.cover,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      _displayName(),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: darkTextColor,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
-                        blurRadius: 6,
-                        offset: const Offset(0, 2),
+                    const SizedBox(height: 6),
+                    Text(
+                      _displayPhone(),
+                      textDirection: TextDirection.ltr,
+                      style: const TextStyle(
+                        color: Color(0xFF64748B),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w400,
                       ),
-                    ],
-                  ),
-                  child: ClipOval(
-                    child: Image.asset(
-                      'assets/images/default_profile.png',
-                      fit: BoxFit.cover,
                     ),
-                  ),
+                  ],
                 ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        _displayName(),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: darkTextColor,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600, // 🟢 تغییر به w600
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        _displayPhone(),
-                        textDirection: TextDirection.ltr,
-                        style: const TextStyle(
-                          color: Color(0xFF64748B),
-                          fontSize: 14,
-                          fontWeight: FontWeight.w400,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const Icon(
-                  Icons.chevron_left_rounded,
-                  color: Color(0xFF94A3B8),
-                  size: 24,
-                ),
-              ],
-            ),
+              ),
+              const Icon(
+                Icons.chevron_left_rounded,
+                color: Color(0xFF94A3B8),
+                size: 24,
+              ),
+            ],
           ),
         ),
       ),
@@ -551,7 +549,7 @@ class _ProfileAnimatedMenuState extends State<ProfileAnimatedMenu> {
         style: const TextStyle(
           color: darkTextColor,
           fontSize: 14,
-          fontWeight: FontWeight.w600, // 🟢 تغییر به w600
+          fontWeight: FontWeight.w600,
         ),
       ),
     );
@@ -565,86 +563,69 @@ class _ProfileAnimatedMenuState extends State<ProfileAnimatedMenu> {
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
+      child: Material(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          onTap: onTap,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: borderLightColor,
-            width: 1.5,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.02),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
+          splashColor: Colors.black12,
+          highlightColor: Colors.black.withOpacity(0.04),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 13,
             ),
-          ],
-        ),
-        child: Material(
-          color: Colors.transparent,
-          borderRadius: BorderRadius.circular(16),
-          child: InkWell(
-            onTap: onTap,
-            borderRadius: BorderRadius.circular(16),
-            splashColor: Colors.black12,
-            highlightColor: Colors.black.withOpacity(0.04),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 14,
-                vertical: 13,
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF1F5F9),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(
-                      icon,
-                      color: darkTextColor,
-                      size: 22,
-                    ),
+            child: Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: menuIconBackground,
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  const SizedBox(width: 13),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: darkTextColor,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600, // 🟢 تغییر به w600
-                          ),
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          subtitle,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Color(0xFF64748B),
-                            fontSize: 14,
-                            fontWeight: FontWeight.w400,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const Icon(
-                    Icons.chevron_left_rounded,
-                    color: Color(0xFF94A3B8),
+                  child: Icon(
+                    icon,
+                    color: darkTextColor,
                     size: 22,
                   ),
-                ],
-              ),
+                ),
+                const SizedBox(width: 13),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: darkTextColor,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        subtitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Color(0xFF64748B),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w400,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(
+                  Icons.chevron_left_rounded,
+                  color: Color(0xFF94A3B8),
+                  size: 22,
+                ),
+              ],
             ),
           ),
         ),
