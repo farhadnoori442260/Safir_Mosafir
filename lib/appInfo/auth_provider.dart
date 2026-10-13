@@ -1,32 +1,30 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_database/firebase_database.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
-// ایمپورت‌های پروژه سفیر مسافر
-import 'package:safir_passengers/authentication/register_screen.dart';
-import 'package:safir_passengers/methods/common_methods.dart';
 import 'package:safir_passengers/authentication/otp_screen.dart';
-import 'package:safir_passengers/models/user_model.dart';
+import 'package:safir_passengers/authentication/register_screen.dart';
 import 'package:safir_passengers/global/global_var.dart';
+import 'package:safir_passengers/methods/common_methods.dart';
+import 'package:safir_passengers/models/user_model.dart';
 
 class AuthenticationProvider extends ChangeNotifier {
-  CommonMethods commonMethods = CommonMethods();
+  final CommonMethods commonMethods = CommonMethods();
+
   bool _isLoading = false;
   bool _isSuccessful = false;
   bool _isGoogleSignedIn = false;
   bool _isGoogleSignInLoading = false;
+
   String? _uid;
   String? _phoneNumber;
-
   UserModel? _userModel;
 
   UserModel? get userModel => _userModel;
-
   String? get uid => _uid;
-  String get phoneNumber => _phoneNumber ?? "";
+  String get phoneNumber => _phoneNumber ?? '';
   bool get isSuccessful => _isSuccessful;
   bool get isLoading => _isLoading;
   bool get isGoogleSignedIn => _isGoogleSignedIn;
@@ -35,8 +33,10 @@ class AuthenticationProvider extends ChangeNotifier {
   final FirebaseAuth firebaseAuth = FirebaseAuth.instance;
   final FirebaseFirestore firebaseFirestore = FirebaseFirestore.instance;
   final FirebaseStorage firebaseStorage = FirebaseStorage.instance;
-  final FirebaseDatabase firebaseDatabase = FirebaseDatabase.instance; 
-  final GoogleSignIn googleSignIn = GoogleSignIn(); 
+  final GoogleSignIn googleSignIn = GoogleSignIn();
+
+  CollectionReference<Map<String, dynamic>> get _usersCollection =>
+      firebaseFirestore.collection('users');
 
   void startLoading() {
     _isLoading = true;
@@ -58,30 +58,47 @@ class AuthenticationProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ورود مستقیم کاربران سفیر با شماره موبایل
   void signInWithPhone({
     required BuildContext context,
     required String phoneNumber,
   }) async {
-    startLoading(); 
+    startLoading();
 
     try {
       await firebaseAuth.verifyPhoneNumber(
         phoneNumber: phoneNumber,
         verificationCompleted: (PhoneAuthCredential credential) async {
-          await firebaseAuth.signInWithCredential(credential);
-          stopLoading(); 
+          try {
+            final UserCredential result =
+                await firebaseAuth.signInWithCredential(credential);
+
+            _uid = result.user?.uid;
+            _phoneNumber = phoneNumber;
+            stopLoading();
+            notifyListeners();
+          } on FirebaseAuthException catch (e) {
+            stopLoading();
+            commonMethods.displaySnackBar(
+              e.message ?? e.toString(),
+              context,
+            );
+          }
         },
         verificationFailed: (FirebaseAuthException e) {
-          stopLoading(); 
-          commonMethods.displaySnackBar(e.message ?? e.toString(), context);
+          stopLoading();
+          commonMethods.displaySnackBar(
+            e.message ?? e.toString(),
+            context,
+          );
         },
         codeSent: (String verificationId, int? resendToken) {
-          stopLoading(); 
+          stopLoading();
           _phoneNumber = phoneNumber;
           notifyListeners();
-          
-          Future.delayed(const Duration(seconds: 1)).whenComplete(() {
+
+          Future.delayed(const Duration(seconds: 1), () {
+            if (!context.mounted) return;
+
             Navigator.push(
               context,
               MaterialPageRoute(
@@ -93,21 +110,23 @@ class AuthenticationProvider extends ChangeNotifier {
           });
         },
         codeAutoRetrievalTimeout: (String verificationId) {
-          stopLoading(); 
+          stopLoading();
         },
       );
     } catch (e) {
-      stopLoading(); 
+      stopLoading();
       commonMethods.displaySnackBar(e.toString(), context);
     }
   }
 
   Future<bool> _checkPhoneNumberExists(String phoneNumber) async {
-    DatabaseReference usersRef = FirebaseDatabase.instance.ref().child("users");
-    DatabaseEvent snapshot =
-        await usersRef.orderByChild("phone").equalTo(phoneNumber).once();
+    final QuerySnapshot<Map<String, dynamic>> snapshot =
+        await _usersCollection
+            .where('phone', isEqualTo: phoneNumber.trim())
+            .limit(1)
+            .get();
 
-    return snapshot.snapshot.exists;
+    return snapshot.docs.isNotEmpty;
   }
 
   void verifyOTP({
@@ -116,254 +135,315 @@ class AuthenticationProvider extends ChangeNotifier {
     required String smsCode,
     required Function onSuccess,
   }) async {
-    _isLoading = true;
-    notifyListeners();
+    startLoading();
 
     try {
-      PhoneAuthCredential phoneAuthCredential = PhoneAuthProvider.credential(
+      final PhoneAuthCredential phoneAuthCredential =
+          PhoneAuthProvider.credential(
         verificationId: verificationId,
         smsCode: smsCode,
       );
 
-      User? user =
-          (await firebaseAuth.signInWithCredential(phoneAuthCredential)).user;
+      final UserCredential result =
+          await firebaseAuth.signInWithCredential(phoneAuthCredential);
+
+      final User? user = result.user;
 
       if (user != null) {
         _uid = user.uid;
+        _phoneNumber = user.phoneNumber ?? _phoneNumber;
+        _isSuccessful = true;
+
         notifyListeners();
         onSuccess();
       }
-
-      _isLoading = false;
-      _isSuccessful = true;
-      notifyListeners();
     } on FirebaseException catch (e) {
-      _isLoading = false;
-      notifyListeners();
-      commonMethods.displaySnackBar(e.message ?? e.toString(), context);
+      commonMethods.displaySnackBar(
+        e.message ?? e.toString(),
+        context,
+      );
+    } finally {
+      stopLoading();
     }
   }
 
-  // ثبت‌نام و ذخیره اطلاعات اولیه مسافر در ریل‌تایم دیتابیس فایربیس
-  void saveUserDataToFirebase({
+  // ذخیره اطلاعات اولیه مسافر فقط در Cloud Firestore
+  Future<void> saveUserDataToFirebase({
     required BuildContext context,
     required UserModel userModel,
     required VoidCallback onSuccess,
   }) async {
     startLoading();
-    notifyListeners();
 
     try {
-      DatabaseReference usersRef =
-          firebaseDatabase.ref().child("users").child(userModel.id);
-      await usersRef.set(userModel.toMap()).then((value) {
-        stopLoading();
-        notifyListeners();
+      final User? currentUser = firebaseAuth.currentUser;
 
-        onSuccess();
-      });
-    } on FirebaseException catch (e) {
-      stopLoading();
+      if (currentUser == null) {
+        throw FirebaseAuthException(
+          code: 'user-not-signed-in',
+          message: 'ابتدا وارد حساب کاربری شوید.',
+        );
+      }
+
+      final String userId = currentUser.uid;
+
+      final Map<String, dynamic> userData = {
+        ...userModel.toMap(),
+        'id': userId,
+        'email': userModel.email.isNotEmpty
+            ? userModel.email
+            : (currentUser.email ?? ''),
+        'phone': userModel.phone.isNotEmpty
+            ? userModel.phone
+            : (currentUser.phoneNumber ?? _phoneNumber ?? ''),
+        'role': 'passenger',
+        'blockStatus': 'no',
+        'isBlocked': false,
+        'isApproved': true,
+        'status': 'active',
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+
+      await _usersCollection.doc(userId).set(
+            userData,
+            SetOptions(merge: true),
+          );
+
+      _uid = userId;
+      _userModel = UserModel(
+        id: userId,
+        name: userData['name']?.toString() ?? '',
+        email: userData['email']?.toString() ?? '',
+        phone: userData['phone']?.toString() ?? '',
+        blockStatus: userData['blockStatus']?.toString() ?? 'no',
+      );
+
       notifyListeners();
-      commonMethods.displaySnackBar(e.message ?? e.toString(), context);
+      onSuccess();
+    } on FirebaseException catch (e) {
+      commonMethods.displaySnackBar(
+        e.message ?? e.toString(),
+        context,
+      );
+    } catch (e) {
+      commonMethods.displaySnackBar(e.toString(), context);
+    } finally {
+      stopLoading();
     }
   }
 
   Future<bool> checkUserExistByEmail(String email) async {
-    DatabaseReference usersRef = firebaseDatabase.ref().child("users");
-    DatabaseEvent snapshot =
-        await usersRef.orderByChild("email").equalTo(email).once();
+    if (email.trim().isEmpty) return false;
 
-    return snapshot.snapshot.exists;
+    final QuerySnapshot<Map<String, dynamic>> snapshot =
+        await _usersCollection
+            .where('email', isEqualTo: email.trim())
+            .limit(1)
+            .get();
+
+    return snapshot.docs.isNotEmpty;
   }
 
   Future<bool> checkUserExistByPhone(String phoneNumber) async {
-    DatabaseReference usersRef = firebaseDatabase.ref().child("users");
-    DatabaseEvent snapshot = await usersRef
-        .orderByChild("phone")
-        .equalTo(phoneNumber.toString().trim())
-        .once();
+    if (phoneNumber.trim().isEmpty) return false;
 
-    return snapshot.snapshot.exists;
+    final QuerySnapshot<Map<String, dynamic>> snapshot =
+        await _usersCollection
+            .where('phone', isEqualTo: phoneNumber.trim())
+            .limit(1)
+            .get();
+
+    return snapshot.docs.isNotEmpty;
   }
 
   Future<bool> checkUserExistById() async {
-    if (FirebaseAuth.instance.currentUser == null) return false;
-    
-    DatabaseReference usersRef = firebaseDatabase.ref().child("users");
-    DatabaseEvent snapshot = await usersRef
-        .orderByChild("id") 
-        .equalTo(FirebaseAuth.instance.currentUser!.uid)
-        .once();
+    final User? currentUser = firebaseAuth.currentUser;
 
-    return snapshot.snapshot.exists;
+    if (currentUser == null) return false;
+
+    final DocumentSnapshot<Map<String, dynamic>> snapshot =
+        await _usersCollection.doc(currentUser.uid).get();
+
+    return snapshot.exists;
   }
 
   Future<void> getUserDataFromFirebaseDatabase() async {
     try {
-      if (firebaseAuth.currentUser == null) return;
+      final User? currentUser = firebaseAuth.currentUser;
 
-      DatabaseReference usersRef = firebaseDatabase
-          .ref()
-          .child("users")
-          .child(firebaseAuth.currentUser!.uid);
+      if (currentUser == null) return;
 
-      DataSnapshot snapshot = await usersRef.get();
+      final DocumentSnapshot<Map<String, dynamic>> snapshot =
+          await _usersCollection.doc(currentUser.uid).get();
 
-      if (snapshot.exists) {
-        Map<dynamic, dynamic> userData =
-            snapshot.value as Map<dynamic, dynamic>;
-
-        _userModel = UserModel(
-          id: userData['id'] ?? '',
-          name: userData['name'] ?? '',
-          email: userData['email'] ?? '',
-          phone: userData['phone'] ?? '',
-          blockStatus: userData['blockStatus'] ?? 'no',
-        );
-
-        _uid = _userModel!.id;
-        notifyListeners(); 
-      } else {
-        debugPrint("User data not found.");
+      if (!snapshot.exists || snapshot.data() == null) {
+        debugPrint('User data not found in Firestore.');
+        return;
       }
+
+      final Map<String, dynamic> userData = snapshot.data()!;
+
+      _userModel = UserModel(
+        id: userData['id']?.toString() ?? currentUser.uid,
+        name: userData['name']?.toString() ?? '',
+        email: userData['email']?.toString() ?? '',
+        phone: userData['phone']?.toString() ?? '',
+        blockStatus: userData['blockStatus']?.toString() ?? 'no',
+      );
+
+      _uid = _userModel!.id;
+      notifyListeners();
     } catch (e) {
-      debugPrint("An error occurred while fetching user data: $e");
+      debugPrint('Error while fetching user data from Firestore: $e');
     }
   }
 
-  // بررسی وضعیت مسدود بودن کاربر سفیر
   Future<bool> checkIfUserIsBlocked() async {
     try {
-      if (firebaseAuth.currentUser == null) return false;
+      final User? currentUser = firebaseAuth.currentUser;
 
-      DatabaseReference driverRef = firebaseDatabase
-          .ref()
-          .child("users")
-          .child(firebaseAuth.currentUser!.uid);
+      if (currentUser == null) return false;
 
-      DataSnapshot snapshot = await driverRef.get();
+      final DocumentSnapshot<Map<String, dynamic>> snapshot =
+          await _usersCollection.doc(currentUser.uid).get();
 
-      if (snapshot.exists && snapshot.value != null) {
-        Map driverData = snapshot.value as Map;
-        String blockStatus = driverData["blockStatus"] ?? 'no';
-
-        if (blockStatus == 'yes') {
-          await firebaseAuth.signOut();
-          await googleSignIn.signOut();
-
-          _uid = null;
-          _isGoogleSignedIn = false;
-          notifyListeners();
-          return true;
-        } else {
-          return false;
-        }
-      } else {
-        return false; 
+      if (!snapshot.exists || snapshot.data() == null) {
+        return false;
       }
+
+      final Map<String, dynamic> userData = snapshot.data()!;
+
+      final String blockStatus =
+          userData['blockStatus']?.toString().toLowerCase() ?? 'no';
+
+      final bool isBlockedFromAdmin = userData['isBlocked'] == true;
+
+      final bool isBlocked =
+          blockStatus == 'yes' || blockStatus == 'blocked' || isBlockedFromAdmin;
+
+      if (!isBlocked) return false;
+
+      await firebaseAuth.signOut();
+      await googleSignIn.signOut();
+
+      _uid = null;
+      _userModel = null;
+      _isGoogleSignedIn = false;
+
+      notifyListeners();
+      return true;
     } catch (e) {
-      debugPrint("An error occurred while checking block status: $e");
-      return false; 
+      debugPrint('Error while checking user block status: $e');
+      return false;
     }
   }
 
   Future<bool> checkUserFieldsFilled() async {
     try {
-      if (firebaseAuth.currentUser == null) return false;
+      final User? currentUser = firebaseAuth.currentUser;
 
-      DatabaseReference driverRef = firebaseDatabase
-          .ref()
-          .child("users")
-          .child(firebaseAuth.currentUser!.uid);
+      if (currentUser == null) return false;
 
-      DataSnapshot snapshot = await driverRef.get();
+      final DocumentSnapshot<Map<String, dynamic>> snapshot =
+          await _usersCollection.doc(currentUser.uid).get();
 
-      if (snapshot.exists && snapshot.value != null) {
-        Map userData = snapshot.value as Map;
-
-        String id = userData["id"] ?? '';
-        String name = userData["name"] ?? '';
-        String email = userData["email"] ?? '';
-        String phone = userData["phone"] ?? '';
-
-        if (id.isEmpty || name.isEmpty || email.isEmpty || phone.isEmpty) {
-          return false; 
-        } else {
-          return true; 
-        }
-      } else {
+      if (!snapshot.exists || snapshot.data() == null) {
         return false;
       }
+
+      final Map<String, dynamic> userData = snapshot.data()!;
+
+      final String id = userData['id']?.toString() ?? '';
+      final String name = userData['name']?.toString() ?? '';
+      final String email = userData['email']?.toString() ?? '';
+      final String phone = userData['phone']?.toString() ?? '';
+
+      return id.isNotEmpty &&
+          name.isNotEmpty &&
+          email.isNotEmpty &&
+          phone.isNotEmpty;
     } catch (e) {
-      debugPrint("An error occurred while checking user fields: $e");
+      debugPrint('Error while checking user fields in Firestore: $e');
       return false;
     }
   }
 
-  // متد ورود اختصاصی با گوگل
   Future<void> signInWithGoogle(
-      BuildContext context, VoidCallback onSuccess) async {
+    BuildContext context,
+    VoidCallback onSuccess,
+  ) async {
     startGoogleLoading();
+
     try {
       final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
 
-      if (googleUser == null) {
-        stopGoogleLoading();
-        return; 
-      }
+      if (googleUser == null) return;
 
       final GoogleSignInAuthentication googleAuth =
           await googleUser.authentication;
 
-      final credential = GoogleAuthProvider.credential(
+      final AuthCredential credential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
       );
 
       final UserCredential userCredential =
           await firebaseAuth.signInWithCredential(credential);
+
       final User? user = userCredential.user;
 
       if (user != null) {
         _uid = user.uid;
+        _phoneNumber = user.phoneNumber;
         _isGoogleSignedIn = true;
         notifyListeners();
       }
-      onSuccess();
 
-      stopGoogleLoading();
+      onSuccess();
     } on FirebaseAuthException catch (e) {
-      stopGoogleLoading();
       commonMethods.displaySnackBar(
-          e.message ?? getTranslation(context, "google_sign_in_error"), context);
+        e.message ?? getTranslation(context, 'google_sign_in_error'),
+        context,
+      );
+    } catch (e) {
+      commonMethods.displaySnackBar(e.toString(), context);
+    } finally {
+      stopGoogleLoading();
     }
   }
 
-  // خروج از حساب کاربری سفیر
   Future<void> signOut(BuildContext context) async {
     startLoading();
+
     try {
       await firebaseAuth.signOut();
       await googleSignIn.signOut();
 
       _uid = null;
+      _phoneNumber = null;
+      _userModel = null;
       _isGoogleSignedIn = false;
+      _isSuccessful = false;
+
       notifyListeners();
+
+      if (!context.mounted) return;
 
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(
-            builder: (context) =>
-                const RegisterScreen()), 
+          builder: (context) => const RegisterScreen(),
+        ),
         (route) => false,
       );
-
-      stopLoading();
     } on FirebaseAuthException catch (e) {
-      stopLoading();
       commonMethods.displaySnackBar(
-          e.message ?? getTranslation(context, "sign_out_error"), context);
+        e.message ?? getTranslation(context, 'sign_out_error'),
+        context,
+      );
+    } finally {
+      stopLoading();
     }
   }
 }
