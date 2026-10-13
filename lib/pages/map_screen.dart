@@ -733,6 +733,74 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
       );
     }).toList();
   }
+    Future<void> _updateLiveDriverEta(
+    LatLng driverPosition,
+  ) async {
+    try {
+      final LatLng? target =
+          _lastTripStatus == TripStatus.onTrip
+              ? _tripDestinationLatLng
+              : _tripOriginLatLng;
+
+      if (target == null) return;
+
+      final Uri url = Uri.parse(
+        'https://router.project-osrm.org/route/v1/driving/'
+        '${driverPosition.longitude},${driverPosition.latitude};'
+        '${target.longitude},${target.latitude}'
+        '?overview=false',
+      );
+
+      final http.Response response = await http
+          .get(url)
+          .timeout(const Duration(seconds: 10));
+
+      if (response.statusCode != 200 || !mounted) return;
+
+      final Map<String, dynamic> data =
+          jsonDecode(response.body) as Map<String, dynamic>;
+
+      final List<dynamic> routes =
+          data['routes'] as List<dynamic>? ?? <dynamic>[];
+
+      if (data['code'] != 'Ok' || routes.isEmpty) return;
+
+      final Map<String, dynamic> route =
+          routes.first as Map<String, dynamic>;
+
+      final double durationSeconds =
+          (route['duration'] as num?)?.toDouble() ?? 0.0;
+
+      final double distanceMeters =
+          (route['distance'] as num?)?.toDouble() ?? 0.0;
+
+      final int totalMinutes = (durationSeconds / 60).ceil();
+      final int hours = totalMinutes ~/ 60;
+      final int minutes = totalMinutes % 60;
+
+      final String durationText = hours > 0
+          ? '$hours ساعت و $minutes دقیقه'
+          : '$minutes دقیقه';
+
+      final DateTime arrival = DateTime.now().add(
+        Duration(seconds: durationSeconds.round()),
+      );
+
+      final String arrivalText =
+          '${arrival.hour.toString().padLeft(2, '0')}:'
+          '${arrival.minute.toString().padLeft(2, '0')}';
+
+      if (!mounted) return;
+
+      setState(() {
+        _tripDurationText = durationText;
+        _estimatedArrivalTime = arrivalText;
+        _tripDistanceInKm = distanceMeters / 1000;
+      });
+    } catch (e) {
+      debugPrint('Live ETA update error: $e');
+    }
+    }
 
   Future<void> _drawDriverTripRoute(LatLng driverPosition, {int attempt = 0}) async {
     if (_isFetchingDriverTripRoute || _mapController == null) return;
