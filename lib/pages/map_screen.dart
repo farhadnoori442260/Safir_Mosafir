@@ -547,59 +547,59 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
   ///  • زاویه از جهت حرکت (اگر بیش از ۳ متر جابه‌جا شده)
   ///  • مسیر به «طی‌شده» (خاکستری) و «باقی‌مانده» (آبی) تقسیم می‌شود
   ///  • مسیریابی مجدد فقط بعد از ۲ خوانش پیاپیِ خارج از مسیر
-  Future<void> _updateDriverMarkerOnMap(
+    Future<void> _updateDriverMarkerOnMap(
     LatLng rawPosition,
     double rawHeading,
   ) async {
-    if (_mapController == null) return;
+    if (mapController == null) return;
 
     try {
       LatLng markerTarget = rawPosition;
-      _SnapResult? onRouteSnap;
+      SnapResult? onRouteSnap;
       bool offRouteConfirmed = false;
 
-      if (_isDriverTripRouteVisible && _driverTripPolylinePoints.length >= 2) {
-        final _SnapResult? snap = _snapToPolylineDetailed(
+      if (isDriverTripRouteVisible &&
+          driverTripPolylinePoints.length >= 2) {
+        final SnapResult? snap = _snapToPolylineDetailed(
           rawPosition,
-          _driverTripPolylinePoints,
-          startIndex: _driverProgressIndex,
+          driverTripPolylinePoints,
+          startIndex: driverProgressIndex,
         );
 
-        if (snap != null && snap.distance <= _offRouteThresholdMeters) {
+        if (snap != null && snap.distance <= offRouteThresholdMeters) {
           onRouteSnap = snap;
           markerTarget = snap.point;
-          _driverProgressIndex = max(_driverProgressIndex, snap.segmentIndex);
-          _driverOffRouteCount = 0;
+          driverProgressIndex = max(
+            driverProgressIndex,
+            snap.segmentIndex,
+          );
+          driverOffRouteCount = 0;
         } else {
-          _driverOffRouteCount++;
-          offRouteConfirmed = _driverOffRouteCount >= 2;
+          driverOffRouteCount++;
+          offRouteConfirmed = driverOffRouteCount >= 2;
+
+          _maybeRefreshDriverRoute(
+            rawPosition,
+            offRouteConfirmed: offRouteConfirmed,
+          );
         }
       }
 
-      _maybeRefreshDriverRoute(
-        rawPosition,
-        offRouteConfirmed: offRouteConfirmed,
-      );
+      await _initDriverSymbolLayer();
 
-      await initDriverSymbolLayer();
-      if (_mapController == null) return;
+      if (mapController == null) return;
 
-      final LatLng? previousTarget = _lastDriverLatLng;
+      final LatLng? previousTarget = lastDriverLatLng;
+      double markerBearing = driverAnimationEndBearing;
 
-      // ───── زاویه ─────
-      double markerBearing = _driverAnimationEndBearing;
-
-      if (onRouteSnap != null) {
-        // 🔧 روی مسیر: همیشه زاویهٔ خودِ خیابان، حتی وقتی راننده ایستاده.
-        // (قبلاً وقتی ماشین حرکت نمی‌کرد زاویه ۰ = رو به شمال می‌ماند.)
+      if (onRouteSnap != null &&
+          onRouteSnap.segmentIndex + 1 < driverTripPolylinePoints.length) {
         markerBearing = _calculateBearing(
-          _driverTripPolylinePoints[onRouteSnap.segmentIndex],
-          _driverTripPolylinePoints[onRouteSnap.segmentIndex + 1],
+          driverTripPolylinePoints[onRouteSnap.segmentIndex],
+          driverTripPolylinePoints[onRouteSnap.segmentIndex + 1],
         );
-      } else if (_driverLiveSymbol == null) {
-        if (rawHeading > 0) {
-          markerBearing = rawHeading;
-        }
+      } else if (rawHeading >= 0) {
+        markerBearing = rawHeading;
       } else if (previousTarget != null &&
           Geolocator.distanceBetween(
                 previousTarget.latitude,
@@ -608,62 +608,70 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
                 markerTarget.longitude,
               ) >
               3) {
-        markerBearing = _calculateBearing(previousTarget, markerTarget);
+        markerBearing = _calculateBearing(
+          previousTarget,
+          markerTarget,
+        );
       }
 
-      // 🔧 فایل‌های آیکن لزوماً با جلو رو به بالا (۰ درجه) طراحی نشده‌اند.
-      // این افست همون زاویه‌ای که محاسبه کردیم رو می‌چرخونه تا جلوی هر
-      // آیکن واقعاً هم‌جهت با خط/حرکت بشه. اگه بعد از این هنوز یکی از
-      // وسیله‌ها برعکس بود، فقط همین عدد رو براش عوض کن (۹۰، ۱۸۰، یا ۲۷۰).
-      markerBearing = (markerBearing + _currentDriverIconRotationOffset() + 360) % 360;
+      markerBearing =
+          (markerBearing + _currentDriverIconRotationOffset) % 360;
 
-      // ───── مدت انیمیشن = فاصلهٔ واقعی بین دو آپدیت ─────
       final DateTime now = DateTime.now();
-      final int dtMs = _lastDriverUpdateAt == null
-          ? 1000
-          : now.difference(_lastDriverUpdateAt!).inMilliseconds;
-      _lastDriverUpdateAt = now;
 
-      if (_driverLiveSymbol == null) {
-        _driverLiveSymbol = await _mapController!.addSymbol(
+      final int dtMs = lastDriverUpdateAt == null
+          ? 1000
+          : now.difference(lastDriverUpdateAt!).inMilliseconds;
+
+      lastDriverUpdateAt = now;
+
+      if (driverLiveSymbol == null) {
+        driverLiveSymbol = await mapController!.addSymbol(
           SymbolOptions(
             geometry: markerTarget,
-            iconImage: _driverIconImageIdLoaded ?? 'driver-icon-car',
+            iconImage: driverIconImageIdLoaded ?? 'driver-icon-car',
             iconSize: 1.15,
             iconRotate: markerBearing,
             iconAnchor: 'center',
           ),
         );
 
-        _lastDriverLatLng = markerTarget;
-        _driverDisplayLatLng = markerTarget;
-        _driverDisplayBearing = markerBearing;
-        _driverAnimationStartBearing = markerBearing;
-        _driverAnimationEndBearing = markerBearing;
-      } else {
-        _driverAnimationStart =
-            _driverDisplayLatLng ?? previousTarget ?? markerTarget;
-        _driverAnimationEnd = markerTarget;
-        _driverAnimationStartBearing = _driverDisplayBearing;
-        _driverAnimationEndBearing = markerBearing;
+        lastDriverLatLng = markerTarget;
 
-        _driverAnimationController.stop();
-        _driverAnimationController.duration = Duration(
+        driverDisplayLatLng = markerTarget;
+        driverDisplayBearing = markerBearing;
+        driverAnimationStartBearing = markerBearing;
+        driverAnimationEndBearing = markerBearing;
+      } else {
+        driverAnimationStart =
+            driverDisplayLatLng ?? previousTarget ?? markerTarget;
+
+        driverAnimationEnd = markerTarget;
+        driverAnimationStartBearing = driverDisplayBearing;
+        driverAnimationEndBearing = markerBearing;
+
+        driverAnimationController.stop();
+
+        driverAnimationController.duration = Duration(
           milliseconds: dtMs.clamp(400, 2500).toInt(),
         );
-        _driverAnimationController.forward(from: 0.0);
 
-        _lastDriverLatLng = markerTarget;
+        driverAnimationController.forward(from: 0.0);
+
+        lastDriverLatLng = markerTarget;
       }
 
-      // خط طی‌شده/باقی‌مانده را بعد از شروع حرکت مارکر آپدیت کن
+      // زمان و فاصله باقی‌مانده تا مبدأ یا مقصد را با حرکت راننده تازه می‌کند.
+      unawaited(updateLiveDriverEta(rawPosition));
+
+      // خط طی‌شده و باقی‌مانده روی نقشه را به‌روزرسانی می‌کند.
       if (onRouteSnap != null) {
-        await _renderDriverProgress(onRouteSnap);
+        await renderDriverProgress(onRouteSnap);
       }
     } catch (e) {
       debugPrint('Error updating animated driver symbol: $e');
     }
-  }
+    }
 
   /// تصمیم می‌گیرد مسیر راننده باید دوباره کشیده شود یا نه (غیرمسدودکننده)
   void _maybeRefreshDriverRoute(
@@ -732,6 +740,57 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
         (point[0] as num).toDouble(),
       );
     }).toList();
+  }
+    Future<void> updateLiveDriverEta(
+    LatLng driverPosition,
+  ) async {
+    try {
+      final LatLng? target = lastTripStatus == TripStatus.onTrip
+          ? tripDestinationLatLng
+          : tripOriginLatLng;
+
+      if (target == null) return;
+
+      final Uri url = Uri.parse(
+        'https://router.project-osrm.org/route/v1/driving/'
+        '${driverPosition.longitude},${driverPosition.latitude};'
+        '${target.longitude},${target.latitude}'
+        '?overview=false',
+      );
+
+      final response = await http.get(url).timeout(
+        const Duration(seconds: 10),
+      );
+
+      if (response.statusCode != 200 || !mounted) return;
+
+      final Map<String, dynamic> data =
+          jsonDecode(response.body) as Map<String, dynamic>;
+
+      final List<dynamic> routes = data['routes'] as List<dynamic>? ?? [];
+
+      if (data['code'] != 'Ok' || routes.isEmpty) return;
+
+      final Map<String, dynamic> route =
+          routes.first as Map<String, dynamic>;
+
+      final double durationInSeconds =
+          (route['duration'] as num?)?.toDouble() ?? 0.0;
+
+      final double distanceInMeters =
+          (route['distance'] as num?)?.toDouble() ?? 0.0;
+
+      setState(() {
+        tripDurationText = TimeHelper.formatDuration(durationInSeconds);
+        estimatedArrivalTime =
+            TimeHelper.getArrivalTime(durationInSeconds);
+        tripDistanceInKm = distanceInMeters / 1000;
+      });
+    } on TimeoutException {
+      debugPrint('Live ETA request timed out.');
+    } catch (e) {
+      debugPrint('Live ETA update error: $e');
+    }
   }
 
   Future<void> _drawDriverTripRoute(LatLng driverPosition, {int attempt = 0}) async {
