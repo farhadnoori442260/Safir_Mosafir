@@ -655,6 +655,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
 
         _lastDriverLatLng = markerTarget;
       }
+      unawaited(_updateLiveDriverEta(rawPosition));
 
       // خط طی‌شده/باقی‌مانده را بعد از شروع حرکت مارکر آپدیت کن
       if (onRouteSnap != null) {
