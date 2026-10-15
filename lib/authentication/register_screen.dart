@@ -212,12 +212,40 @@ class _RegisterScreenState extends State<RegisterScreen> {
           return;
         }
 
-        final bool userExists =
-            await authProvider.checkUserExistById();
+        bool userExists;
+
+        try {
+          userExists =
+              await authProvider.checkUserExistById();
+        } on FirebaseException catch (e) {
+          if (!mounted) return;
+
+          commonMethods.displaySnackBar(
+            'خطا در دریافت اطلاعات کاربر: '
+            '${e.message ?? e.code}',
+            context,
+          );
+          return;
+        }
 
         if (!mounted) return;
 
         if (!userExists) {
+          try {
+            await authProvider.createInitialPassengerDocument();
+          } on FirebaseException catch (e) {
+            if (!mounted) return;
+
+            commonMethods.displaySnackBar(
+              'ذخیرهٔ اطلاعات کاربر انجام نشد: '
+              '${e.message ?? e.code}',
+              context,
+            );
+            return;
+          }
+
+          if (!mounted) return;
+
           Navigator.pushAndRemoveUntil(
             context,
             MaterialPageRoute(
