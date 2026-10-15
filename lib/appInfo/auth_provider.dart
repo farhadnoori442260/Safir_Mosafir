@@ -91,6 +91,8 @@ class AuthenticationProvider extends ChangeNotifier {
               notifyListeners();
             }
           } on FirebaseAuthException catch (e) {
+            if (!context.mounted) return;
+
             commonMethods.displaySnackBar(
               e.message ?? e.toString(),
               context,
@@ -101,6 +103,8 @@ class AuthenticationProvider extends ChangeNotifier {
         },
         verificationFailed: (FirebaseAuthException e) {
           stopLoading();
+
+          if (!context.mounted) return;
 
           commonMethods.displaySnackBar(
             e.message ?? e.toString(),
@@ -132,6 +136,8 @@ class AuthenticationProvider extends ChangeNotifier {
       );
     } catch (e) {
       stopLoading();
+
+      if (!context.mounted) return;
 
       commonMethods.displaySnackBar(
         e.toString(),
@@ -177,6 +183,8 @@ class AuthenticationProvider extends ChangeNotifier {
 
       await onSuccess();
     } on FirebaseAuthException catch (e) {
+      if (!context.mounted) return;
+
       commonMethods.displaySnackBar(
         e.message ?? e.toString(),
         context,
@@ -222,23 +230,13 @@ class AuthenticationProvider extends ChangeNotifier {
         'updatedAt': FieldValue.serverTimestamp(),
       };
 
-      final DocumentReference<Map<String, dynamic>> userRef =
-          _usersCollection.doc(userId);
-
-      final DocumentSnapshot<Map<String, dynamic>> oldSnapshot =
-          await userRef.get();
-
-      if (oldSnapshot.exists) {
-        await userRef.set(
-          userData,
-          SetOptions(merge: true),
-        );
-      } else {
-        await userRef.set({
+      await _usersCollection.doc(userId).set(
+        {
           ...userData,
           'createdAt': FieldValue.serverTimestamp(),
-        });
-      }
+        },
+        SetOptions(merge: true),
+      );
 
       _uid = userId;
 
@@ -259,6 +257,8 @@ class AuthenticationProvider extends ChangeNotifier {
         '${e.code} - ${e.message}',
       );
 
+      if (!context.mounted) return;
+
       commonMethods.displaySnackBar(
         e.message ?? e.toString(),
         context,
@@ -269,12 +269,16 @@ class AuthenticationProvider extends ChangeNotifier {
         '${e.code} - ${e.message}',
       );
 
+      if (!context.mounted) return;
+
       commonMethods.displaySnackBar(
         e.message ?? e.toString(),
         context,
       );
     } catch (e) {
       debugPrint('saveUserDataToFirebase error: $e');
+
+      if (!context.mounted) return;
 
       commonMethods.displaySnackBar(
         e.toString(),
@@ -285,70 +289,20 @@ class AuthenticationProvider extends ChangeNotifier {
     }
   }
 
-  Future<bool> checkUserExistByEmail(String email) async {
-    final String cleanEmail = email.trim();
-
-    if (cleanEmail.isEmpty) return false;
-
-    try {
-      final QuerySnapshot<Map<String, dynamic>> snapshot =
-          await _usersCollection
-              .where('email', isEqualTo: cleanEmail)
-              .limit(1)
-              .get();
-
-      return snapshot.docs.isNotEmpty;
-    } on FirebaseException catch (e) {
-      debugPrint(
-        'checkUserExistByEmail error: '
-        '${e.code} - ${e.message}',
-      );
-      return false;
-    }
-  }
-
-  Future<bool> checkUserExistByPhone(String phoneNumber) async {
-    final String cleanPhone = phoneNumber.trim();
-
-    if (cleanPhone.isEmpty) return false;
-
-    try {
-      final QuerySnapshot<Map<String, dynamic>> snapshot =
-          await _usersCollection
-              .where('phone', isEqualTo: cleanPhone)
-              .limit(1)
-              .get();
-
-      return snapshot.docs.isNotEmpty;
-    } on FirebaseException catch (e) {
-      debugPrint(
-        'checkUserExistByPhone error: '
-        '${e.code} - ${e.message}',
-      );
-      return false;
-    }
-  }
-
   Future<bool> checkUserExistById() async {
     final User? currentUser = firebaseAuth.currentUser;
 
-    if (currentUser == null) return false;
-
-    try {
-      final DocumentSnapshot<Map<String, dynamic>> snapshot =
-          await _usersCollection.doc(currentUser.uid).get();
-
-      return snapshot.exists;
-    } on FirebaseException catch (e) {
-      debugPrint(
-        'checkUserExistById error: '
-        '${e.code} - ${e.message}',
-      );
+    if (currentUser == null) {
       return false;
     }
+
+    final DocumentSnapshot<Map<String, dynamic>> snapshot =
+        await _usersCollection.doc(currentUser.uid).get();
+
+    return snapshot.exists;
   }
 
-  Future<void> ensurePassengerDocument() async {
+  Future<void> createInitialPassengerDocument() async {
     final User? currentUser = firebaseAuth.currentUser;
 
     if (currentUser == null) {
@@ -368,7 +322,7 @@ class AuthenticationProvider extends ChangeNotifier {
       return;
     }
 
-    final Map<String, dynamic> initialData = {
+    await userRef.set({
       'id': currentUser.uid,
       'name': currentUser.displayName ?? '',
       'email': currentUser.email ?? '',
@@ -380,9 +334,7 @@ class AuthenticationProvider extends ChangeNotifier {
       'status': 'active',
       'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
-    };
-
-    await userRef.set(initialData);
+    });
 
     _uid = currentUser.uid;
 
@@ -445,7 +397,9 @@ class AuthenticationProvider extends ChangeNotifier {
   Future<bool> checkIfUserIsBlocked() async {
     final User? currentUser = firebaseAuth.currentUser;
 
-    if (currentUser == null) return false;
+    if (currentUser == null) {
+      return false;
+    }
 
     try {
       final DocumentSnapshot<Map<String, dynamic>> snapshot =
@@ -501,7 +455,9 @@ class AuthenticationProvider extends ChangeNotifier {
   Future<bool> checkUserFieldsFilled() async {
     final User? currentUser = firebaseAuth.currentUser;
 
-    if (currentUser == null) return false;
+    if (currentUser == null) {
+      return false;
+    }
 
     try {
       final DocumentSnapshot<Map<String, dynamic>> snapshot =
@@ -585,6 +541,8 @@ class AuthenticationProvider extends ChangeNotifier {
         '${e.code} - ${e.message}',
       );
 
+      if (!context.mounted) return;
+
       commonMethods.displaySnackBar(
         e.message ?? getTranslation(
           context,
@@ -594,6 +552,8 @@ class AuthenticationProvider extends ChangeNotifier {
       );
     } catch (e) {
       debugPrint('Google sign-in error: $e');
+
+      if (!context.mounted) return;
 
       commonMethods.displaySnackBar(
         e.toString(),
@@ -629,6 +589,8 @@ class AuthenticationProvider extends ChangeNotifier {
         (route) => false,
       );
     } on FirebaseAuthException catch (e) {
+      if (!context.mounted) return;
+
       commonMethods.displaySnackBar(
         e.message ?? getTranslation(
           context,
