@@ -1,26 +1,23 @@
 import 'dart:async';
 import 'dart:convert';
-import 'package:flutter/material.dart';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:provider/provider.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
+import 'package:provider/provider.dart';
 
 import 'package:safir_passengers/appInfo/app_info.dart';
 import 'package:safir_passengers/global/global_var.dart';
 import 'package:safir_passengers/utils/time_helper.dart';
 
 class MapControllerLogic {
-  /// 🛣️ دریافت مسیر OSRM به همراه محاسبه کرایه و زمان دقیق رسیدن (ETA)
   static Future<void> getOSRMRoute({
     required BuildContext context,
     required String selectedVehicle,
     LatLng? customOrigin,
     LatLng? customDestination,
-    // 🔧 FIX: مسافت دقیقی که خودِ OSRM برای این مسیر محاسبه کرده هم به
-    // تماس‌گیرنده پاس داده می‌شود، تا دیگر لازم نباشد با جمع کردن فاصلهٔ
-    // تک‌تک نقاط پالی‌لاین (که کمی نادقیق‌تر از عدد خودِ OSRM است) دوباره
-    // بازسازی شود.
     required Function(
       List<LatLng> points,
       double fare,
@@ -31,93 +28,118 @@ class MapControllerLogic {
   }) async {
     try {
       if (!context.mounted) return;
-      var appInfo = Provider.of<AppInfo>(context, listen: false);
-      var pickUp = appInfo.pickUpLocation;
-      var dropOff = appInfo.dropOffLocation;
 
-      // دریافت مختصات از ورودی دستی یا AppInfo
-      double? pLat = customOrigin?.latitude ?? pickUp?.latitudePosition;
-      double? pLng = customOrigin?.longitude ?? pickUp?.longitudePosition;
-      double? dLat = customDestination?.latitude ?? dropOff?.latitudePosition;
-      double? dLng = customDestination?.longitude ?? dropOff?.longitudePosition;
+      final appInfo = Provider.of<AppInfo>(
+        context,
+        listen: false,
+      );
 
-      if (pLat == null || pLng == null || dLat == null || dLng == null) {
-        debugPrint("OSRM Error: PickUp or DropOff coordinates are null.");
+      final pickUp = appInfo.pickUpLocation;
+      final dropOff = appInfo.dropOffLocation;
+
+      final double? pickupLat =
+          customOrigin?.latitude ?? pickUp?.latitudePosition;
+      final double? pickupLng =
+          customOrigin?.longitude ?? pickUp?.longitudePosition;
+      final double? destinationLat =
+          customDestination?.latitude ?? dropOff?.latitudePosition;
+      final double? destinationLng =
+          customDestination?.longitude ?? dropOff?.longitudePosition;
+
+      if (pickupLat == null ||
+          pickupLng == null ||
+          destinationLat == null ||
+          destinationLng == null) {
+        debugPrint('OSRM Error: coordinates are missing.');
         return;
       }
 
-      // ⚠️ OSRM ورودی آدرس را به فرمت longitude,latitude می‌پذیرد.
       final Uri url = Uri.parse(
         'https://router.project-osrm.org/route/v1/driving/'
-        '$pLng,$pLat;$dLng,$dLat'
+        '$pickupLng,$pickupLat;$destinationLng,$destinationLat'
         '?overview=full&geometries=geojson',
       );
 
-      // افزودن مهلت زمانی ۱۰ ثانیه‌ای برای جلوگیری از معطل ماندن UI
-      final response = await http.get(url).timeout(
+      final http.Response response = await http.get(url).timeout(
         const Duration(seconds: 10),
       );
 
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> data = json.decode(response.body);
-
-        if (data['routes'] != null && (data['routes'] as List).isNotEmpty) {
-          final route = data['routes'][0];
-          final List coordinates = route['geometry']['coordinates'] ?? [];
-          final double distanceInMeters = (route['distance'] as num?)?.toDouble() ?? 0.0; 
-          final double durationInSeconds = (route['duration'] as num?)?.toDouble() ?? 0.0;
-
-          // 📊 محاسبه فرمت متنی زمان و ساعت رسیدن
-          String durationText = TimeHelper.formatDuration(durationInSeconds);
-          String arrivalTime = TimeHelper.getArrivalTime(durationInSeconds);
-
-          // 🔴 تبدیل GeoJSON [lng, lat] به MapLibre GL LatLng(lat, lng)
-          List<LatLng> points = coordinates.map<LatLng>((coord) {
-            return LatLng(
-              (coord[1] as num).toDouble(), // Latitude
-              (coord[0] as num).toDouble(), // Longitude
-            );
-          }).toList();
-          
-          // 💰 محاسبه کرایه پایه
-          double distanceInKm = distanceInMeters / 1000;
-          double baseFare = 30.0;
-          double calculatedFare = baseFare + (distanceInKm * 10);
-          double actualFare = calculatedFare;
-
-          // ضریب وسایل نقلیه مختلف
-          switch (selectedVehicle.toLowerCase()) {
-            case 'auto':
-            case 'rickshaw':
-              actualFare = calculatedFare * 1.4;
-              break;
-            case 'bike':
-            case 'motorcycle':
-              actualFare = calculatedFare * 0.5;
-              break;
-            default:
-              actualFare = calculatedFare; // تاکسی سواری عادی
-              break;
-          }
-
-          // 📤 تحویل خروجی به UI — همراه با مسافت دقیق خودِ OSRM
-          onRouteFetched(points, actualFare, durationText, arrivalTime, distanceInKm);
-        }
-      } else {
-        debugPrint("OSRM HTTP Failed with status: ${response.statusCode}");
+      if (response.statusCode != 200) {
+        debugPrint(
+          'OSRM HTTP failed: ${response.statusCode}',
+        );
+        return;
       }
+
+      final Map<String, dynamic> data =
+          jsonDecode(response.body) as Map<String, dynamic>;
+
+      final List<dynamic> routes =
+          (data['routes'] as List<dynamic>?) ?? <dynamic>[];
+
+      if (routes.isEmpty) {
+        debugPrint('OSRM returned no route.');
+        return;
+      }
+
+      final Map<String, dynamic> route =
+          routes.first as Map<String, dynamic>;
+
+      final List<dynamic> coordinates =
+          (route['geometry']?['coordinates'] as List<dynamic>?) ??
+              <dynamic>[];
+
+      final double distanceInMeters =
+          (route['distance'] as num?)?.toDouble() ?? 0.0;
+
+      final double durationInSeconds =
+          (route['duration'] as num?)?.toDouble() ?? 0.0;
+
+      final List<LatLng> points = coordinates
+          .whereType<List<dynamic>>()
+          .where((point) => point.length >= 2)
+          .map(
+            (point) => LatLng(
+              (point[1] as num).toDouble(),
+              (point[0] as num).toDouble(),
+            ),
+          )
+          .toList();
+
+      final double distanceInKm = distanceInMeters / 1000.0;
+      const double baseFare = 30.0;
+      final double calculatedFare =
+          baseFare + (distanceInKm * 10.0);
+
+      double finalFare = calculatedFare;
+
+      switch (selectedVehicle.toLowerCase().trim()) {
+        case 'auto':
+        case 'rickshaw':
+          finalFare = calculatedFare * 1.4;
+          break;
+        case 'bike':
+        case 'motorcycle':
+          finalFare = calculatedFare * 0.5;
+          break;
+      }
+
+      onRouteFetched(
+        points,
+        finalFare,
+        TimeHelper.formatDuration(durationInSeconds),
+        TimeHelper.getArrivalTime(durationInSeconds),
+        distanceInKm,
+      );
     } on TimeoutException {
-      debugPrint("OSRM Request timed out.");
-    } catch (e) {
-      debugPrint("Error fetching OSRM route: $e");
+      debugPrint('OSRM request timed out.');
+    } catch (error, stackTrace) {
+      debugPrint('Error fetching OSRM route: $error');
+      debugPrintStack(stackTrace: stackTrace);
     }
   }
 
-  /// 🚀 تابع ارسال درخواست سفر به Firestore به همراه ثبت فیلدهای زمان
-  /// ⚠️ توجه: این تابع در حال حاضر در جریان واقعی اپ (map_screen.dart →
-  /// startTrip) صدا زده نمی‌شود؛ آن تابع مستقیماً سند rides را خودش
-  /// می‌سازد. این متد اینجا نگه داشته شده ولی روی رفتار فعلی اپ اثری ندارد.
-  static DocumentReference makeTripRequest({
+  static DocumentReference<Map<String, dynamic>> makeTripRequest({
     required BuildContext context,
     required double actualFareAmount,
     required double? bidAmount,
@@ -127,68 +149,94 @@ class MapControllerLogic {
     required Function(String status) onStatusChanged,
     required VoidCallback onTripEnded,
   }) {
-    DocumentReference tripRef = FirebaseFirestore.instance.collection("rides").doc();
-    
-    var appInfo = Provider.of<AppInfo>(context, listen: false);
-    var pickUp = appInfo.pickUpLocation;
-    var dropOff = appInfo.dropOffLocation;
+    final User? currentUser =
+        FirebaseAuth.instance.currentUser;
 
-    // پیش‌فرض‌های کابل در صورت خالی بودن
-    double pLat = pickUp?.latitudePosition ?? 34.5553;
-    double pLng = pickUp?.longitudePosition ?? 69.2073;
-    double dLat = dropOff?.latitudePosition ?? 34.5200;
-    double dLng = dropOff?.longitudePosition ?? 69.1800;
+    if (currentUser == null) {
+      throw StateError('کاربر وارد حساب نشده است.');
+    }
 
-    String validUserId = (userID != null && userID!.isNotEmpty) 
-        ? userID! 
-        : "passenger_${DateTime.now().millisecondsSinceEpoch}";
-    String validPhone = (userPhone != null && userPhone!.isNotEmpty) 
-        ? userPhone! 
-        : "+93788231515";
-    String validName = (userName != null && userName!.isNotEmpty) 
-        ? userName! 
-        : "Passenger";
+    final appInfo = Provider.of<AppInfo>(
+      context,
+      listen: false,
+    );
 
-    String vehicleClean = selectedVehicle.toLowerCase(); 
-    num finalFare = (bidAmount ?? actualFareAmount).round();
+    final pickUp = appInfo.pickUpLocation;
+    final dropOff = appInfo.dropOffLocation;
 
-    Map<String, dynamic> dataMap = {
-      "tripId": tripRef.id,
-      "tripID": tripRef.id,
-      "created_at": FieldValue.serverTimestamp(),
-      "timestamp": FieldValue.serverTimestamp(),
-      
-      // اطلاعات مسافر
-      "full_name": validName,
-      "userName": validName,
-      "phone": validPhone,
-      "userPhone": validPhone,
-      "passengerId": validUserId,
-      "user_id": validUserId,
-      "userID": validUserId,
-      
-      // اطلاعات مبدأ و مقصد
-      "pickup_address": pickUp?.placeName ?? "مبدأ",
-      "dropoff_address": dropOff?.placeName ?? "مقصد",
-      "from_lat": pLat,
-      "from_lng": pLng,
-      "to_lat": dLat,
-      "to_lng": dLng,
-      "from": GeoPoint(pLat, pLng),
-      "to": GeoPoint(dLat, dLng),
-      
-      // زمان‌بندی مسیر
-      "tripDuration": tripDurationText ?? "",
-      "estimatedArrivalTime": estimatedArrivalTime ?? "",
-      
-      // وضعیت و قیمت
-      "driverId": "waiting",
-      "driver_id": "",
-      "fare": finalFare,
-      "fareAmount": finalFare.toString(),
-      "status": "requested",
-      "serviceType": vehicleClean,
-      "vehicleType": vehicleClean,
+    final double pickupLat =
+        pickUp?.latitudePosition ?? 34.5553;
+    final double pickupLng =
+        pickUp?.longitudePosition ?? 69.2073;
+    final double destinationLat =
+        dropOff?.latitudePosition ?? 34.5200;
+    final double destinationLng =
+        dropOff?.longitudePosition ?? 69.1800;
+
+    final String passengerName =
+        userName?.trim().isNotEmpty == true
+            ? userName!.trim()
+            : currentUser.displayName ?? '';
+
+    final String passengerPhone =
+        userPhone?.trim().isNotEmpty == true
+            ? userPhone!.trim()
+            : currentUser.phoneNumber ?? '';
+
+    final String vehicleType =
+        selectedVehicle.toLowerCase().trim();
+
+    final num fareAmount =
+        (bidAmount ?? actualFareAmount).round();
+
+    final DocumentReference<Map<String, dynamic>> tripRef =
+        FirebaseFirestore.instance.collection('rides').doc();
+
+    final Map<String, dynamic> dataMap =
+        <String, dynamic>{
+      'ride_id': tripRef.id,
+
+      'passenger_id': currentUser.uid,
+      'passenger_name': passengerName,
+      'passenger_phone': passengerPhone,
+
+      'driver_id': 'waiting',
+      'status': 'searching',
+
+      'origin': <String, dynamic>{
+        'address': pickUp?.placeName ?? 'مبدأ',
+        'latitude': pickupLat,
+        'longitude': pickupLng,
+      },
+      'originLatLng': GeoPoint(
+        pickupLat,
+        pickupLng,
+      ),
+      'pickup_address': pickUp?.placeName ?? 'مبدأ',
+      'from_lat': pickupLat,
+      'from_lng': pickupLng,
+
+      'destination': <String, dynamic>{
+        'address': dropOff?.placeName ?? 'مقصد',
+        'latitude': destinationLat,
+        'longitude': destinationLng,
+      },
+      'destinationLatLng': GeoPoint(
+        destinationLat,
+        destinationLng,
+      ),
+      'dropoff_address': dropOff?.placeName ?? 'مقصد',
+      'to_lat': destinationLat,
+      'to_lng': destinationLng,
+
+      'fare_amount': fareAmount,
+      'service_type': vehicleType,
+      'trip_duration': tripDurationText ?? '',
+      'estimated_arrival_time':
+          estimatedArrivalTime ?? '',
+
+      'created_at': FieldValue.serverTimestamp(),
+      'updated_at': FieldValue.serverTimestamp(),
     };
 
     tripRef.set(dataMap);
