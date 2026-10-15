@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:easy_localization/easy_localization.dart' hide TextDirection;
+import 'package:easy_localization/easy_localization.dart'
+    hide TextDirection;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
@@ -12,7 +13,9 @@ import 'package:safir_passengers/pages/user_profile_screen.dart';
 
 const Color primaryAccent = Color(0xFF1B7A57);
 const Color darkTextColor = Color(0xFF0F172A);
-const Color menuIconBackground = Color(0xFFF1F5F9);
+const Color secondaryTextColor = Color(0xFF64748B);
+const Color pageBackground = Color(0xFFF7F9F8);
+const Color menuIconBackground = Color(0xFFEFF5F1);
 
 Future<void> _makeSupportCall(BuildContext context) async {
   String phone = '+93700000000';
@@ -25,13 +28,17 @@ Future<void> _makeSupportCall(BuildContext context) async {
             .get();
 
     final Map<String, dynamic>? data = snapshot.data();
-    final String? firestorePhone = data?['support_phone']?.toString();
+    final String? firestorePhone =
+        data?['support_phone']?.toString();
 
-    if (firestorePhone != null && firestorePhone.trim().isNotEmpty) {
+    if (firestorePhone != null &&
+        firestorePhone.trim().isNotEmpty) {
       phone = firestorePhone.trim();
     }
   } catch (e) {
-    debugPrint('خطا در دریافت شماره پشتیبانی از Firestore: $e');
+    debugPrint(
+      'خطا در دریافت شماره پشتیبانی از Firestore: $e',
+    );
   }
 
   final Uri launchUri = Uri(
@@ -39,146 +46,211 @@ Future<void> _makeSupportCall(BuildContext context) async {
     path: phone,
   );
 
-  if (await canLaunchUrl(launchUri)) {
-    await launchUrl(launchUri);
-  } else if (context.mounted) {
+  try {
+    final bool canCall = await canLaunchUrl(launchUri);
+
+    if (canCall) {
+      await launchUrl(launchUri);
+      return;
+    }
+  } catch (e) {
+    debugPrint('خطا در بازکردن شماره تماس: $e');
+  }
+
+  if (!context.mounted) return;
+
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: Text(
+        'can_not_make_call'.tr(args: [phone]),
+      ),
+      backgroundColor: Colors.red.shade700,
+    ),
+  );
+}
+
+Future<void> _shareInviteCode(BuildContext context) async {
+  final User? user = FirebaseAuth.instance.currentUser;
+
+  final String referralCode =
+      user != null && user.uid.length >= 6
+          ? user.uid.substring(0, 6).toUpperCase()
+          : 'SAFIR2026';
+
+  final String shareMessage =
+      'invite_message'.tr(args: [referralCode]);
+
+  try {
+    await Share.share(shareMessage);
+  } catch (e) {
+    debugPrint('خطا در اشتراک‌گذاری کد دعوت: $e');
+
+    if (!context.mounted) return;
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          'can_not_make_call'.tr(args: [phone]),
-          style: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w400,
-          ),
+          'error_occurred'.tr(args: [e.toString()]),
         ),
       ),
     );
   }
 }
 
-void _shareInviteCode(BuildContext context) {
-  final User? user = FirebaseAuth.instance.currentUser;
-
-  final String referralCode = user != null && user.uid.length >= 6
-      ? user.uid.substring(0, 6).toUpperCase()
-      : 'SAFIR2026';
-
-  final String shareMessage = 'invite_message'.tr(args: [referralCode]);
-
-  Share.share(shareMessage);
-}
-
 void _showDiscountModal(BuildContext context) {
-  final TextEditingController discountController = TextEditingController();
+  final TextEditingController discountController =
+      TextEditingController();
+
   bool isLoading = false;
 
   showModalBottomSheet(
     context: context,
     isScrollControlled: true,
-    backgroundColor: Colors.white,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(
-        top: Radius.circular(24),
-      ),
-    ),
+    useSafeArea: true,
+    backgroundColor: Colors.transparent,
     builder: (sheetContext) {
       return StatefulBuilder(
         builder: (context, setModalState) {
-          return Padding(
-            padding: EdgeInsets.only(
-              left: 20,
-              right: 20,
-              top: 24,
-              bottom: MediaQuery.of(sheetContext).viewInsets.bottom + 20,
+          return Container(
+            padding: EdgeInsets.fromLTRB(
+              20,
+              12,
+              20,
+              MediaQuery.of(sheetContext)
+                      .viewInsets
+                      .bottom +
+                  20,
+            ),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(
+                top: Radius.circular(28),
+              ),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                _buildSheetHandle(),
+                const SizedBox(height: 20),
                 Row(
                   children: [
-                    const Icon(
-                      Icons.local_offer_rounded,
-                      color: primaryAccent,
+                    _buildHeaderIcon(
+                      Icons.local_offer_outlined,
+                      primaryAccent,
                     ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'discount_code'.tr(),
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: darkTextColor,
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'discount_code'.tr(),
+                        style: const TextStyle(
+                          color: darkTextColor,
+                          fontSize: 17,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () {
+                        Navigator.pop(sheetContext);
+                      },
+                      icon: const Icon(
+                        Icons.close_rounded,
+                        color: secondaryTextColor,
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 18),
                 TextField(
                   controller: discountController,
-                  textDirection: TextDirection.rtl,
+                  autofocus: true,
+                  textDirection: TextDirection.ltr,
+                  textCapitalization:
+                      TextCapitalization.characters,
                   style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w400,
                     color: darkTextColor,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.2,
                   ),
                   decoration: InputDecoration(
                     hintText: 'enter_discount_code'.tr(),
                     hintStyle: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w400,
                       color: Color(0xFF9CA3AF),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w400,
+                    ),
+                    prefixIcon: const Icon(
+                      Icons.confirmation_number_outlined,
+                      color: secondaryTextColor,
+                    ),
+                    filled: true,
+                    fillColor: pageBackground,
+                    contentPadding:
+                        const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 15,
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: const BorderSide(
+                        color: Color(0xFFE2E8F0),
+                      ),
                     ),
                     focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(16),
                       borderSide: const BorderSide(
                         color: primaryAccent,
                         width: 1.5,
                       ),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(
-                        color: Color(0xFFE2E8F0),
-                        width: 1,
-                      ),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
                     ),
                   ),
                 ),
                 const SizedBox(height: 16),
                 SizedBox(
                   width: double.infinity,
-                  height: 48,
+                  height: 50,
                   child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: primaryAccent,
-                      elevation: 0,
-                      shadowColor: Colors.transparent,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
                     onPressed: isLoading
                         ? null
                         : () async {
                             final String code =
-                                discountController.text.trim().toUpperCase();
+                                discountController.text
+                                    .trim()
+                                    .toUpperCase();
 
-                            if (code.isEmpty) return;
+                            if (code.isEmpty) {
+                              ScaffoldMessenger.of(context)
+                                  .showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    'enter_discount_code'.tr(),
+                                  ),
+                                ),
+                              );
+                              return;
+                            }
 
                             setModalState(() {
                               isLoading = true;
                             });
 
                             try {
-                              final DocumentSnapshot<Map<String, dynamic>>
-                                  snapshot = await FirebaseFirestore.instance
+                              final DocumentSnapshot<
+                                  Map<String, dynamic>> snapshot =
+                                  await FirebaseFirestore
+                                      .instance
                                       .collection('coupons')
                                       .doc(code)
                                       .get();
+
+                              final Map<String, dynamic>?
+                                  couponData =
+                                  snapshot.data();
+
+                              final bool isActive =
+                                  couponData?['isActive'] !=
+                                      false;
 
                               if (!context.mounted) return;
 
@@ -186,38 +258,29 @@ void _showDiscountModal(BuildContext context) {
                                 isLoading = false;
                               });
 
-                              final Map<String, dynamic>? couponData =
-                                  snapshot.data();
-
-                              final bool isActive =
-                                  couponData?['isActive'] != false;
-
                               if (snapshot.exists && isActive) {
                                 Navigator.pop(sheetContext);
 
-                                ScaffoldMessenger.of(context).showSnackBar(
+                                ScaffoldMessenger.of(context)
+                                    .showSnackBar(
                                   SnackBar(
                                     content: Text(
-                                      'discount_applied_success'.tr(),
-                                      style: const TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w500,
-                                      ),
+                                      'discount_applied_success'
+                                          .tr(),
                                     ),
-                                    backgroundColor: const Color(0xFF22C55E),
+                                    backgroundColor:
+                                        const Color(0xFF16A34A),
                                   ),
                                 );
                               } else {
-                                ScaffoldMessenger.of(context).showSnackBar(
+                                ScaffoldMessenger.of(context)
+                                    .showSnackBar(
                                   SnackBar(
                                     content: Text(
                                       'discount_invalid'.tr(),
-                                      style: const TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w500,
-                                      ),
                                     ),
-                                    backgroundColor: Colors.red,
+                                    backgroundColor:
+                                        Colors.red.shade700,
                                   ),
                                 );
                               }
@@ -228,36 +291,41 @@ void _showDiscountModal(BuildContext context) {
                                 isLoading = false;
                               });
 
-                              ScaffoldMessenger.of(context).showSnackBar(
+                              ScaffoldMessenger.of(context)
+                                  .showSnackBar(
                                 SnackBar(
                                   content: Text(
                                     'error_occurred'.tr(
                                       args: [e.toString()],
-                                    ),
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w500,
                                     ),
                                   ),
                                 ),
                               );
                             }
                           },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: primaryAccent,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
                     child: isLoading
                         ? const SizedBox(
-                            width: 23,
-                            height: 23,
-                            child: CircularProgressIndicator(
+                            width: 21,
+                            height: 21,
+                            child:
+                                CircularProgressIndicator(
+                              strokeWidth: 2.3,
                               color: Colors.white,
-                              strokeWidth: 2.5,
                             ),
                           )
                         : Text(
                             'apply_code'.tr(),
                             style: const TextStyle(
-                              color: Colors.white,
                               fontSize: 14,
-                              fontWeight: FontWeight.w600,
+                              fontWeight: FontWeight.w800,
                             ),
                           ),
                   ),
@@ -268,7 +336,9 @@ void _showDiscountModal(BuildContext context) {
         },
       );
     },
-  );
+  ).whenComplete(() {
+    discountController.dispose();
+  });
 }
 
 void _showAboutAppDialog(BuildContext context) {
@@ -281,23 +351,24 @@ void _showAboutAppDialog(BuildContext context) {
           backgroundColor: Colors.white,
           surfaceTintColor: Colors.white,
           elevation: 0,
-          shadowColor: Colors.transparent,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(24),
           ),
           title: Row(
             children: [
-              const Icon(
-                Icons.info_outline,
-                color: primaryAccent,
+              _buildHeaderIcon(
+                Icons.info_outline_rounded,
+                primaryAccent,
               ),
-              const SizedBox(width: 8),
-              Text(
-                'about_app'.tr(),
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: darkTextColor,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'about_app'.tr(),
+                  style: const TextStyle(
+                    color: darkTextColor,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
               ),
             ],
@@ -305,21 +376,22 @@ void _showAboutAppDialog(BuildContext context) {
           content: Text(
             'about_app_desc'.tr(),
             style: const TextStyle(
+              color: secondaryTextColor,
               fontSize: 14,
-              height: 1.6,
-              color: Color(0xFF334155),
-              fontWeight: FontWeight.w400,
+              height: 1.7,
             ),
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
+              onPressed: () {
+                Navigator.pop(dialogContext);
+              },
               child: Text(
                 'close'.tr(),
                 style: const TextStyle(
                   color: primaryAccent,
                   fontSize: 14,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
             ),
@@ -341,123 +413,161 @@ class ProfileAnimatedMenu extends StatefulWidget {
   final ValueChanged<String>? onLanguageChanged;
 
   @override
-  State<ProfileAnimatedMenu> createState() => _ProfileAnimatedMenuState();
+  State<ProfileAnimatedMenu> createState() =>
+      _ProfileAnimatedMenuState();
 }
 
-class _ProfileAnimatedMenuState extends State<ProfileAnimatedMenu> {
+class _ProfileAnimatedMenuState
+    extends State<ProfileAnimatedMenu> {
   String _displayName() {
-    if (userName.trim().isNotEmpty) {
-      return userName.trim();
+    final String name = userName.trim();
+
+    if (name.isNotEmpty) {
+      return name;
     }
 
     return 'user_default'.tr();
   }
 
   String _displayPhone() {
-    if (userPhone.trim().isNotEmpty) {
-      return userPhone.trim();
+    final String phone = userPhone.trim();
+
+    if (phone.isNotEmpty) {
+      return phone;
     }
 
-    return '09907027123';
+    return '---';
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: pageBackground,
       appBar: AppBar(
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.white,
+        backgroundColor: pageBackground,
+        surfaceTintColor: pageBackground,
         elevation: 0,
         scrolledUnderElevation: 0,
-        shadowColor: Colors.transparent,
         automaticallyImplyLeading: false,
         leading: IconButton(
           tooltip: 'back'.tr(),
+          onPressed: () => Navigator.pop(context),
           icon: const Icon(
             Icons.arrow_back_ios_new_rounded,
             color: darkTextColor,
-            size: 20,
+            size: 19,
           ),
-          onPressed: () => Navigator.pop(context),
         ),
+        title: Text(
+          'profile'.tr(),
+          style: const TextStyle(
+            color: darkTextColor,
+            fontSize: 18,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        centerTitle: true,
       ),
       body: SafeArea(
         child: ListView(
           physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(16, 18, 16, 30),
+          padding: const EdgeInsets.fromLTRB(
+            16,
+            6,
+            16,
+            28,
+          ),
           children: [
             _buildProfileHeader(),
             const SizedBox(height: 24),
-            _buildSectionTitle('user_account_section'.tr()),
-            _buildMenuItem(
-              icon: Icons.history_rounded,
-              title: 'trips_history'.tr(),
-              subtitle: 'trips_history_sub'.tr(),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const TripsScreen(),
-                  ),
-                );
-              },
+            _buildSectionTitle(
+              'user_account_section'.tr(),
             ),
-            _buildMenuItem(
-              icon: Icons.person_add_alt_1_rounded,
-              title: 'invite_friends'.tr(),
-              subtitle: 'invite_friends_sub'.tr(),
-              onTap: () => _shareInviteCode(context),
-            ),
-            _buildMenuItem(
-              icon: Icons.mail_outline_rounded,
-              title: 'messages'.tr(),
-              subtitle: 'messages_sub'.tr(),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const MessagesScreen(),
-                  ),
-                );
-              },
-            ),
-            const SizedBox(height: 18),
-            _buildSectionTitle('services_and_support_section'.tr()),
-            _buildMenuItem(
-              icon: Icons.local_offer_outlined,
-              title: 'discount_code'.tr(),
-              subtitle: 'discount_code_sub'.tr(),
-              onTap: () => _showDiscountModal(context),
-            ),
-            _buildMenuItem(
-              icon: Icons.headset_mic_outlined,
-              title: 'support_contact'.tr(),
-              subtitle: 'support_contact_sub'.tr(),
-              onTap: () => _makeSupportCall(context),
-            ),
-            _buildMenuItem(
-              icon: Icons.settings_outlined,
-              title: 'settings'.tr(),
-              subtitle: 'settings_sub'.tr(),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => SettingsScreen(
-                      currentLanguage: widget.currentLanguage ?? 'fa',
-                      onLanguageChanged: widget.onLanguageChanged ?? (_) {},
+            _buildMenuGroup([
+              _buildMenuItem(
+                icon: Icons.route_rounded,
+                title: 'trips_history'.tr(),
+                subtitle: 'trips_history_sub'.tr(),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const TripsScreen(),
                     ),
-                  ),
-                );
-              },
+                  );
+                },
+              ),
+              _buildMenuItem(
+                icon: Icons.person_add_alt_1_rounded,
+                title: 'invite_friends'.tr(),
+                subtitle: 'invite_friends_sub'.tr(),
+                onTap: () {
+                  _shareInviteCode(context);
+                },
+              ),
+              _buildMenuItem(
+                icon: Icons.chat_bubble_outline_rounded,
+                title: 'messages'.tr(),
+                subtitle: 'messages_sub'.tr(),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const MessagesScreen(),
+                    ),
+                  );
+                },
+              ),
+            ]),
+            const SizedBox(height: 22),
+            _buildSectionTitle(
+              'services_and_support_section'.tr(),
             ),
-            _buildMenuItem(
-              icon: Icons.info_outline_rounded,
-              title: 'about_app'.tr(),
-              subtitle: 'about_app_sub'.tr(),
-              onTap: () => _showAboutAppDialog(context),
-            ),
+            _buildMenuGroup([
+              _buildMenuItem(
+                icon: Icons.local_offer_outlined,
+                title: 'discount_code'.tr(),
+                subtitle: 'discount_code_sub'.tr(),
+                onTap: () {
+                  _showDiscountModal(context);
+                },
+              ),
+              _buildMenuItem(
+                icon: Icons.support_agent_rounded,
+                title: 'support_contact'.tr(),
+                subtitle: 'support_contact_sub'.tr(),
+                onTap: () {
+                  _makeSupportCall(context);
+                },
+              ),
+              _buildMenuItem(
+                icon: Icons.settings_outlined,
+                title: 'settings'.tr(),
+                subtitle: 'settings_sub'.tr(),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => SettingsScreen(
+                        currentLanguage:
+                            widget.currentLanguage ?? 'fa',
+                        onLanguageChanged:
+                            widget.onLanguageChanged ??
+                                (_) {},
+                      ),
+                    ),
+                  );
+                },
+              ),
+              _buildMenuItem(
+                icon: Icons.info_outline_rounded,
+                title: 'about_app'.tr(),
+                subtitle: 'about_app_sub'.tr(),
+                onTap: () {
+                  _showAboutAppDialog(context);
+                },
+              ),
+            ]),
           ],
         ),
       ),
@@ -467,9 +577,9 @@ class _ProfileAnimatedMenuState extends State<ProfileAnimatedMenu> {
   Widget _buildProfileHeader() {
     return Material(
       color: Colors.white,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(24),
+      clipBehavior: Clip.antiAlias,
       child: InkWell(
-        borderRadius: BorderRadius.circular(16),
         onTap: () async {
           await Navigator.push(
             context,
@@ -482,26 +592,46 @@ class _ProfileAnimatedMenuState extends State<ProfileAnimatedMenu> {
             setState(() {});
           }
         },
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 18,
-            vertical: 20,
+        child: Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            border: Border.all(
+              color: const Color(0xFFE5EBE7),
+            ),
+            borderRadius: BorderRadius.circular(24),
           ),
           child: Row(
             children: [
-              ClipOval(
-                child: Image.asset(
-                  'assets/images/default_profile.png',
-                  width: 60,
-                  height: 60,
-                  fit: BoxFit.cover,
+              Container(
+                width: 58,
+                height: 58,
+                padding: const EdgeInsets.all(2),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: primaryAccent.withOpacity(0.12),
+                  border: Border.all(
+                    color: primaryAccent.withOpacity(0.22),
+                  ),
+                ),
+                child: ClipOval(
+                  child: Image.asset(
+                    'assets/images/default_profile.png',
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) {
+                      return const Icon(
+                        Icons.person_rounded,
+                        color: primaryAccent,
+                        size: 30,
+                      );
+                    },
+                  ),
                 ),
               ),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment:
+                      CrossAxisAlignment.start,
                   children: [
                     Text(
                       _displayName(),
@@ -509,19 +639,41 @@ class _ProfileAnimatedMenuState extends State<ProfileAnimatedMenu> {
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         color: darkTextColor,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
                       ),
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 5),
                     Text(
                       _displayPhone(),
                       textDirection: TextDirection.ltr,
                       style: const TextStyle(
-                        color: Color(0xFF64748B),
-                        fontSize: 14,
-                        fontWeight: FontWeight.w400,
+                        color: secondaryTextColor,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
                       ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Container(
+                          width: 7,
+                          height: 7,
+                          decoration: const BoxDecoration(
+                            color: Color(0xFF22C55E),
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          'active_account'.tr(),
+                          style: const TextStyle(
+                            color: Color(0xFF16A34A),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -529,7 +681,7 @@ class _ProfileAnimatedMenuState extends State<ProfileAnimatedMenu> {
               const Icon(
                 Icons.chevron_left_rounded,
                 color: Color(0xFF94A3B8),
-                size: 24,
+                size: 23,
               ),
             ],
           ),
@@ -540,17 +692,32 @@ class _ProfileAnimatedMenuState extends State<ProfileAnimatedMenu> {
 
   Widget _buildSectionTitle(String title) {
     return Padding(
-      padding: const EdgeInsets.only(
-        right: 4,
-        bottom: 9,
+      padding: const EdgeInsetsDirectional.only(
+        start: 5,
+        bottom: 10,
       ),
       child: Text(
         title,
         style: const TextStyle(
           color: darkTextColor,
-          fontSize: 14,
-          fontWeight: FontWeight.w600,
+          fontSize: 13,
+          fontWeight: FontWeight.w800,
         ),
+      ),
+    );
+  }
+
+  Widget _buildMenuGroup(List<Widget> children) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: const Color(0xFFE5EBE7),
+        ),
+      ),
+      child: Column(
+        children: children,
       ),
     );
   }
@@ -561,75 +728,102 @@ class _ProfileAnimatedMenuState extends State<ProfileAnimatedMenu> {
     required String subtitle,
     required VoidCallback onTap,
   }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Material(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(16),
-          splashColor: Colors.black12,
-          highlightColor: Colors.black.withOpacity(0.04),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 14,
-              vertical: 13,
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: menuIconBackground,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(
-                    icon,
-                    color: darkTextColor,
-                    size: 22,
-                  ),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 13,
+            vertical: 11,
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: menuIconBackground,
+                  borderRadius: BorderRadius.circular(13),
                 ),
-                const SizedBox(width: 13),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: darkTextColor,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                        ),
+                child: Icon(
+                  icon,
+                  color: primaryAccent,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment:
+                      CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: darkTextColor,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
                       ),
-                      const SizedBox(height: 3),
-                      Text(
-                        subtitle,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Color(0xFF64748B),
-                          fontSize: 14,
-                          fontWeight: FontWeight.w400,
-                        ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: secondaryTextColor,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-                const Icon(
-                  Icons.chevron_left_rounded,
-                  color: Color(0xFF94A3B8),
-                  size: 22,
-                ),
-              ],
-            ),
+              ),
+              const SizedBox(width: 8),
+              const Icon(
+                Icons.chevron_left_rounded,
+                color: Color(0xFFB0BAC5),
+                size: 20,
+              ),
+            ],
           ),
         ),
       ),
     );
   }
+}
+
+Widget _buildSheetHandle() {
+  return Center(
+    child: Container(
+      width: 40,
+      height: 4,
+      decoration: BoxDecoration(
+        color: const Color(0xFFD1D5DB),
+        borderRadius: BorderRadius.circular(20),
+      ),
+    ),
+  );
+}
+
+Widget _buildHeaderIcon(
+  IconData icon,
+  Color color,
+) {
+  return Container(
+    width: 40,
+    height: 40,
+    decoration: BoxDecoration(
+      color: color.withOpacity(0.1),
+      borderRadius: BorderRadius.circular(13),
+    ),
+    child: Icon(
+      icon,
+      color: color,
+      size: 21,
+    ),
+  );
 }
