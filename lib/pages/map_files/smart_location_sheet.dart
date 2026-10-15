@@ -1,11 +1,13 @@
 import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:easy_localization/easy_localization.dart';
+
 import 'package:safir_passengers/theme/app_colors.dart';
 
 class SmartLocationSheet extends StatefulWidget {
-  final int currentStep; // 0: مبدأ, 1: مقصد
+  final int currentStep; // 0: مبدأ، 1: مقصد
   final String currentAddress;
   final String currentDestination;
   final VoidCallback onConfirmStep;
@@ -15,7 +17,7 @@ class SmartLocationSheet extends StatefulWidget {
   final bool isMapIdle;
   final bool isExpanded;
   final ValueChanged<bool>? onExpandChanged;
-  final bool hasGpsDisruption; // وضعیت اختلال سیگنال
+  final bool hasGpsDisruption;
 
   const SmartLocationSheet({
     super.key,
@@ -33,36 +35,41 @@ class SmartLocationSheet extends StatefulWidget {
   });
 
   @override
-  State<SmartLocationSheet> createState() => _SmartLocationSheetState();
+  State<SmartLocationSheet> createState() =>
+      _SmartLocationSheetState();
 }
 
-class _SmartLocationSheetState extends State<SmartLocationSheet> {
-  bool get _expanded => widget.isExpanded;
+class _SmartLocationSheetState
+    extends State<SmartLocationSheet> {
   static const Color destinationColor = Color(0xFF169365);
-  late bool _showGpsWarningText;
+  static const Color gpsWarningColor = Color(0xFFD97706);
+  static const Color gpsWarningTextColor = Color(0xFF92400E);
+
+  bool _showGpsWarningText = false;
+
+  bool get _expanded => widget.isExpanded;
 
   @override
   void initState() {
     super.initState();
-    // متن هشدار فقط زمانی اتوماتیک باز می‌شود که اختلال شدید وجود داشته باشد
+
     _showGpsWarningText = widget.hasGpsDisruption;
   }
 
   @override
-  void didUpdateWidget(covariant SmartLocationSheet oldWidget) {
+  void didUpdateWidget(
+    covariant SmartLocationSheet oldWidget,
+  ) {
     super.didUpdateWidget(oldWidget);
-    // در صورت تغییر وضعیت اختلال GPS از سمت والد، مقدار به‌روزرسانی می‌شود
-    if (oldWidget.hasGpsDisruption != widget.hasGpsDisruption) {
-      setState(() {
-        _showGpsWarningText = widget.hasGpsDisruption;
-      });
+
+    if (oldWidget.hasGpsDisruption !=
+        widget.hasGpsDisruption) {
+      _showGpsWarningText = widget.hasGpsDisruption;
     }
   }
 
   void _setExpanded(bool expanded) {
-    if (widget.onExpandChanged != null) {
-      widget.onExpandChanged!(expanded);
-    }
+    widget.onExpandChanged?.call(expanded);
   }
 
   void _toggleExpanded() {
@@ -70,45 +77,137 @@ class _SmartLocationSheetState extends State<SmartLocationSheet> {
     _setExpanded(!_expanded);
   }
 
-  Map<String, String> _splitAddress(String fullAddress) {
-    String originFallback = "origin".tr().isEmpty ? "انتخاب مبدأ" : "origin".tr();
-    String destFallback = "where_to_go".tr().isEmpty ? "مقصد شما کجاست؟" : "where_to_go".tr();
+  void _handleGpsTap() {
+    HapticFeedback.lightImpact();
+    widget.onGpsTap();
 
-    if (fullAddress.isEmpty || fullAddress == originFallback || fullAddress == destFallback) {
+    if (!widget.hasGpsDisruption) {
+      return;
+    }
+
+    setState(() {
+      _showGpsWarningText = !_showGpsWarningText;
+    });
+  }
+
+  String _translatedOrFallback(
+    String key,
+    String fallback,
+  ) {
+    final String value = key.tr();
+
+    if (value.trim().isEmpty || value == key) {
+      return fallback;
+    }
+
+    return value;
+  }
+
+  Map<String, String> _splitAddress(
+    String fullAddress,
+  ) {
+    final String originFallback =
+        _translatedOrFallback(
+      'origin',
+      'انتخاب مبدأ',
+    );
+
+    final String destinationFallback =
+        _translatedOrFallback(
+      'where_to_go',
+      'مقصد شما کجاست؟',
+    );
+
+    final String fetchingAddress =
+        _translatedOrFallback(
+      'fetching_address',
+      'در حال دریافت آدرس...',
+    );
+
+    final String exactLocation =
+        _translatedOrFallback(
+      'exact_location_on_map',
+      'موقعیت دقیق روی نقشه',
+    );
+
+    final String locationOnMap =
+        _translatedOrFallback(
+      'location_on_map',
+      'موقعیت روی نقشه',
+    );
+
+    final String cleanAddress =
+        fullAddress.trim();
+
+    if (cleanAddress.isEmpty ||
+        cleanAddress == originFallback ||
+        cleanAddress == destinationFallback) {
       return {
-        'title': fullAddress.isEmpty
-            ? ("fetching_address".tr().isEmpty ? "در حال دریافت آدرس..." : "fetching_address".tr())
-            : fullAddress,
-        'subtitle': "exact_location_on_map".tr().isEmpty ? "موقعیت دقیق روی نقشه" : "exact_location_on_map".tr()
+        'title': cleanAddress.isEmpty
+            ? fetchingAddress
+            : cleanAddress,
+        'subtitle': exactLocation,
       };
     }
-    List<String> parts = fullAddress.split(RegExp(r'[،,-]'));
+
+    final List<String> parts =
+        cleanAddress.split(RegExp(r'[،,-]'));
+
     if (parts.length > 1) {
       return {
         'title': parts.first.trim(),
-        'subtitle': parts.skip(1).join('، ').trim(),
+        'subtitle': parts
+            .skip(1)
+            .join('، ')
+            .trim(),
       };
     }
+
     return {
-      'title': fullAddress,
-      'subtitle': "location_on_map".tr().isEmpty ? "موقعیت روی نقشه" : "location_on_map".tr()
+      'title': cleanAddress,
+      'subtitle': locationOnMap,
     };
   }
 
   @override
   Widget build(BuildContext context) {
-    final bool isOriginStep = widget.currentStep == 0;
-    final String activeAddress = isOriginStep ? widget.currentAddress : widget.currentDestination;
-    final Map<String, String> activeAddressData = _splitAddress(activeAddress);
+    final bool isOriginStep =
+        widget.currentStep == 0;
 
-    final String originPlaceholder = "origin".tr().isEmpty ? "انتخاب مبدأ" : "origin".tr();
-    final String destPlaceholder = "where_to_go".tr().isEmpty ? "مقصد شما کجاست؟" : "where_to_go".tr();
+    final String activeAddress = isOriginStep
+        ? widget.currentAddress
+        : widget.currentDestination;
+
+    final Map<String, String> activeAddressData =
+        _splitAddress(activeAddress);
+
+    final String originPlaceholder =
+        _translatedOrFallback(
+      'origin',
+      'انتخاب مبدأ',
+    );
+
+    final String destinationPlaceholder =
+        _translatedOrFallback(
+      'where_to_go',
+      'مقصد شما کجاست؟',
+    );
 
     final String searchHint = isOriginStep
-        ? (widget.currentAddress.isNotEmpty ? widget.currentAddress : originPlaceholder)
-        : (widget.currentDestination.isNotEmpty ? widget.currentDestination : destPlaceholder);
+        ? widget.currentAddress.trim().isNotEmpty
+            ? widget.currentAddress
+            : originPlaceholder
+        : widget.currentDestination.trim().isNotEmpty
+            ? widget.currentDestination
+            : destinationPlaceholder;
 
-    final Color currentMarkerColor = isOriginStep ? AppColors.originBlue : destinationColor;
+    final bool hasSelectedAddress = isOriginStep
+        ? widget.currentAddress.trim().isNotEmpty
+        : widget.currentDestination.trim().isNotEmpty;
+
+    final Color currentMarkerColor = isOriginStep
+        ? AppColors.originBlue
+        : destinationColor;
 
     return Stack(
       children: [
@@ -116,283 +215,457 @@ class _SmartLocationSheetState extends State<SmartLocationSheet> {
           alignment: Alignment.bottomCenter,
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start, // برای قرارگیری دکمه GPS در سمت راست (در محیط RTL)
+            crossAxisAlignment:
+                CrossAxisAlignment.start,
             children: [
-              // ویجت شناور GPS
-              Padding(
-                padding: const EdgeInsets.only(left: 16, right: 16, bottom: 12),
-                child: Material(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(24),
-                  elevation: 4,
-                  shadowColor: Colors.black26,
-                  clipBehavior: Clip.antiAlias,
-                  child: InkWell(
-                    onTap: () {
-                      HapticFeedback.lightImpact();
-                      widget.onGpsTap();
-                      // با لمس کاربر، وضعیت باز/بسته بودن متن هشدار تغییر می‌کند
-                      setState(() {
-                        _showGpsWarningText = !_showGpsWarningText;
-                      });
-                    },
-                    splashColor: AppColors.primaryBrand.withOpacity(0.15),
-                    highlightColor: Colors.black.withOpacity(0.05),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 300),
-                      curve: Curves.fastOutSlowIn,
-                      height: 48,
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (widget.hasGpsDisruption && _showGpsWarningText) ...[
-                            const Icon(
-                              Icons.error_outline_rounded,
-                              size: 18,
-                              color: Color(0xFFD97706),
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              "gps_disruption".tr().isEmpty ? "اختلال در موقعیت مکانی" : "gps_disruption".tr(),
-                              style: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.textPrimary,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                          ] else
-                            const Icon(
-                              Icons.my_location,
-                              size: 22,
-                              color: AppColors.textPrimary,
-                            ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-
-              // کشوی تعاملی
-              GestureDetector(
-                onVerticalDragEnd: (details) {
-                  if (details.primaryVelocity! < -180) {
-                    HapticFeedback.selectionClick();
-                    _setExpanded(true);
-                  } else if (details.primaryVelocity! > 180) {
-                    HapticFeedback.selectionClick();
-                    _setExpanded(false);
-                  }
-                },
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 250),
-                  curve: Curves.fastOutSlowIn,
-                  padding: const EdgeInsets.only(left: 16, right: 16, top: 4, bottom: 16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.08),
-                        blurRadius: 12,
-                        spreadRadius: 2,
-                        offset: const Offset(0, -3),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // دستگیره کشویی
-                      GestureDetector(
-                        onTap: _toggleExpanded,
-                        behavior: HitTestBehavior.opaque,
-                        child: Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.symmetric(vertical: 4),
-                          child: Center(
-                            child: Directionality(
-                              textDirection: ui.TextDirection.ltr,
-                              child: Icon(
-                                _expanded
-                                    ? Icons.keyboard_arrow_down_rounded
-                                    : Icons.keyboard_arrow_up_rounded,
-                                size: 28,
-                                color: const Color(0xFFD1D5DB),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-
-                      // کادر جستجو
-                      GestureDetector(
-                        onTap: () {
-                          HapticFeedback.lightImpact();
-                          if (isOriginStep) {
-                            widget.onSearchOriginTap(widget.currentAddress);
-                          } else {
-                            widget.onSearchDestinationTap();
-                          }
-                        },
-                        child: Container(
-                          height: 52,
-                          padding: const EdgeInsets.symmetric(horizontal: 14),
-                          decoration: BoxDecoration(
-                            color: AppColors.cardBackground,
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: AppColors.borderLight),
-                          ),
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 16,
-                                height: 16,
-                                decoration: BoxDecoration(
-                                  color: currentMarkerColor,
-                                  shape: isOriginStep ? BoxShape.circle : BoxShape.rectangle,
-                                  borderRadius: isOriginStep ? null : BorderRadius.circular(4),
-                                ),
-                                child: Center(
-                                  child: Container(
-                                    width: 5,
-                                    height: 5,
-                                    decoration: const BoxDecoration(
-                                      color: Colors.white,
-                                      shape: BoxShape.circle,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Text(
-                                  searchHint,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w500,
-                                    color: (isOriginStep && widget.currentAddress.isNotEmpty) ||
-                                            (!isOriginStep && widget.currentDestination.isNotEmpty)
-                                        ? AppColors.textPrimary
-                                        : AppColors.textSecondary,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              const Icon(Icons.search, color: AppColors.iconSecondary),
-                            ],
-                          ),
-                        ),
-                      ),
-
-                      // لیست پیشنهادات و آدرس
-                      AnimatedSize(
-                        duration: const Duration(milliseconds: 250),
-                        curve: Curves.fastOutSlowIn,
-                        child: _expanded
-                            ? Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const SizedBox(height: 12),
-                                  Container(
-                                    height: 6,
-                                    width: double.infinity,
-                                    decoration: BoxDecoration(
-                                      color: AppColors.backgroundLight,
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 12),
-                                  _SearchResultTile(
-                                    title: activeAddressData['title']!,
-                                    subtitle: activeAddressData['subtitle']!,
-                                    markerColor: currentMarkerColor,
-                                    onTap: () {
-                                      HapticFeedback.lightImpact();
-                                      if (isOriginStep) {
-                                        widget.onSearchOriginTap(activeAddressData['title']!);
-                                      } else {
-                                        widget.onSearchDestinationTap();
-                                      }
-                                    },
-                                  ),
-                                  const SizedBox(height: 12),
-                                  Container(
-                                    height: 6,
-                                    width: double.infinity,
-                                    decoration: BoxDecoration(
-                                      color: AppColors.backgroundLight,
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 12),
-                                  _AddFavoriteTile(
-                                    title: "add_favorite_place".tr().isEmpty ? "افزودن مکان منتخب" : "add_favorite_place".tr(),
-                                    onTap: () {
-                                      HapticFeedback.lightImpact();
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(
-                                          content: Text("add_favorite_place".tr().isEmpty ? "افزودن مکان منتخب" : "add_favorite_place".tr()),
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                  const SizedBox(height: 6),
-                                ],
-                              )
-                            : const SizedBox.shrink(),
-                      ),
-
-                      // دکمه تایید مرحله
-                      AnimatedSize(
-                        duration: const Duration(milliseconds: 250),
-                        curve: Curves.fastOutSlowIn,
-                        child: !_expanded
-                            ? Padding(
-                                padding: const EdgeInsets.only(top: 12),
-                                child: SizedBox(
-                                  width: double.infinity,
-                                  height: 50,
-                                  child: ElevatedButton(
-                                    onPressed: () {
-                                      HapticFeedback.mediumImpact();
-                                      widget.onConfirmStep();
-                                    },
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: AppColors.primaryButton,
-                                      foregroundColor: AppColors.buttonText,
-                                      elevation: 0,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                    ),
-                                    child: Text(
-                                      isOriginStep
-                                          ? ("confirm_origin_btn".tr().isEmpty ? "تایید مبدأ" : "confirm_origin_btn".tr())
-                                          : ("confirm_destination_btn".tr().isEmpty ? "تایید مقصد" : "confirm_destination_btn".tr()),
-                                      style: const TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w700,
-                                        color: AppColors.buttonText,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              )
-                            : const SizedBox.shrink(),
-                      ),
-                    ],
-                  ),
-                ),
+              _buildGpsButton(context),
+              _buildLocationDrawer(
+                context: context,
+                isOriginStep: isOriginStep,
+                activeAddressData: activeAddressData,
+                searchHint: searchHint,
+                hasSelectedAddress: hasSelectedAddress,
+                currentMarkerColor: currentMarkerColor,
               ),
             ],
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildGpsButton(BuildContext context) {
+    final bool showWarning =
+        widget.hasGpsDisruption &&
+        _showGpsWarningText;
+
+    return Padding(
+      padding: const EdgeInsets.only(
+        left: 16,
+        right: 16,
+        bottom: 12,
+      ),
+      child: Align(
+        alignment: AlignmentDirectional.centerStart,
+        child: Material(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(26),
+          elevation: 5,
+          shadowColor: Colors.black26,
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: _handleGpsTap,
+            splashColor:
+                AppColors.primaryBrand.withOpacity(0.15),
+            highlightColor: Colors.black.withOpacity(0.05),
+            borderRadius: BorderRadius.circular(26),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 280),
+              curve: Curves.easeOutCubic,
+              height: 50,
+              padding: EdgeInsets.symmetric(
+                horizontal: showWarning ? 14 : 13,
+              ),
+              decoration: BoxDecoration(
+                color: showWarning
+                    ? const Color(0xFFFFF7ED)
+                    : Colors.white,
+                borderRadius: BorderRadius.circular(26),
+                border: Border.all(
+                  color: showWarning
+                      ? const Color(0xFFF59E0B)
+                      : Colors.transparent,
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  AnimatedSwitcher(
+                    duration:
+                        const Duration(milliseconds: 220),
+                    transitionBuilder:
+                        (child, animation) {
+                      return ScaleTransition(
+                        scale: animation,
+                        child: child,
+                      );
+                    },
+                    child: showWarning
+                        ? const Icon(
+                            Icons.warning_amber_rounded,
+                            key: ValueKey(
+                              'gps-warning-icon',
+                            ),
+                            size: 21,
+                            color: gpsWarningColor,
+                          )
+                        : const Icon(
+                            Icons.my_location_rounded,
+                            key: ValueKey(
+                              'gps-location-icon',
+                            ),
+                            size: 22,
+                            color: AppColors.textPrimary,
+                          ),
+                  ),
+                  AnimatedSize(
+                    duration:
+                        const Duration(milliseconds: 280),
+                    curve: Curves.easeOutCubic,
+                    child: showWarning
+                        ? Row(
+                            mainAxisSize:
+                                MainAxisSize.min,
+                            children: [
+                              const SizedBox(width: 8),
+                              Text(
+                                _translatedOrFallback(
+                                  'gps_disruption',
+                                  'اختلال در موقعیت مکانی',
+                                ),
+                                style: const TextStyle(
+                                  color: gpsWarningTextColor,
+                                  fontSize: 12,
+                                  fontWeight:
+                                      FontWeight.w800,
+                                ),
+                              ),
+                              const SizedBox(width: 5),
+                              const Icon(
+                                Icons
+                                    .keyboard_arrow_up_rounded,
+                                size: 18,
+                                color: gpsWarningColor,
+                              ),
+                            ],
+                          )
+                        : const SizedBox.shrink(),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLocationDrawer({
+    required BuildContext context,
+    required bool isOriginStep,
+    required Map<String, String> activeAddressData,
+    required String searchHint,
+    required bool hasSelectedAddress,
+    required Color currentMarkerColor,
+  }) {
+    return GestureDetector(
+      onVerticalDragEnd: (details) {
+        final double velocity =
+            details.primaryVelocity ?? 0;
+
+        if (velocity < -180) {
+          HapticFeedback.selectionClick();
+          _setExpanded(true);
+        } else if (velocity > 180) {
+          HapticFeedback.selectionClick();
+          _setExpanded(false);
+        }
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 280),
+        curve: Curves.easeOutCubic,
+        padding: const EdgeInsets.only(
+          left: 16,
+          right: 16,
+          top: 4,
+          bottom: 16,
+        ),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: const BorderRadius.vertical(
+            top: Radius.circular(26),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.08),
+              blurRadius: 16,
+              spreadRadius: 1,
+              offset: const Offset(0, -4),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildDrawerHandle(),
+            const SizedBox(height: 4),
+            _buildSearchBox(
+              context: context,
+              isOriginStep: isOriginStep,
+              searchHint: searchHint,
+              hasSelectedAddress: hasSelectedAddress,
+              currentMarkerColor: currentMarkerColor,
+            ),
+            AnimatedSize(
+              duration: const Duration(milliseconds: 280),
+              curve: Curves.easeOutCubic,
+              child: _expanded
+                  ? _buildExpandedContent(
+                      context: context,
+                      isOriginStep: isOriginStep,
+                      activeAddressData:
+                          activeAddressData,
+                      currentMarkerColor:
+                          currentMarkerColor,
+                    )
+                  : const SizedBox.shrink(),
+            ),
+            AnimatedSize(
+              duration: const Duration(milliseconds: 280),
+              curve: Curves.easeOutCubic,
+              child: !_expanded
+                  ? _buildConfirmButton(
+                      context,
+                      isOriginStep,
+                    )
+                  : const SizedBox.shrink(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDrawerHandle() {
+    return GestureDetector(
+      onTap: _toggleExpanded,
+      behavior: HitTestBehavior.opaque,
+      child: SizedBox(
+        width: double.infinity,
+        height: 34,
+        child: Center(
+          child: Directionality(
+            textDirection: ui.TextDirection.ltr,
+            child: Icon(
+              _expanded
+                  ? Icons.keyboard_arrow_down_rounded
+                  : Icons.keyboard_arrow_up_rounded,
+              size: 27,
+              color: const Color(0xFFD1D5DB),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSearchBox({
+    required BuildContext context,
+    required bool isOriginStep,
+    required String searchHint,
+    required bool hasSelectedAddress,
+    required Color currentMarkerColor,
+  }) {
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.lightImpact();
+
+        if (isOriginStep) {
+          widget.onSearchOriginTap(
+            widget.currentAddress,
+          );
+        } else {
+          widget.onSearchDestinationTap();
+        }
+      },
+      child: Container(
+        height: 54,
+        padding: const EdgeInsets.symmetric(
+          horizontal: 14,
+        ),
+        decoration: BoxDecoration(
+          color: AppColors.cardBackground,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: AppColors.borderLight,
+          ),
+        ),
+        child: Row(
+          children: [
+            _buildLocationMarker(
+              currentMarkerColor,
+              isOriginStep,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                searchHint,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: hasSelectedAddress
+                      ? AppColors.textPrimary
+                      : AppColors.textSecondary,
+                  fontSize: 14,
+                  fontWeight: hasSelectedAddress
+                      ? FontWeight.w700
+                      : FontWeight.w500,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            const Icon(
+              Icons.search_rounded,
+              color: AppColors.iconSecondary,
+              size: 22,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLocationMarker(
+    Color color,
+    bool isOrigin,
+  ) {
+    return Container(
+      width: 17,
+      height: 17,
+      decoration: BoxDecoration(
+        color: color,
+        shape: isOrigin
+            ? BoxShape.circle
+            : BoxShape.rectangle,
+        borderRadius: isOrigin
+            ? null
+            : BorderRadius.circular(5),
+      ),
+      child: Center(
+        child: Container(
+          width: 5,
+          height: 5,
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            shape: BoxShape.circle,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildExpandedContent({
+    required BuildContext context,
+    required bool isOriginStep,
+    required Map<String, String> activeAddressData,
+    required Color currentMarkerColor,
+  }) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const SizedBox(height: 13),
+        _buildDividerBar(),
+        const SizedBox(height: 13),
+        _SearchResultTile(
+          title: activeAddressData['title'] ?? '',
+          subtitle:
+              activeAddressData['subtitle'] ?? '',
+          markerColor: currentMarkerColor,
+          onTap: () {
+            HapticFeedback.lightImpact();
+
+            if (isOriginStep) {
+              widget.onSearchOriginTap(
+                activeAddressData['title'] ?? '',
+              );
+            } else {
+              widget.onSearchDestinationTap();
+            }
+          },
+        ),
+        const SizedBox(height: 12),
+        _buildDividerBar(),
+        const SizedBox(height: 12),
+        _AddFavoriteTile(
+          title: _translatedOrFallback(
+            'add_favorite_place',
+            'افزودن مکان منتخب',
+          ),
+          onTap: () {
+            HapticFeedback.lightImpact();
+
+            ScaffoldMessenger.of(context)
+                .showSnackBar(
+              SnackBar(
+                content: Text(
+                  _translatedOrFallback(
+                    'add_favorite_place',
+                    'افزودن مکان منتخب',
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+        const SizedBox(height: 6),
+      ],
+    );
+  }
+
+  Widget _buildDividerBar() {
+    return Container(
+      height: 5,
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: AppColors.backgroundLight,
+        borderRadius: BorderRadius.circular(5),
+      ),
+    );
+  }
+
+  Widget _buildConfirmButton(
+    BuildContext context,
+    bool isOriginStep,
+  ) {
+    final String buttonText = isOriginStep
+        ? _translatedOrFallback(
+            'confirm_origin_btn',
+            'تایید مبدأ',
+          )
+        : _translatedOrFallback(
+            'confirm_destination_btn',
+            'تایید مقصد',
+          );
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 13),
+      child: SizedBox(
+        width: double.infinity,
+        height: 51,
+        child: ElevatedButton(
+          onPressed: () {
+            HapticFeedback.mediumImpact();
+            widget.onConfirmStep();
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.primaryButton,
+            foregroundColor: AppColors.buttonText,
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
+          ),
+          child: Text(
+            buttonText,
+            style: const TextStyle(
+              color: AppColors.buttonText,
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -412,69 +685,78 @@ class _SearchResultTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.location_on_outlined,
-                  color: markerColor,
-                  size: 26,
-                ),
-                const SizedBox(height: 2),
-                Container(
-                  width: 14,
-                  height: 2.5,
-                  decoration: BoxDecoration(
-                    color: markerColor.withOpacity(0.8),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(15),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            vertical: 5,
+            horizontal: 4,
+          ),
+          child: Row(
+            crossAxisAlignment:
+                CrossAxisAlignment.center,
+            children: [
+              Column(
                 mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textPrimary,
-                    ),
+                  Icon(
+                    Icons.location_on_outlined,
+                    color: markerColor,
+                    size: 27,
                   ),
-                  const SizedBox(height: 3),
-                  Text(
-                    subtitle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: AppColors.textSecondary,
+                  const SizedBox(height: 2),
+                  Container(
+                    width: 14,
+                    height: 2.5,
+                    decoration: BoxDecoration(
+                      color: markerColor.withOpacity(0.8),
+                      borderRadius:
+                          BorderRadius.circular(3),
                     ),
                   ),
                 ],
               ),
-            ),
-            const SizedBox(width: 8),
-            const Icon(
-              Icons.star_outline_rounded,
-              color: AppColors.iconSecondary,
-              size: 22,
-            ),
-          ],
+              const SizedBox(width: 11),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment:
+                      CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Icon(
+                Icons.chevron_left_rounded,
+                color: AppColors.iconSecondary,
+                size: 21,
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -492,38 +774,49 @@ class _AddFavoriteTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
-        child: Row(
-          children: [
-            Container(
-              width: 38,
-              height: 38,
-              decoration: const BoxDecoration(
-                color: AppColors.cardBackground,
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.add,
-                color: AppColors.primaryBrand,
-                size: 22,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textPrimary,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(15),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            vertical: 5,
+            horizontal: 4,
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: const BoxDecoration(
+                  color: AppColors.cardBackground,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.add_rounded,
+                  color: AppColors.primaryBrand,
+                  size: 22,
                 ),
               ),
-            ),
-          ],
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              const Icon(
+                Icons.chevron_left_rounded,
+                color: AppColors.iconSecondary,
+                size: 21,
+              ),
+            ],
+          ),
         ),
       ),
     );
