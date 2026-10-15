@@ -6,7 +6,6 @@ class RideService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  // متد ایجاد درخواست سفر جدید در Firestore
   Future<String?> createRideRequest({
     required String pickupAddress,
     required double pickupLat,
@@ -18,38 +17,65 @@ class RideService {
   }) async {
     try {
       final User? user = _auth.currentUser;
+
       if (user == null) {
-        debugPrint("کاربر وارد نشده است!");
+        debugPrint('کاربر وارد نشده است!');
         return null;
       }
 
-      // ایجاد سند جدید با کلید اختصاصی در مجموعه rides
-      DocumentReference rideRef = _firestore.collection('rides').doc();
+      final DocumentReference<Map<String, dynamic>> rideRef =
+          _firestore.collection('rides').doc();
 
-      Map<String, dynamic> rideData = {
-        'rideId': rideRef.id,
-        'passengerId': user.uid,
-        'passengerPhone': user.phoneNumber ?? '',
-        'driverId': null, // در انتظار قبول راننده
-        'status': 'requested', // وضعیت اولیه سفر
-        'pickup': {
+      final Map<String, dynamic> rideData = <String, dynamic>{
+        'ride_id': rideRef.id,
+
+        // شناسه و اطلاعات مسافر
+        'passenger_id': user.uid,
+        'passenger_phone': user.phoneNumber ?? '',
+
+        // راننده هنوز انتخاب نشده است
+        'driver_id': 'waiting',
+
+        // راننده فقط این وضعیت را در Listener می‌خواند
+        'status': 'searching',
+
+        // مبدأ
+        'origin': <String, dynamic>{
           'address': pickupAddress,
-          'lat': pickupLat,
-          'lng': pickupLng,
+          'latitude': pickupLat,
+          'longitude': pickupLng,
         },
-        'destination': {
+        'originLatLng': GeoPoint(pickupLat, pickupLng),
+        'pickup_address': pickupAddress,
+        'from_lat': pickupLat,
+        'from_lng': pickupLng,
+
+        // مقصد
+        'destination': <String, dynamic>{
           'address': destinationAddress,
-          'lat': destinationLat,
-          'lng': destinationLng,
+          'latitude': destinationLat,
+          'longitude': destinationLng,
         },
-        'fareAmount': fareAmount,
-        'createdAt': FieldValue.serverTimestamp(),
+        'destinationLatLng': GeoPoint(destinationLat, destinationLng),
+        'dropoff_address': destinationAddress,
+        'to_lat': destinationLat,
+        'to_lng': destinationLng,
+
+        // مبلغ
+        'fare_amount': fareAmount,
+
+        // زمان‌ها
+        'created_at': FieldValue.serverTimestamp(),
+        'updated_at': FieldValue.serverTimestamp(),
       };
 
       await rideRef.set(rideData);
-      return rideRef.id; // بازگرداندن آیدی سفر برای پیگیری بعدی
-    } catch (e) {
-      debugPrint("خطا در ثبت درخواست سفر: $e");
+
+      debugPrint('Ride created successfully: ${rideRef.id}');
+      return rideRef.id;
+    } catch (e, stackTrace) {
+      debugPrint('خطا در ثبت درخواست سفر: $e');
+      debugPrintStack(stackTrace: stackTrace);
       return null;
     }
   }
