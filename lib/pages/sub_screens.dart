@@ -1,3 +1,4 @@
+import 'dart:ui' as ui;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -649,7 +650,7 @@ class _RideHistoryCard extends StatelessWidget {
           ),
           Text(
             date,
-            textDirection: TextDirection.ltr,
+            textDirection: ui.TextDirection.ltr,
             style: const TextStyle(
               color: mutedColor,
               fontSize: 10,
@@ -1018,7 +1019,7 @@ class _DriverAvatar extends StatelessWidget {
                 imageUrl,
                 fit: BoxFit.cover,
                 errorBuilder: (_, __, ___) {
-                  return const Icon(
+                  return Icon(
                     Icons.person_rounded,
                     color: safirBrandColor,
                     size: 29,
@@ -1033,7 +1034,7 @@ class _DriverAvatar extends StatelessWidget {
                     return child;
                   }
 
-                  return const Center(
+                  return Center(
                     child: SizedBox(
                       width: 18,
                       height: 18,
@@ -1045,7 +1046,7 @@ class _DriverAvatar extends StatelessWidget {
                   );
                 },
               )
-            : const Icon(
+            : Icon(
                 Icons.person_rounded,
                 color: safirBrandColor,
                 size: 29,
@@ -1092,7 +1093,7 @@ class _InfoPill extends StatelessWidget {
               text,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              textDirection: TextDirection.rtl,
+              textDirection: ui.TextDirection.ltr,
               style: const TextStyle(
                 color: Color(0xFF475569),
                 fontSize: 10,
