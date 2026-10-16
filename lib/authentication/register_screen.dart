@@ -3,25 +3,29 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+// ایمپورت‌های پکیج سفیر مسافر
 import 'package:safir_passengers/appInfo/auth_provider.dart';
 import 'package:safir_passengers/authentication/user_information_screen.dart';
 import 'package:safir_passengers/methods/common_methods.dart';
 import 'package:safir_passengers/pages/blocked_screen.dart';
 import 'package:safir_passengers/pages/safir_home_screen.dart';
+import 'package:safir_passengers/global/global_var.dart';
 import 'package:safir_passengers/theme/app_colors.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
 
   @override
-  State<RegisterScreen> createState() => _RegisterScreenState();
+  State<RegisterScreen> createState() =>
+      _RegisterScreenState();
 }
 
-class _RegisterScreenState extends State<RegisterScreen> {
+class _RegisterScreenState
+    extends State<RegisterScreen> {
   final TextEditingController phoneController =
       TextEditingController();
 
-  final CommonMethods commonMethods = CommonMethods();
+  CommonMethods commonMethods = CommonMethods();
 
   @override
   void initState() {
@@ -190,102 +194,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   bool _isPhoneValid(String input) {
     final String clean = input.trim();
-    return RegExp(r'^07[0-9]{8}$').hasMatch(clean);
-  }
 
-  Future<void> _handleGoogleSignIn(
-    AuthenticationProvider authProvider,
-  ) async {
-    await authProvider.signInWithGoogle(
-      context,
-      () async {
-        final User? currentUser =
-            authProvider.firebaseAuth.currentUser;
-
-        if (currentUser == null) {
-          if (!mounted) return;
-
-          commonMethods.displaySnackBar(
-            'ورود با Google کامل نشد.',
-            context,
-          );
-          return;
-        }
-
-        bool userExists;
-
-        try {
-          userExists =
-              await authProvider.checkUserExistById();
-        } on FirebaseException catch (e) {
-          if (!mounted) return;
-
-          commonMethods.displaySnackBar(
-            'خطا در دریافت اطلاعات کاربر: '
-            '${e.message ?? e.code}',
-            context,
-          );
-          return;
-        }
-
-        if (!mounted) return;
-
-        if (!userExists) {
-          try {
-            await authProvider.createInitialPassengerDocument();
-          } on FirebaseException catch (e) {
-            if (!mounted) return;
-
-            commonMethods.displaySnackBar(
-              'ذخیرهٔ اطلاعات کاربر انجام نشد: '
-              '${e.message ?? e.code}',
-              context,
-            );
-            return;
-          }
-
-          if (!mounted) return;
-
-          Navigator.pushAndRemoveUntil(
-            context,
-            MaterialPageRoute(
-              builder: (_) =>
-                  const UserInformationScreen(),
-            ),
-            (route) => false,
-          );
-          return;
-        }
-
-        final bool isBlocked =
-            await authProvider.checkIfUserIsBlocked();
-
-        if (!mounted) return;
-
-        if (isBlocked) {
-          Navigator.pushAndRemoveUntil(
-            context,
-            MaterialPageRoute(
-              builder: (_) => const BlockedScreen(),
-            ),
-            (route) => false,
-          );
-          return;
-        }
-
-        await authProvider.getUserDataFromFirebaseDatabase();
-
-        if (!mounted) return;
-
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(
-            builder: (_) => const SafirHomeScreen(),
-          ),
-          (route) => false,
-        );
-      },
-    );
+    return RegExp(
+      r'^0[7][0-9]{8}$',
+    ).hasMatch(clean);
   }
 
   @override
@@ -307,7 +219,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
               vertical: 16,
             ),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment:
+                  CrossAxisAlignment.start,
               children: [
                 Row(
                   mainAxisAlignment:
@@ -315,8 +228,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   children: [
                     const SizedBox(),
                     GestureDetector(
-                      onTap: () =>
-                          showLanguageBottomSheet(context),
+                      onTap: () {
+                        showLanguageBottomSheet(context);
+                      },
                       child: Container(
                         width: 44,
                         height: 44,
@@ -325,19 +239,23 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           color: const Color(0xFF2C2C2E)
                               .withOpacity(0.12),
                           border: Border.all(
-                            color: Colors.black.withOpacity(0.15),
+                            color: Colors.black
+                                .withOpacity(0.15),
                             width: 1,
                           ),
                         ),
                         padding: const EdgeInsets.all(4),
                         child: Container(
-                          decoration: const BoxDecoration(
+                          decoration:
+                              const BoxDecoration(
                             shape: BoxShape.circle,
                             color: Color(0xFF27B463),
                           ),
                           child: Center(
                             child: Text(
-                              _getLanguageCodeText(context),
+                              _getLanguageCodeText(
+                                context,
+                              ),
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 12,
@@ -388,6 +306,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       fontSize: 13,
+                      fontWeight: FontWeight.normal,
                       color: AppColors.textSecondary,
                       height: 1.4,
                     ),
@@ -419,7 +338,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             maxLength: 10,
                             textInputAction:
                                 TextInputAction.done,
-                            keyboardType: TextInputType.phone,
+                            keyboardType:
+                                TextInputType.phone,
                             textAlign: TextAlign.left,
                             style: const TextStyle(
                               fontSize: 16,
@@ -427,7 +347,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               letterSpacing: 1.5,
                               color: AppColors.textPrimary,
                             ),
-                            onChanged: (_) => setState(() {}),
+                            onChanged: (_) {
+                              setState(() {});
+                            },
                             decoration: InputDecoration(
                               counterText: '',
                               hintText: '0781234567',
@@ -435,6 +357,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 color: Colors.grey.shade400,
                                 fontSize: 15,
                                 letterSpacing: 1.5,
+                                fontWeight:
+                                    FontWeight.normal,
                               ),
                               border: InputBorder.none,
                               isDense: true,
@@ -456,14 +380,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   width: double.infinity,
                   height: 52,
                   child: ElevatedButton(
-                    onPressed:
-                        isValidPhone ? sendPhoneNumber : null,
+                    onPressed: isValidPhone
+                        ? sendPhoneNumber
+                        : null,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: isValidPhone
                           ? AppColors.primaryButton
                           : Colors.grey.shade300,
                       disabledBackgroundColor:
                           Colors.grey.shade200,
+                      overlayColor:
+                          AppColors.primaryButtonPressed,
                       foregroundColor: isValidPhone
                           ? AppColors.buttonText
                           : Colors.grey.shade500,
@@ -471,7 +398,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           Colors.grey.shade400,
                       elevation: 0,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius:
+                            BorderRadius.circular(14),
                       ),
                     ),
                     child: authProvider.isLoading
@@ -481,20 +409,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             child:
                                 CircularProgressIndicator(
                               strokeWidth: 2.5,
-                              color: AppColors.buttonText,
+                              color:
+                                  AppColors.buttonText,
                             ),
                           )
                         : Text(
-                            getTranslation(
-                              context,
-                              'get_otp_btn',
-                            ),
+                            'get_otp_btn'.tr(),
                             style: TextStyle(
                               color: isValidPhone
                                   ? AppColors.buttonText
                                   : Colors.grey.shade500,
                               fontSize: 15,
-                              fontWeight: FontWeight.bold,
+                              fontWeight:
+                                  FontWeight.bold,
                             ),
                           ),
                   ),
@@ -509,14 +436,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       ),
                     ),
                     Padding(
-                      padding: const EdgeInsets.symmetric(
+                      padding:
+                          const EdgeInsets.symmetric(
                         horizontal: 14,
                       ),
                       child: Text(
-                        getTranslation(
-                          context,
-                          'or_continue_with',
-                        ),
+                        'or_continue_with'.tr(),
                         style: const TextStyle(
                           color: AppColors.textSecondary,
                           fontSize: 12,
@@ -540,9 +465,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     onPressed:
                         authProvider.isGoogleSigInLoading
                             ? null
-                            : () => _handleGoogleSignIn(
+                            : () {
+                                _handleGoogleSignIn(
                                   authProvider,
-                                ),
+                                );
+                              },
                     style: OutlinedButton.styleFrom(
                       backgroundColor: Colors.white,
                       side: const BorderSide(
@@ -550,16 +477,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         width: 1.5,
                       ),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius:
+                            BorderRadius.circular(14),
                       ),
                     ),
-                    child: authProvider.isGoogleSigInLoading
+                    child: authProvider
+                            .isGoogleSigInLoading
                         ? const SizedBox(
                             width: 22,
                             height: 22,
                             child:
                                 CircularProgressIndicator(
-                              color: AppColors.primaryBrand,
+                              color:
+                                  AppColors.primaryBrand,
                               strokeWidth: 2,
                             ),
                           )
@@ -567,21 +497,32 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             mainAxisAlignment:
                                 MainAxisAlignment.center,
                             children: [
-                              const Icon(
-                                Icons.g_mobiledata_rounded,
-                                color: Colors.redAccent,
-                                size: 28,
+                              Image.network(
+                                'https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg',
+                                height: 20,
+                                errorBuilder: (
+                                  context,
+                                  error,
+                                  stackTrace,
+                                ) {
+                                  return const Icon(
+                                    Icons
+                                        .g_mobiledata_rounded,
+                                    color:
+                                        Colors.redAccent,
+                                    size: 28,
+                                  );
+                                },
                               ),
                               const SizedBox(width: 10),
                               Text(
-                                getTranslation(
-                                  context,
-                                  'google_sign_in_btn',
-                                ),
+                                'google_sign_in_btn'.tr(),
                                 style: const TextStyle(
-                                  color: AppColors.textPrimary,
+                                  color:
+                                      AppColors.textPrimary,
                                   fontSize: 14,
-                                  fontWeight: FontWeight.w600,
+                                  fontWeight:
+                                      FontWeight.w600,
                                 ),
                               ),
                             ],
@@ -591,10 +532,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 const SizedBox(height: 28),
                 Center(
                   child: Text(
-                    getTranslation(
-                      context,
-                      'terms_and_privacy_notice',
-                    ),
+                    'terms_and_privacy_notice'.tr(),
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       color: AppColors.textSecondary,
@@ -608,6 +546,62 @@ class _RegisterScreenState extends State<RegisterScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  void _handleGoogleSignIn(
+    AuthenticationProvider authProvider,
+  ) {
+    authProvider.signInWithGoogle(
+      context,
+      () async {
+        final User? currentUser =
+            authProvider.firebaseAuth.currentUser;
+
+        if (currentUser == null) {
+          if (!mounted) return;
+
+          commonMethods.displaySnackBar(
+            'google_sign_in_incomplete'.tr(),
+            context,
+          );
+          return;
+        }
+
+        final bool userExists =
+            await authProvider.checkUserExistById();
+
+        if (!mounted) return;
+
+        if (!userExists) {
+          navigate(isSingedIn: false);
+          return;
+        }
+
+        final bool isBlocked =
+            await authProvider.checkIfUserIsBlocked();
+
+        if (!mounted) return;
+
+        if (isBlocked) {
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(
+              builder: (_) =>
+                  const BlockedScreen(),
+            ),
+            (route) => false,
+          );
+          return;
+        }
+
+        await authProvider
+            .getUserDataFromFirebaseDatabase();
+
+        if (!mounted) return;
+
+        navigate(isSingedIn: true);
+      },
     );
   }
 
@@ -664,17 +658,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
         phoneController.text.trim();
 
     if (rawPhoneNumber.startsWith('0')) {
-      rawPhoneNumber = rawPhoneNumber.substring(1);
+      rawPhoneNumber =
+          rawPhoneNumber.substring(1);
     }
 
-    if (rawPhoneNumber.length != 9 ||
-        !RegExp(r'^7[0-9]{8}$')
+    if (rawPhoneNumber.isEmpty ||
+        rawPhoneNumber.length != 9 ||
+        !RegExp(r'^[7][0-9]{8}$')
             .hasMatch(rawPhoneNumber)) {
       commonMethods.displaySnackBar(
-        getTranslation(
-          context,
-          'invalid_phone_warning',
-        ),
+        'invalid_phone_warning'.tr(),
         context,
       );
       return;
@@ -687,5 +680,28 @@ class _RegisterScreenState extends State<RegisterScreen> {
       context: context,
       phoneNumber: fullPhoneNumber,
     );
+  }
+
+  void navigate({
+    required bool isSingedIn,
+  }) {
+    if (isSingedIn) {
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(
+          builder: (context) =>
+              const SafirHomeScreen(),
+        ),
+        (route) => false,
+      );
+    } else {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) =>
+              const UserInformationScreen(),
+        ),
+      );
+    }
   }
 }
