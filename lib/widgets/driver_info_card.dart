@@ -16,12 +16,37 @@ class DriverInfoCard extends StatelessWidget {
     this.onPaymentPressed,
   });
 
+  /// متد هوشمند برای جلوگیری از تکرار رنگ خودرو
+  String _buildCarTitle(String model, String color) {
+    final cleanModel = model.trim();
+    final cleanColor = color.trim();
+
+    if (cleanModel.isEmpty) return cleanColor;
+    if (cleanColor.isEmpty) return cleanModel;
+
+    // اگر مدل خودش کلمه رنگ را شامل می‌شود، از تکرار مجدد جلوگیری کن
+    if (cleanModel.toLowerCase().contains(cleanColor.toLowerCase())) {
+      return cleanModel;
+    }
+
+    // اگر شامل خط تیره نیست، آن را با فرمت زیبا ترکیب کن
+    if (cleanModel.contains('-')) {
+      return "$cleanModel $cleanColor";
+    }
+
+    return "$cleanModel - $cleanColor";
+  }
+
   @override
   Widget build(BuildContext context) {
     // استخراج اطلاعات راننده
     String driverName = driverData['full_name'] ?? 'نام راننده';
-    String carModel = driverData['car_model'] ?? 'تویوتا کرولا';
-    String carColor = driverData['car_color'] ?? 'سفید';
+    String rawCarModel = driverData['car_model'] ?? 'تویوتا کرولا';
+    String rawCarColor = driverData['car_color'] ?? 'سفید';
+    
+    // عنوان اصلاح‌شده خودرو
+    String carTitle = _buildCarTitle(rawCarModel, rawCarColor);
+
     String? photoUrl = driverData['photo'];
     
     // اطلاعات هزینه سفر
@@ -67,9 +92,9 @@ class DriverInfoCard extends StatelessWidget {
             ),
           ),
 
-          // 🔹 ۲. مدل و رنگ خودرو
+          // 🔹 ۲. مدل و رنگ خودرو (اصلاح‌شده بدون تکرار)
           Text(
-            "$carModel $carColor",
+            carTitle,
             style: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
