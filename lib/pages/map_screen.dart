@@ -17,7 +17,7 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:safir_passengers/appInfo/app_info.dart';
 import 'package:safir_passengers/constants/trip_status.dart';
 import 'package:safir_passengers/models/address_models.dart';
-import 'package:safir_passengers/global/global_var.dart'; 
+import 'package:safir_passengers/global/global_var.dart';
 import 'package:safir_passengers/global/trip_var.dart';
 import 'package:safir_passengers/theme/app_colors.dart';
 import 'package:safir_passengers/widgets/rate_driver_sheet.dart';
@@ -25,13 +25,13 @@ import 'search_destination_place.dart';
 
 import 'map_files/map_controller_logic.dart';
 import 'map_files/map_bottom_sheets.dart';
-import 'map_files/smart_location_sheet.dart'; 
+import 'map_files/smart_location_sheet.dart';
 import 'map_files/intercity_sheets.dart';
 import 'map_files/cargo_sheets.dart';
 import 'map_files/trip_options_sheet.dart';
 import 'map_files/schedule_trip_sheet.dart';
 import 'map_files/promo_code_sheet.dart';
-import '../widgets/animated_menus.dart'; 
+import '../widgets/animated_menus.dart';
 import '../widgets/map_location_label.dart';
 
 /// 🔹 تبدیل ویجت به تصویر برای MapLibre
@@ -40,7 +40,8 @@ Future<Uint8List> widgetToImageBytes(Widget widget) async {
   final PipelineOwner pipelineOwner = PipelineOwner();
   final RenderRepaintBoundary repaintBoundary = RenderRepaintBoundary();
 
-  final MediaQueryData mediaQueryData = MediaQueryData.fromView(ui.PlatformDispatcher.instance.views.first);
+  final MediaQueryData mediaQueryData =
+      MediaQueryData.fromView(ui.PlatformDispatcher.instance.views.first);
 
   final RenderView renderView = RenderView(
     view: ui.PlatformDispatcher.instance.views.first,
@@ -54,7 +55,8 @@ Future<Uint8List> widgetToImageBytes(Widget widget) async {
   pipelineOwner.rootNode = renderView;
   renderView.prepareInitialFrame();
 
-  final RenderObjectToWidgetElement<RenderBox> rootElement = RenderObjectToWidgetAdapter<RenderBox>(
+  final RenderObjectToWidgetElement<RenderBox> rootElement =
+      RenderObjectToWidgetAdapter<RenderBox>(
     container: repaintBoundary,
     child: Directionality(
       textDirection: ui.TextDirection.rtl,
@@ -128,11 +130,20 @@ class SafirMapScreen extends StatefulWidget {
 
 class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStateMixin {
   MapLibreMapController? _mapController;
-  
+
   LatLng _currentUserLatLng = const LatLng(34.5333, 69.1667);
   double _currentGpsAccuracy = 0.0;
 
   StreamSubscription<Position>? _positionStreamSubscription;
+
+  // ───────── وضعیت GPS ─────────
+  bool _hasGpsDisruption = false;
+  StreamSubscription<ServiceStatus>? _gpsServiceSubscription;
+
+  /// آستانه‌ها: بالاتر از ۵۰ متر = اختلال، پایین‌تر از ۳۵ متر = سالم
+  /// (دو آستانهٔ جدا برای جلوگیری از چشمک‌زدن هشدار)
+  static const double _gpsBadAccuracyMeters = 50.0;
+  static const double _gpsGoodAccuracyMeters = 35.0;
 
   LatLng? _originLatLng;
   LatLng? _destinationLatLng;
@@ -144,11 +155,11 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
   Symbol? _driverLiveSymbol;
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _driverLocationStreamSubscription;
   String? _assignedDriverId;
-  /// 🔧 کش تصویر آیکن راننده به‌ازای هر نوع وسیله (ماشین/موترسایکل/باربری)
+
+  /// کش تصویر آیکن راننده به‌ازای هر نوع وسیله (ماشین/موترسایکل/باربری)
   final Map<String, Uint8List> _cachedDriverIconBytes = {};
-  /// 🔧 شناسهٔ تصاویری که از قبل به استایل نقشه اضافه شده‌اند — چون
-  /// ممکن است کاربر در میانهٔ کار نوع وسیله را عوض کند (ماشین ↔ موترسایکل)،
-  /// یک فلگ ساده کافی نیست؛ باید بدانیم دقیقاً کدام آیکن(ها) اضافه شده.
+
+  /// شناسهٔ تصاویری که از قبل به استایل نقشه اضافه شده‌اند
   final Set<String> _addedDriverIconIds = {};
   String? _driverIconImageIdLoaded;
   late AnimationController _driverAnimationController;
@@ -159,17 +170,16 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
   double _driverAnimationStartBearing = 0.0;
   double _driverAnimationEndBearing = 0.0;
 
-  /// 🔧 آخرین موقعیت خامی که از Firestore آمده (برای رسم مسیر تازه)
+  /// آخرین موقعیت خامی که از Firestore آمده (برای رسم مسیر تازه)
   LatLng? _latestDriverRaw;
   double _latestDriverHeading = -1.0;
 
-
-  /// 🔧 صف «آخرین مقدار برنده است» تا آپدیت‌ها هم‌زمان اجرا نشوند
+  /// صف «آخرین مقدار برنده است» تا آپدیت‌ها هم‌زمان اجرا نشوند
   LatLng? _pendingDriverRawPosition;
   double _pendingDriverRawHeading = -1.0;
   bool _isProcessingDriverUpdate = false;
 
-  /// 🔧 مبدأ و مقصد واقعی سفر (همان چیزی که در rides ذخیره شده)
+  /// مبدأ و مقصد واقعی سفر (همان چیزی که در rides ذخیره شده)
   LatLng? _tripOriginLatLng;
   LatLng? _tripDestinationLatLng;
 
@@ -183,27 +193,37 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
   double _driverDisplayBearing = 0.0;
   DateTime? _lastDriverUpdateAt;
   DateTime? _lastDriverRouteFetchAt;
-  String? _driverRouteBuiltForStatus;
 
-  // 🔧 FIX: قبلاً ۵۰ متر بود — در بافت شهری این‌قدر زیاد است که یک کوچهٔ
-  // موازی همچنان «روی مسیر» حساب می‌شد؛ مارکر به نزدیک‌ترین نقطهٔ خط قدیمی
-  // می‌چسبید (که تقریباً ثابت می‌ماند) به‌جای موقعیت واقعی راننده، و چون
-  // «روی مسیر» تشخیص داده می‌شد مسیریابی مجدد هم هرگز فعال نمی‌شد. نتیجه:
-  // مارکر فقط می‌چرخید (از heading خام) ولی جابه‌جا نمی‌شد.
-  static const double _offRouteThresholdMeters = 25.0;
-  static const int _rerouteCooldownSeconds = 2;
+  /// فاز مسیر فعلی: 'pickup' (تا سوارشدن) یا 'onTrip' (تا مقصد)
+  String? _driverRouteBuiltForPhase;
+
+  // کنترل فریم‌های انیمیشن تا درخواست‌ها روی هم انباشته نشوند
+  bool _driverFrameBusy = false;
+  int _lastDriverFrameMs = 0;
+  static const int _driverFrameGapMs = 33; // حدود ۳۰ فریم بر ثانیه
+
+  // محاسبهٔ ETA زنده با فاصلهٔ زمانی
+  DateTime? _lastEtaAt;
+  bool _isFetchingEta = false;
+  static const int _etaIntervalSeconds = 15;
+
+  // 🔧 آستانهٔ خروج از مسیر: GPS شهری به‌راحتی ۲۰ تا ۴۰ متر خطا دارد؛ عدد
+  // ۲۵ باعث می‌شد آیکن مدام بین «روی خط» و «نقطهٔ خام GPS» بپرد.
+  static const double _offRouteThresholdMeters = 40.0;
+  static const int _offRouteConfirmCount = 3;
+  static const int _rerouteCooldownSeconds = 10;
 
   bool _isMapMoving = false;
   bool _isProgrammaticMove = false;
   bool _isUserGesture = false; // پرچم تشخیص لمس صفحه توسط دست کاربر
-  bool _isSheetExpanded = true; 
+  bool _isSheetExpanded = true;
   Timer? _debounceTimer;
 
-  bool _hasNotification = false; 
+  bool _hasNotification = false;
 
-  int _selectedCategory = 0; 
-  int _selectedVehicleType = 0; 
-  int _currentStep = 0; 
+  int _selectedCategory = 0;
+  int _selectedVehicleType = 0;
+  int _currentStep = 0;
 
   String? _intercityTravelDate;
   int _intercityPassengers = 1;
@@ -308,6 +328,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
   void dispose() {
     _debounceTimer?.cancel();
     _positionStreamSubscription?.cancel();
+    _gpsServiceSubscription?.cancel();
     tripStreamSubscription?.cancel();
     _driverLocationStreamSubscription?.cancel();
     _senderNameController.dispose();
@@ -352,14 +373,10 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
 
         if (lat == null || lng == null) return;
 
-        debugPrint('🚗 driver raw: $lat, $lng, heading: $heading '
-            '(fromCache: ${snapshot.metadata.isFromCache})');
-
         final LatLng position = LatLng(lat, lng);
 
-        // 🔧 FIX: همیشه فقط «آخرین» مقدار نگه داشته می‌شود و آپدیت‌ها
-        // پشت سر هم (نه هم‌زمان) پردازش می‌شوند. قبلاً یک اسنپ‌شات قدیمی
-        // (کش) که دیرتر تمام می‌شد، ماشین را دوباره به جای قدیمی برمی‌گرداند.
+        // همیشه فقط «آخرین» مقدار نگه داشته می‌شود و آپدیت‌ها پشت سر هم
+        // (نه هم‌زمان) پردازش می‌شوند.
         _latestDriverRaw = position;
         _latestDriverHeading = heading;
         _pendingDriverRawPosition = position;
@@ -389,9 +406,12 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
     }
   }
 
-  /// 🔧 بر اساس نوع سفر (باربری) یا وسیلهٔ انتخاب‌شده (موترسایکل/ماشین)
-  /// مسیر فایل آیکن و شناسهٔ تصویر مربوطه را برمی‌گرداند. اگر اسم فایل‌ها
-  /// در پروژه فرق دارد، فقط رشته‌های 'assets/images/...' را اینجا عوض کن.
+  /// بر اساس نوع سفر (باربری) یا وسیلهٔ انتخاب‌شده (موترسایکل/ماشین)
+  /// مسیر فایل آیکن و شناسهٔ تصویر مربوطه را برمی‌گرداند.
+  ///
+  /// نکتهٔ مهم: عکس‌ها باید «از بالا» باشند و جلوی وسیله رو به بالای عکس.
+  /// اگر یکی از آیکن‌ها جهتش ثابت اشتباه بود، فقط rotationOffsetDegrees
+  /// همان آیکن را روی ۹۰، ۱۸۰ یا ۲۷۰ بگذار.
   ({String assetPath, String imageId, double rotationOffsetDegrees})
       _resolveDriverIconInfo() {
     if (widget.serviceType == 'cargo') {
@@ -410,10 +430,6 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
       );
     }
 
-    // پیش‌فرض: ماشین (شامل "Car"، "Auto" و سفر بین‌شهری)
-    // 🔧 اصلاح: عکس ماشین نیازی به جبران زاویه نداشت؛ افست ۱۸۰ قبلی اشتباه
-    // بود (بر اساس یک مقایسهٔ گمراه‌کننده، چون آن‌موقع فایل موترسایکل
-    // وجود نداشت و هر دو حالت در واقع همین عکس ماشین بودند).
     return (
       assetPath: 'assets/images/tracking_car.png',
       imageId: 'driver-icon-car',
@@ -457,10 +473,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
         return;
       }
 
-      // 🔧 فایل مورد نظر (مثلاً tracking_bike.png) پیدا نشد. به‌جای این‌که
-      // شناسهٔ قبلی (و احتمالاً نامرتبط) بماند، صریحاً برمی‌گردیم به آیکن
-      // ماشین — که مطمئنیم وجود دارد — تا زاویهٔ چرخش هم با چیزی که واقعاً
-      // روی نقشه نشان داده می‌شود هماهنگ بماند.
+      // فایل مورد نظر پیدا نشد؛ موقتاً به آیکن ماشین برمی‌گردیم
       debugPrint(
         '⚠️ آیکن «${info.assetPath}» پیدا نشد؛ موقتاً از آیکن ماشین استفاده می‌شود.',
       );
@@ -479,21 +492,20 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
     }
   }
 
-  /// 🔧 افست چرخش را بر اساس آیکنی که *واقعاً* روی نقشه نشان داده می‌شود
-  /// برمی‌گرداند (نه آن‌چه که فقط در تئوری باید نشان داده شود)، تا اگر
-  /// آیکن مدنظر لود نشده و به ماشین برگشتیم، زاویه هم با آن هماهنگ شود.
+  /// افست چرخش آیکنی که *واقعاً* روی نقشه نشان داده می‌شود
   double _currentDriverIconRotationOffset() {
-    // هر سه آیکن (ماشین/موترسایکل/باربری) بدون نیاز به جبران، درست می‌ایستند.
-    switch (_driverIconImageIdLoaded) {
-      case 'driver-icon-bike':
-      case 'driver-icon-cargo':
-      case 'driver-icon-car':
-      default:
-        return 0;
+    final info = _resolveDriverIconInfo();
+
+    // اگر به آیکن ماشین برگشته‌ایم، افست ماشین را بگیر
+    if (_driverIconImageIdLoaded == 'driver-icon-car' &&
+        info.imageId != 'driver-icon-car') {
+      return 0;
     }
+
+    return info.rotationOffsetDegrees;
   }
 
-  Future<void> _animateDriverSymbol() async {
+  void _animateDriverSymbol() {
     if (!mounted ||
         _mapController == null ||
         _driverLiveSymbol == null ||
@@ -502,9 +514,15 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
       return;
     }
 
-    // 🔧 حرکت خطی با سرعت ثابت (مثل MapScreenRoute) تا ماشین
-    // «پرتاب و توقف» نکند.
+    // اگر فریم قبلی هنوز تمام نشده، این فریم را رد کن (جلوگیری از انباشت)
+    if (_driverFrameBusy) return;
+
     final double t = _driverAnimationController.value;
+    final int nowMs = DateTime.now().millisecondsSinceEpoch;
+
+    // حدود ۳۰ فریم بر ثانیه کافی است؛ فریم آخر همیشه اعمال می‌شود
+    if (t < 1.0 && nowMs - _lastDriverFrameMs < _driverFrameGapMs) return;
+    _lastDriverFrameMs = nowMs;
 
     final double latitude = _driverAnimationStart!.latitude +
         (_driverAnimationEnd!.latitude - _driverAnimationStart!.latitude) * t;
@@ -526,27 +544,63 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
     _driverDisplayLatLng = LatLng(latitude, longitude);
     _driverDisplayBearing = bearing;
 
+    unawaited(_pushDriverSymbolFrame(LatLng(latitude, longitude), bearing));
+  }
+
+  Future<void> _pushDriverSymbolFrame(LatLng position, double bearing) async {
+    final Symbol? symbol = _driverLiveSymbol;
+    if (symbol == null || _mapController == null) return;
+
+    _driverFrameBusy = true;
     try {
       await _mapController!.updateSymbol(
-        _driverLiveSymbol!,
+        symbol,
         SymbolOptions(
-          geometry: LatLng(latitude, longitude),
+          geometry: position,
           iconRotate: bearing,
           iconAnchor: 'center',
         ),
       );
     } catch (e) {
       debugPrint('Driver animation update error: $e');
+      // Symbol از دست رفته؛ آپدیت بعدی راننده آن را از نو می‌سازد
+      _driverLiveSymbol = null;
+    } finally {
+      _driverFrameBusy = false;
     }
   }
 
-  /// 🔧 منطق حرکت (برگرفته از MapScreenRoute تست‌شده):
-  ///  • چسباندن نقطه به مسیر (اگر ≤ ۵۰ متر) و پیشروی فقط «به جلو» روی مسیر
-  ///  • حرکت خطی با مدت‌زمان برابر فاصلهٔ واقعی بین دو آپدیت
+  /// فاز مسیر بر اساس وضعیت سفر
+  String _currentRoutePhase() =>
+      _lastTripStatus == TripStatus.onTrip ? 'onTrip' : 'pickup';
+
+  /// زاویهٔ پایدار مسیر: از نقطه‌ای حدود ۱۲ متر جلوتر حساب می‌شود تا
+  /// سر پیچ‌ها و قطعه‌های خیلی کوتاه آیکن تند نپرد.
+  double _routeBearingAhead(_SnapResult snap) {
+    final List<LatLng> poly = _driverTripPolylinePoints;
+
+    for (int i = snap.segmentIndex + 1; i < poly.length; i++) {
+      final double d = Geolocator.distanceBetween(
+        snap.point.latitude,
+        snap.point.longitude,
+        poly[i].latitude,
+        poly[i].longitude,
+      );
+      if (d >= 12) {
+        return _calculateBearing(snap.point, poly[i]);
+      }
+    }
+
+    final int i = min(snap.segmentIndex, poly.length - 2);
+    return _calculateBearing(poly[i], poly[i + 1]);
+  }
+
+  /// منطق حرکت:
+  ///  • چسباندن نقطه به مسیر (اگر ≤ ۴۰ متر) و پیشروی فقط «به جلو»
   ///  • انیمیشن از موقعیت لحظه‌ایِ مارکر شروع می‌شود (نه نقطهٔ قبلی)
-  ///  • زاویه از جهت حرکت (اگر بیش از ۳ متر جابه‌جا شده)
+  ///  • زاویه از جهت پایدار مسیر (روی مسیر) یا جهت حرکت (خارج از مسیر)
   ///  • مسیر به «طی‌شده» (خاکستری) و «باقی‌مانده» (آبی) تقسیم می‌شود
-  ///  • مسیریابی مجدد فقط بعد از ۲ خوانش پیاپیِ خارج از مسیر
+  ///  • مسیریابی مجدد فقط بعد از چند خوانش پیاپیِ خارج از مسیر
   Future<void> _updateDriverMarkerOnMap(
     LatLng rawPosition,
     double rawHeading,
@@ -572,7 +626,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
           _driverOffRouteCount = 0;
         } else {
           _driverOffRouteCount++;
-          offRouteConfirmed = _driverOffRouteCount >= 2;
+          offRouteConfirmed = _driverOffRouteCount >= _offRouteConfirmCount;
         }
       }
 
@@ -590,12 +644,8 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
       double markerBearing = _driverAnimationEndBearing;
 
       if (onRouteSnap != null) {
-        // 🔧 روی مسیر: همیشه زاویهٔ خودِ خیابان، حتی وقتی راننده ایستاده.
-        // (قبلاً وقتی ماشین حرکت نمی‌کرد زاویه ۰ = رو به شمال می‌ماند.)
-        markerBearing = _calculateBearing(
-          _driverTripPolylinePoints[onRouteSnap.segmentIndex],
-          _driverTripPolylinePoints[onRouteSnap.segmentIndex + 1],
-        );
+        // روی مسیر: زاویهٔ پایدار خیابان، حتی وقتی راننده ایستاده
+        markerBearing = _routeBearingAhead(onRouteSnap);
       } else if (_driverLiveSymbol == null) {
         if (rawHeading > 0) {
           markerBearing = rawHeading;
@@ -607,17 +657,14 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
                 markerTarget.latitude,
                 markerTarget.longitude,
               ) >
-              3) {
+              8) {
         markerBearing = _calculateBearing(previousTarget, markerTarget);
       }
 
-      // 🔧 فایل‌های آیکن لزوماً با جلو رو به بالا (۰ درجه) طراحی نشده‌اند.
-      // این افست همون زاویه‌ای که محاسبه کردیم رو می‌چرخونه تا جلوی هر
-      // آیکن واقعاً هم‌جهت با خط/حرکت بشه. اگه بعد از این هنوز یکی از
-      // وسیله‌ها برعکس بود، فقط همین عدد رو براش عوض کن (۹۰، ۱۸۰، یا ۲۷۰).
-      markerBearing = (markerBearing + _currentDriverIconRotationOffset() + 360) % 360;
+      markerBearing =
+          (markerBearing + _currentDriverIconRotationOffset() + 360) % 360;
 
-      // ───── مدت انیمیشن = فاصلهٔ واقعی بین دو آپدیت ─────
+      // ───── مدت انیمیشن = فاصلهٔ زمانی بین دو آپدیت ─────
       final DateTime now = DateTime.now();
       final int dtMs = _lastDriverUpdateAt == null
           ? 1000
@@ -625,6 +672,8 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
       _lastDriverUpdateAt = now;
 
       if (_driverLiveSymbol == null) {
+        _driverAnimationController.stop();
+
         _driverLiveSymbol = await _mapController!.addSymbol(
           SymbolOptions(
             geometry: markerTarget,
@@ -638,6 +687,8 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
         _lastDriverLatLng = markerTarget;
         _driverDisplayLatLng = markerTarget;
         _driverDisplayBearing = markerBearing;
+        _driverAnimationStart = markerTarget;
+        _driverAnimationEnd = markerTarget;
         _driverAnimationStartBearing = markerBearing;
         _driverAnimationEndBearing = markerBearing;
       } else {
@@ -655,6 +706,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
 
         _lastDriverLatLng = markerTarget;
       }
+
       unawaited(_updateLiveDriverEta(rawPosition));
 
       // خط طی‌شده/باقی‌مانده را بعد از شروع حرکت مارکر آپدیت کن
@@ -679,22 +731,25 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
         now.difference(_lastDriverRouteFetchAt!).inSeconds >=
             _rerouteCooldownSeconds;
 
-    if (!cooledDown) return;
+    final bool phaseChanged = _driverRouteBuiltForPhase != _currentRoutePhase();
+    final bool needsRoute =
+        !_isDriverTripRouteVisible || phaseChanged || offRouteConfirmed;
 
-    final bool needsRoute = !_isDriverTripRouteVisible ||
-        _driverRouteBuiltForStatus != _lastTripStatus ||
-        offRouteConfirmed;
+    if (!needsRoute) return;
 
-    if (needsRoute) {
-      _driverOffRouteCount = 0;
-      unawaited(_drawDriverTripRoute(raw));
-    }
+    // تغییر فاز (شروع سفر) یا اولین مسیر نباید منتظر cooldown بماند
+    final bool urgent = !_isDriverTripRouteVisible || phaseChanged;
+    if (!urgent && !cooledDown) return;
+
+    _driverOffRouteCount = 0;
+    unawaited(_drawDriverTripRoute(raw));
   }
 
   /// وقتی وضعیت سفر عوض شد (مثلاً شروع سفر) فوراً مسیر جدید بکش
   void _refreshDriverRouteNow() {
     final LatLng? raw = _latestDriverRaw;
     if (raw == null || _isFetchingDriverTripRoute) return;
+    _lastEtaAt = null;
     unawaited(_drawDriverTripRoute(raw));
   }
 
@@ -724,8 +779,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
       throw Exception('No route found');
     }
 
-    final List coordinates =
-        routes.first['geometry']['coordinates'] as List;
+    final List coordinates = routes.first['geometry']['coordinates'] as List;
 
     return coordinates.map((point) {
       return LatLng(
@@ -734,14 +788,24 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
       );
     }).toList();
   }
-    Future<void> _updateLiveDriverEta(
-    LatLng driverPosition,
-  ) async {
+
+  /// ETA زنده؛ حداکثر هر ۱۵ ثانیه و فقط اگر مقدار تغییر کرده باشد setState می‌زند
+  Future<void> _updateLiveDriverEta(LatLng driverPosition) async {
+    if (_isFetchingEta) return;
+
+    final DateTime now = DateTime.now();
+    if (_lastEtaAt != null &&
+        now.difference(_lastEtaAt!).inSeconds < _etaIntervalSeconds) {
+      return;
+    }
+
+    _isFetchingEta = true;
+    _lastEtaAt = now;
+
     try {
-      final LatLng? target =
-          _lastTripStatus == TripStatus.onTrip
-              ? _tripDestinationLatLng
-              : _tripOriginLatLng;
+      final LatLng? target = _lastTripStatus == TripStatus.onTrip
+          ? _tripDestinationLatLng
+          : _tripOriginLatLng;
 
       if (target == null) return;
 
@@ -752,9 +816,8 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
         '?overview=false',
       );
 
-      final http.Response response = await http
-          .get(url)
-          .timeout(const Duration(seconds: 10));
+      final http.Response response =
+          await http.get(url).timeout(const Duration(seconds: 10));
 
       if (response.statusCode != 200 || !mounted) return;
 
@@ -766,8 +829,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
 
       if (data['code'] != 'Ok' || routes.isEmpty) return;
 
-      final Map<String, dynamic> route =
-          routes.first as Map<String, dynamic>;
+      final Map<String, dynamic> route = routes.first as Map<String, dynamic>;
 
       final double durationSeconds =
           (route['duration'] as num?)?.toDouble() ?? 0.0;
@@ -779,19 +841,23 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
       final int hours = totalMinutes ~/ 60;
       final int minutes = totalMinutes % 60;
 
-      final String durationText = hours > 0
-          ? '$hours ساعت و $minutes دقیقه'
-          : '$minutes دقیقه';
+      final String durationText =
+          hours > 0 ? '$hours ساعت و $minutes دقیقه' : '$minutes دقیقه';
 
-      final DateTime arrival = DateTime.now().add(
-        Duration(seconds: durationSeconds.round()),
-      );
+      final DateTime arrival =
+          DateTime.now().add(Duration(seconds: durationSeconds.round()));
 
       final String arrivalText =
           '${arrival.hour.toString().padLeft(2, '0')}:'
           '${arrival.minute.toString().padLeft(2, '0')}';
 
       if (!mounted) return;
+
+      if (durationText == _tripDurationText &&
+          arrivalText == _estimatedArrivalTime) {
+        _tripDistanceInKm = distanceMeters / 1000;
+        return;
+      }
 
       setState(() {
         _tripDurationText = durationText;
@@ -800,8 +866,10 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
       });
     } catch (e) {
       debugPrint('Live ETA update error: $e');
+    } finally {
+      _isFetchingEta = false;
     }
-    }
+  }
 
   Future<void> _drawDriverTripRoute(LatLng driverPosition, {int attempt = 0}) async {
     if (_isFetchingDriverTripRoute || _mapController == null) return;
@@ -810,13 +878,13 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
     _isFetchingDriverTripRoute = true;
     _lastDriverRouteFetchAt = DateTime.now();
 
-    final String? statusAtStart = _lastTripStatus;
+    final String phaseAtStart = _currentRoutePhase();
     bool refetchWithLatest = false;
 
     try {
       final List<LatLng> fullRoute;
 
-      if (statusAtStart == TripStatus.onTrip) {
+      if (phaseAtStart == 'onTrip') {
         // سفر شروع شده: مسیر راننده تا مقصد
         fullRoute = await _getOsrmPoints(driverPosition, _tripDestinationLatLng!);
       } else {
@@ -834,7 +902,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
 
       if (!mounted || _mapController == null || _assignedDriverId == null) return;
 
-      // 🔧 اگر در حین گرفتن مسیر، راننده خیلی از نقطهٔ شروع دور شده،
+      // اگر در حین گرفتن مسیر، راننده خیلی از نقطهٔ شروع دور شده،
       // این مسیر کهنه است؛ رسمش نکن و با موقعیت تازه دوباره بگیر.
       final LatLng? latest = _latestDriverRaw;
       if (latest != null &&
@@ -850,7 +918,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
       } else {
         _driverTripPolylinePoints = fullRoute;
         _isDriverTripRouteVisible = true;
-        _driverRouteBuiltForStatus = statusAtStart;
+        _driverRouteBuiltForPhase = phaseAtStart;
         _driverProgressIndex = 0;
         _driverOffRouteCount = 0;
         _driverLastRenderedSegment = -1;
@@ -861,9 +929,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
           remaining: fullRoute,
         );
 
-        // 🔧 مسیر آماده شد؛ ماشین را همان لحظه با مسیر هماهنگ کن (زاویه
-        // و چسبیدن)، بدون انتظار برای آپدیت بعدی راننده. اگر راننده ثابت
-        // باشد، بدون این خط ماشین با زاویهٔ قدیمی (شمال) می‌ماند.
+        // مسیر آماده شد؛ ماشین را همان لحظه با مسیر هماهنگ کن
         if (_latestDriverRaw != null) {
           _pendingDriverRawPosition = _latestDriverRaw;
           _pendingDriverRawHeading = _latestDriverHeading;
@@ -964,6 +1030,8 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
       );
     } catch (e) {
       debugPrint('Error rendering driver route lines: $e');
+      _driverRouteLine = null;
+      _driverTraveledLine = null;
     }
   }
 
@@ -989,8 +1057,10 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
     _driverLastRenderedPoint = null;
     _driverDisplayLatLng = null;
     _lastDriverUpdateAt = null;
-    _driverRouteBuiltForStatus = null;
+    _driverRouteBuiltForPhase = null;
     _lastDriverRouteFetchAt = null;
+    _lastEtaAt = null;
+    _driverFrameBusy = false;
 
     if (_driverLiveSymbol != null && _mapController != null) {
       try {
@@ -1002,56 +1072,110 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
     }
 
     if (_mapController != null) {
-      await _mapController!.clearLines();
+      try {
+        await _mapController!.clearLines();
+      } catch (_) {}
     }
   }
 
   // ════════════════════════════════════════════════════════════
-  //  📍 موقعیت مسافر
+  //  📍 موقعیت مسافر و وضعیت GPS
   // ════════════════════════════════════════════════════════════
+
+  void _setGpsDisruption(bool value) {
+    if (_hasGpsDisruption == value || !mounted) return;
+    setState(() => _hasGpsDisruption = value);
+  }
+
+  /// تصمیم‌گیری هشدار بر اساس دقت، با دو آستانه تا هشدار چشمک نزند
+  void _evaluateGpsAccuracy(double accuracy) {
+    if (accuracy > _gpsBadAccuracyMeters) {
+      _setGpsDisruption(true);
+    } else if (accuracy <= _gpsGoodAccuracyMeters) {
+      _setGpsDisruption(false);
+    }
+  }
 
   Future<void> _startLiveLocationUpdates() async {
     try {
+      if (!await Geolocator.isLocationServiceEnabled()) {
+        _setGpsDisruption(true);
+      }
+
       LocationPermission permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
       }
 
-      Position initialPosition = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-      );
-
-      if (mounted) {
-        final targetLatLng = LatLng(initialPosition.latitude, initialPosition.longitude);
-        setState(() {
-          _currentUserLatLng = targetLatLng;
-          _currentGpsAccuracy = initialPosition.accuracy;
-        });
-
-        _animatedMapMove(targetLatLng, 15.0);
-        if (_currentStep < 2) {
-          _updateAddressFromCamera(targetLatLng);
-        }
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        _setGpsDisruption(true);
+        return;
       }
 
-      final LocationSettings locationSettings = AndroidSettings(
-        accuracy: LocationAccuracy.medium,
-        distanceFilter: 3,
-        intervalDuration: const Duration(seconds: 1),
-      );
+      // اولین موقعیت جدا گرفته می‌شود تا خطایش، استریم را متوقف نکند
+      try {
+        final Position initialPosition = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high,
+          timeLimit: const Duration(seconds: 10),
+        );
 
-      _positionStreamSubscription = Geolocator.getPositionStream(
-        locationSettings: locationSettings,
-      ).listen((Position position) {
         if (mounted) {
+          final LatLng target =
+              LatLng(initialPosition.latitude, initialPosition.longitude);
+
           setState(() {
-            _currentUserLatLng = LatLng(position.latitude, position.longitude);
-            _currentGpsAccuracy = position.accuracy;
+            _currentUserLatLng = target;
+            _currentGpsAccuracy = initialPosition.accuracy;
           });
+
+          _evaluateGpsAccuracy(initialPosition.accuracy);
+          _animatedMapMove(target, 15.0);
+
+          if (_currentStep < 2) {
+            _updateAddressFromCamera(target);
+          }
+        }
+      } catch (e) {
+        debugPrint('Initial GPS fix failed: $e');
+        _setGpsDisruption(true);
+      }
+
+      // خاموش‌شدن GPS در حین کار
+      _gpsServiceSubscription?.cancel();
+      _gpsServiceSubscription =
+          Geolocator.getServiceStatusStream().listen((ServiceStatus status) {
+        if (status == ServiceStatus.disabled) {
+          _setGpsDisruption(true);
         }
       });
+
+      _positionStreamSubscription?.cancel();
+      _positionStreamSubscription = Geolocator.getPositionStream(
+        locationSettings: AndroidSettings(
+          accuracy: LocationAccuracy.medium,
+          distanceFilter: 3,
+          intervalDuration: const Duration(seconds: 1),
+        ),
+      ).listen(
+        (Position position) {
+          if (!mounted) return;
+
+          // این مقادیر فقط در لحظهٔ نیاز خوانده می‌شوند؛ بدون setState
+          // تا کل صفحه با هر خوانش GPS rebuild نشود.
+          _currentUserLatLng = LatLng(position.latitude, position.longitude);
+          _currentGpsAccuracy = position.accuracy;
+
+          _evaluateGpsAccuracy(position.accuracy);
+        },
+        onError: (Object e) {
+          debugPrint('GPS stream error: $e');
+          _setGpsDisruption(true);
+        },
+      );
     } catch (e) {
       debugPrint("Error fetching GPS location stream: $e");
+      _setGpsDisruption(true);
     }
   }
 
@@ -1060,11 +1184,11 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
     _animatedMapMove(_currentUserLatLng, 16.8);
 
     try {
-      Position pos = await Geolocator.getCurrentPosition(
-        timeLimit: const Duration(seconds: 2),
+      final Position pos = await Geolocator.getCurrentPosition(
+        timeLimit: const Duration(seconds: 3),
       );
-      
-      LatLng freshPoint = LatLng(pos.latitude, pos.longitude);
+
+      final LatLng freshPoint = LatLng(pos.latitude, pos.longitude);
 
       if (mounted) {
         setState(() {
@@ -1072,11 +1196,22 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
           _currentGpsAccuracy = pos.accuracy;
         });
 
+        _evaluateGpsAccuracy(pos.accuracy);
+
+        _animatedMapMove(freshPoint, 16.8);
+
         if (_currentStep < 2) {
           _updateAddressFromCamera(freshPoint);
         }
       }
-    } catch (_) {}
+    } catch (_) {
+      // زمان‌گذشته یا GPS خاموش؛ اگر سرویس خاموش است هشدار بده
+      try {
+        if (!await Geolocator.isLocationServiceEnabled()) {
+          _setGpsDisruption(true);
+        }
+      } catch (_) {}
+    }
   }
 
   void _animatedMapMove(LatLng destLocation, double destZoom) {
@@ -1302,7 +1437,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
       _mapController!.clearLines();
     });
 
-    LatLng originLatLng = _originLatLng ?? 
+    LatLng originLatLng = _originLatLng ??
         LatLng(appInfo.pickUpLocation!.latitudePosition!, appInfo.pickUpLocation!.longitudePosition!);
     LatLng destLatLng = _destinationLatLng ?? _mapController!.cameraPosition!.target;
 
@@ -1315,15 +1450,10 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
         if (mounted) {
           setState(() {
             _routePolylinePoints = points;
-            // 🔧 FIX: به‌جای جمع‌زدن مجدد نقاط polyline (که با فاصلهٔ واقعی
-            // OSRM فرق می‌کرد)، مستقیماً همان عددی که OSRM از روی مسیر
-            // واقعی جاده حساب کرده استفاده می‌شود — همانی که برای کرایه
-            // هم استفاده می‌شود، پس این دو دیگر با هم ناهماهنگ نیستند.
+            // مسافت دقیقاً همان عددی است که OSRM از روی مسیر واقعی جاده حساب
+            // کرده و برای کرایه هم استفاده می‌شود.
             _tripDistanceInKm = distanceKm;
-            // 🔧 FIX: برای باربری، قیمت باید از فرمول مخصوص CargoSheets
-            // (بر اساس نوع ماشین انتخاب‌شده) بیاد، نه از کرایهٔ عمومی تاکسی
-            // که _fetchRoute برمی‌گرداند — وگرنه عددی که روی صفحه می‌بینی
-            // با عددی که واقعاً ثبت می‌شود یکی نیست.
+            // برای باربری، قیمت از فرمول مخصوص CargoSheets می‌آید.
             actualFareAmount = widget.serviceType == 'cargo'
                 ? CargoSheets.calculateFareForVehicle(
                     _cargoSelectedVehicle, _tripDistanceInKm)
@@ -1454,9 +1584,9 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
 
   void startTrip() async {
     HapticFeedback.heavyImpact();
-    
+
     var appInfo = Provider.of<AppInfo>(context, listen: false);
-    
+
     if (appInfo.pickUpLocation == null || appInfo.dropOffLocation == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -1471,8 +1601,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
 
     await _clearPreviewRoute();
 
-    // 🔧 مبدأ و مقصد واقعی سفر (همان‌هایی که در rides ذخیره می‌شود)
-    // تا مسیر راننده حتی وقتی مقصد با جستجو انتخاب شده هم کشیده شود.
+    // مبدأ و مقصد واقعی سفر (همان‌هایی که در rides ذخیره می‌شود)
     _tripOriginLatLng = LatLng(
       appInfo.pickUpLocation!.latitudePosition!,
       appInfo.pickUpLocation!.longitudePosition!,
@@ -1499,8 +1628,9 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
     _driverLastRenderedPoint = null;
     _driverDisplayLatLng = null;
     _lastDriverUpdateAt = null;
-    _driverRouteBuiltForStatus = null;
+    _driverRouteBuiltForPhase = null;
     _lastDriverRouteFetchAt = null;
+    _lastEtaAt = null;
     _hasPlayedAcceptedSound = false;
     _hasPlayedArrivedSound = false;
     _lastTripStatus = null;
@@ -1517,14 +1647,14 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
         'status': TripStatus.searching,
         'driver_id': 'waiting',
         'createdAt': FieldValue.serverTimestamp(),
-        
+
         'passenger_id': passengerUid,
         'passenger_name': passengerNameVal,
         'passenger_phone': passengerPhoneVal,
         'userName': passengerNameVal,
         'userPhone': passengerPhoneVal,
         'userRating': '4.8',
-        
+
         'originAddress': appInfo.pickUpLocation!.placeName ?? '',
         'destinationAddress': appInfo.dropOffLocation!.placeName ?? '',
         'origin_address': appInfo.pickUpLocation!.placeName ?? '',
@@ -1548,7 +1678,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
           appInfo.dropOffLocation!.latitudePosition!,
           appInfo.dropOffLocation!.longitudePosition!,
         ),
-        
+
         'fareAmount': actualFareAmount,
         'fare': actualFareAmount,
         'price': actualFareAmount,
@@ -1562,7 +1692,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
 
       tripStreamSubscription = tripRequestRef!.snapshots().listen((snapshot) {
         if (!snapshot.exists || snapshot.data() == null) return;
-        
+
         final data = snapshot.data() as Map<String, dynamic>;
         final String tripStatus = data["status"] ?? TripStatus.searching;
         final String driverId = data["driver_id"] ?? data["driverId"] ?? "";
@@ -1719,6 +1849,51 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
     );
   }
 
+  /// نوار هشدار GPS برای مرحله‌هایی که SmartLocationSheet نمایش داده نمی‌شود
+  Widget _buildGpsBanner() {
+    String text = 'gps_disruption'.tr();
+    if (text.trim().isEmpty || text == 'gps_disruption') {
+      text = 'اختلال در موقعیت مکانی';
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF7ED),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFF59E0B)),
+        boxShadow: const [
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 8,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(
+            Icons.warning_amber_rounded,
+            size: 20,
+            color: Color(0xFFD97706),
+          ),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              text,
+              style: const TextStyle(
+                color: Color(0xFF92400E),
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     AppInfo? appInfo;
@@ -1742,7 +1917,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
         resizeToAvoidBottomInset: false,
         body: Stack(
           children: [
-                        // 🗺️ ۱. نقشه تمام صفحه
+            // 🗺️ ۱. نقشه تمام صفحه
             RepaintBoundary(
               child: Listener(
                 onPointerDown: (_) {
@@ -1759,7 +1934,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
                     zoom: 15.0,
                   ),
                   styleString: 'assets/map/style.json',
-                  myLocationEnabled: _currentStep < 3, 
+                  myLocationEnabled: _currentStep < 3,
                   myLocationTrackingMode: MyLocationTrackingMode.tracking,
                   myLocationRenderMode: MyLocationRenderMode.normal,
                   trackCameraPosition: true,
@@ -1773,11 +1948,34 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
                     }
                   },
                   onStyleLoadedCallback: () async {
+                    // با هر بار لود استایل، همهٔ آیتم‌های قبلی نقشه پاک می‌شوند؛
+                    // رفرنس‌های قدیمی باید null شوند تا از نو ساخته شوند.
                     _addedDriverIconIds.clear();
+                    _driverIconImageIdLoaded = null;
+                    _driverLiveSymbol = null;
+                    _driverRouteLine = null;
+                    _driverTraveledLine = null;
+                    _driverLastRenderedSegment = -1;
+                    _driverLastRenderedPoint = null;
+
                     await initDriverSymbolLayer();
+
+                    // اگر سفر فعال بود، مسیر و آیکن دوباره رسم شوند
+                    if (_driverTripPolylinePoints.length >= 2) {
+                      await _renderDriverRouteLines(
+                        traveled: <LatLng>[],
+                        remaining: _driverTripPolylinePoints,
+                      );
+
+                      if (_latestDriverRaw != null) {
+                        _pendingDriverRawPosition = _latestDriverRaw;
+                        _pendingDriverRawHeading = _latestDriverHeading;
+                        unawaited(_processPendingDriverUpdate());
+                      }
+                    }
                   },
                   onCameraMove: (CameraPosition position) {
-                    // 🔧 شرط اصلی: کشو فقط زمانی پایین می‌رود که دست کاربر روی صفحه باشد
+                    // کشو فقط زمانی پایین می‌رود که دست کاربر روی صفحه باشد
                     if (_isUserGesture && !_isProgrammaticMove) {
                       if (!_isMapMoving) {
                         _isMapMoving = true;
@@ -1816,7 +2014,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
             ),
 
             // 📍 ۲. پین شناور در وسط نقشه
-           if (_currentStep < 2)
+            if (_currentStep < 2)
               IgnorePointer(
                 child: Center(
                   child: Stack(
@@ -1973,14 +2171,26 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
               ),
             ),
 
+            // ⚠️ هشدار GPS در مرحله‌های بعد از انتخاب مبدأ/مقصد
+            if (_hasGpsDisruption && _currentStep >= 2)
+              Positioned(
+                top: statusBarHeight + 68,
+                left: 16,
+                right: 16,
+                child: IgnorePointer(
+                  child: Center(child: _buildGpsBanner()),
+                ),
+              ),
+
             // 📄 ۵. باتم‌شیت‌ها بر اساس مراحل
             if (_currentStep == 0 || _currentStep == 1)
               SmartLocationSheet(
                 currentStep: _currentStep,
                 currentAddress: currentOrigin,
                 currentDestination: currentDestination,
-                isMapIdle: !_isMapMoving, 
+                isMapIdle: !_isMapMoving,
                 isExpanded: _isSheetExpanded,
+                hasGpsDisruption: _hasGpsDisruption,
                 onExpandChanged: (expanded) {
                   setState(() => _isSheetExpanded = expanded);
                 },
@@ -2038,9 +2248,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
                       onVehicleSelected: (vehicleId) {
                         setState(() {
                           _cargoSelectedVehicle = vehicleId;
-                          // 🔧 FIX: همزمان با تغییر ماشین، قیمت واقعی هم
-                          // دقیقاً با همون چیزی که روی صفحه نشان داده می‌شود
-                          // هماهنگ می‌شود.
+                          // قیمت واقعی همزمان با قیمت نمایش‌داده‌شده هماهنگ می‌شود
                           actualFareAmount = CargoSheets.calculateFareForVehicle(
                             vehicleId,
                             _tripDistanceInKm,
@@ -2128,16 +2336,12 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
     );
   }
 
-  // 🔹 ۱. نزدیک‌ترین نقطه روی مسیر (فقط «به جلو» از نقطهٔ پیشرفت).
-  // این کار جلوی پرش به سمت برگشتِ مسیر (مثلاً دور برگردان) را می‌گیرد.
+  // 🔹 نزدیک‌ترین نقطه روی مسیر (فقط «به جلو» از نقطهٔ پیشرفت).
+  // جلوی پرش به سمت برگشتِ مسیر (مثلاً دور برگردان) را می‌گیرد.
   _SnapResult? _snapToPolylineDetailed(
     LatLng gpsPoint,
     List<LatLng> polyline, {
     int startIndex = 0,
-    // 🔧 FIX: قبلاً ۶۰۰ متر بود. این‌قدر زیاد باعث می‌شد اگر خط قدیمی خیلی
-    // جلوتر دوباره از نزدیکی راننده رد می‌شد (معمول در شبکهٔ خیابان‌های
-    // شهری)، آن نقطهٔ دور اشتباهاً «روی مسیر» تشخیص داده شود و هیچ‌وقت
-    // واقعاً off-route تشخیص داده نشود، پس مسیر جدید هم کشیده نمی‌شد.
     double maxAheadMeters = 150,
   }) {
     if (polyline.length < 2) return null;
@@ -2180,7 +2384,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
     return _SnapResult(closestPoint, minDistance, bestIndex);
   }
 
-  // 🔹 ۲. متد تصویرسازی نقطه روی پاره‌خط
+  // 🔹 تصویرسازی نقطه روی پاره‌خط
   LatLng _getClosestPointOnSegment(LatLng p, LatLng a, LatLng b) {
     double x = p.longitude, y = p.latitude;
     double x1 = a.longitude, y1 = a.latitude;
@@ -2197,7 +2401,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
     return LatLng(y1 + t * dy, x1 + t * dx);
   }
 
-  // 🔹 ۳. متد محاسبه زاویه صاف حرکت در امتداد مسیر خیابان
+  // 🔹 محاسبه زاویه حرکت در امتداد مسیر خیابان
   double _calculateBearing(LatLng start, LatLng end) {
     double startLatRad = start.latitude * pi / 180;
     double startLngRad = start.longitude * pi / 180;
