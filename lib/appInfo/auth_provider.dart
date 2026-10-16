@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
@@ -10,14 +11,7 @@ import 'package:safir_passengers/methods/common_methods.dart';
 import 'package:safir_passengers/models/user_model.dart';
 
 class AuthenticationProvider extends ChangeNotifier {
-  AuthenticationProvider();
-
   final CommonMethods commonMethods = CommonMethods();
-
-  final FirebaseAuth firebaseAuth = FirebaseAuth.instance;
-  final FirebaseFirestore firebaseFirestore =
-      FirebaseFirestore.instance;
-  final GoogleSignIn googleSignIn = GoogleSignIn();
 
   bool _isLoading = false;
   bool _isSuccessful = false;
@@ -34,10 +28,24 @@ class AuthenticationProvider extends ChangeNotifier {
   bool get isSuccessful => _isSuccessful;
   bool get isLoading => _isLoading;
   bool get isGoogleSignedIn => _isGoogleSignedIn;
-  bool get isGoogleSigInLoading => _isGoogleSignInLoading;
+  bool get isGoogleSigInLoading =>
+      _isGoogleSignInLoading;
 
-  CollectionReference<Map<String, dynamic>> get _usersCollection =>
-      firebaseFirestore.collection('users');
+  final FirebaseAuth firebaseAuth =
+      FirebaseAuth.instance;
+
+  final FirebaseFirestore firebaseFirestore =
+      FirebaseFirestore.instance;
+
+  final FirebaseStorage firebaseStorage =
+      FirebaseStorage.instance;
+
+  final GoogleSignIn googleSignIn =
+      GoogleSignIn();
+
+  CollectionReference<Map<String, dynamic>>
+      get _usersCollection =>
+          firebaseFirestore.collection('users');
 
   void startLoading() {
     _isLoading = true;
@@ -59,16 +67,7 @@ class AuthenticationProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void _setCurrentUser(User user) {
-    _uid = user.uid;
-    _phoneNumber = user.phoneNumber;
-
-    _isGoogleSignedIn = user.providerData.any(
-      (provider) => provider.providerId == 'google.com',
-    );
-  }
-
-  Future<void> signInWithPhone({
+  void signInWithPhone({
     required BuildContext context,
     required String phoneNumber,
   }) async {
@@ -77,31 +76,33 @@ class AuthenticationProvider extends ChangeNotifier {
     try {
       await firebaseAuth.verifyPhoneNumber(
         phoneNumber: phoneNumber,
-        verificationCompleted: (PhoneAuthCredential credential) async {
+        verificationCompleted:
+            (PhoneAuthCredential credential) async {
           try {
             final UserCredential result =
-                await firebaseAuth.signInWithCredential(credential);
+                await firebaseAuth
+                    .signInWithCredential(
+              credential,
+            );
 
-            final User? user = result.user;
+            _uid = result.user?.uid;
+            _phoneNumber = phoneNumber;
 
-            if (user != null) {
-              _uid = user.uid;
-              _phoneNumber = user.phoneNumber ?? phoneNumber;
-              _isSuccessful = true;
-              notifyListeners();
-            }
+            stopLoading();
+            notifyListeners();
           } on FirebaseAuthException catch (e) {
+            stopLoading();
+
             if (!context.mounted) return;
 
             commonMethods.displaySnackBar(
               e.message ?? e.toString(),
               context,
             );
-          } finally {
-            stopLoading();
           }
         },
-        verificationFailed: (FirebaseAuthException e) {
+        verificationFailed:
+            (FirebaseAuthException e) {
           stopLoading();
 
           if (!context.mounted) return;
@@ -111,26 +112,33 @@ class AuthenticationProvider extends ChangeNotifier {
             context,
           );
         },
-        codeSent: (String verificationId, int? resendToken) {
+        codeSent: (
+          String verificationId,
+          int? resendToken,
+        ) {
           stopLoading();
 
           _phoneNumber = phoneNumber;
           notifyListeners();
 
-          Future.delayed(const Duration(seconds: 1), () {
-            if (!context.mounted) return;
+          Future.delayed(
+            const Duration(seconds: 1),
+            () {
+              if (!context.mounted) return;
 
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => OTPScreen(
-                  verificationId: verificationId,
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => OTPScreen(
+                    verificationId: verificationId,
+                  ),
                 ),
-              ),
-            );
-          });
+              );
+            },
+          );
         },
-        codeAutoRetrievalTimeout: (String verificationId) {
+        codeAutoRetrievalTimeout:
+            (String verificationId) {
           stopLoading();
         },
       );
@@ -146,11 +154,26 @@ class AuthenticationProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> verifyOTP({
+  Future<bool> _checkPhoneNumberExists(
+    String phoneNumber,
+  ) async {
+    final QuerySnapshot<Map<String, dynamic>>
+        snapshot = await _usersCollection
+            .where(
+              'phone',
+              isEqualTo: phoneNumber.trim(),
+            )
+            .limit(1)
+            .get();
+
+    return snapshot.docs.isNotEmpty;
+  }
+
+  void verifyOTP({
     required BuildContext context,
     required String verificationId,
     required String smsCode,
-    required Future<void> Function() onSuccess,
+    required Function onSuccess,
   }) async {
     startLoading();
 
@@ -168,21 +191,16 @@ class AuthenticationProvider extends ChangeNotifier {
 
       final User? user = result.user;
 
-      if (user == null) {
-        throw FirebaseAuthException(
-          code: 'phone-user-null',
-          message: 'کاربر تلفنی دریافت نشد.',
-        );
+      if (user != null) {
+        _uid = user.uid;
+        _phoneNumber =
+            user.phoneNumber ?? _phoneNumber;
+        _isSuccessful = true;
+
+        notifyListeners();
+        onSuccess();
       }
-
-      _uid = user.uid;
-      _phoneNumber = user.phoneNumber ?? _phoneNumber;
-      _isSuccessful = true;
-
-      notifyListeners();
-
-      await onSuccess();
-    } on FirebaseAuthException catch (e) {
+    } on FirebaseException catch (e) {
       if (!context.mounted) return;
 
       commonMethods.displaySnackBar(
@@ -202,7 +220,8 @@ class AuthenticationProvider extends ChangeNotifier {
     startLoading();
 
     try {
-      final User? currentUser = firebaseAuth.currentUser;
+      final User? currentUser =
+          firebaseAuth.currentUser;
 
       if (currentUser == null) {
         throw FirebaseAuthException(
@@ -216,47 +235,47 @@ class AuthenticationProvider extends ChangeNotifier {
       final Map<String, dynamic> userData = {
         ...userModel.toMap(),
         'id': userId,
-        'email': userModel.email.trim().isNotEmpty
-            ? userModel.email.trim()
-            : currentUser.email ?? '',
-        'phone': userModel.phone.trim().isNotEmpty
-            ? userModel.phone.trim()
-            : currentUser.phoneNumber ?? _phoneNumber ?? '',
+        'email': userModel.email.isNotEmpty
+            ? userModel.email
+            : (currentUser.email ?? ''),
+        'phone': userModel.phone.isNotEmpty
+            ? userModel.phone
+            : (currentUser.phoneNumber ??
+                _phoneNumber ??
+                ''),
         'role': 'passenger',
         'blockStatus': 'no',
         'isBlocked': false,
         'isApproved': true,
         'status': 'active',
-        'updatedAt': FieldValue.serverTimestamp(),
+        'createdAt':
+            FieldValue.serverTimestamp(),
+        'updatedAt':
+            FieldValue.serverTimestamp(),
       };
 
       await _usersCollection.doc(userId).set(
-        {
-          ...userData,
-          'createdAt': FieldValue.serverTimestamp(),
-        },
-        SetOptions(merge: true),
-      );
+            userData,
+            SetOptions(merge: true),
+          );
 
       _uid = userId;
 
       _userModel = UserModel(
         id: userId,
         name: userData['name']?.toString() ?? '',
-        email: userData['email']?.toString() ?? '',
-        phone: userData['phone']?.toString() ?? '',
-        blockStatus: userData['blockStatus']?.toString() ?? 'no',
+        email:
+            userData['email']?.toString() ?? '',
+        phone:
+            userData['phone']?.toString() ?? '',
+        blockStatus:
+            userData['blockStatus']?.toString() ??
+                'no',
       );
 
       notifyListeners();
-
       onSuccess();
     } on FirebaseAuthException catch (e) {
-      debugPrint(
-        'saveUserDataToFirebase Auth error: '
-        '${e.code} - ${e.message}',
-      );
-
       if (!context.mounted) return;
 
       commonMethods.displaySnackBar(
@@ -264,11 +283,6 @@ class AuthenticationProvider extends ChangeNotifier {
         context,
       );
     } on FirebaseException catch (e) {
-      debugPrint(
-        'saveUserDataToFirebase Firebase error: '
-        '${e.code} - ${e.message}',
-      );
-
       if (!context.mounted) return;
 
       commonMethods.displaySnackBar(
@@ -276,8 +290,6 @@ class AuthenticationProvider extends ChangeNotifier {
         context,
       );
     } catch (e) {
-      debugPrint('saveUserDataToFirebase error: $e');
-
       if (!context.mounted) return;
 
       commonMethods.displaySnackBar(
@@ -289,94 +301,149 @@ class AuthenticationProvider extends ChangeNotifier {
     }
   }
 
+  Future<bool> checkUserExistByEmail(
+    String email,
+  ) async {
+    final String cleanEmail = email.trim();
+
+    if (cleanEmail.isEmpty) {
+      return false;
+    }
+
+    try {
+      final QuerySnapshot<Map<String, dynamic>>
+          snapshot = await _usersCollection
+              .where(
+                'email',
+                isEqualTo: cleanEmail,
+              )
+              .limit(1)
+              .get();
+
+      return snapshot.docs.isNotEmpty;
+    } on FirebaseException catch (e) {
+      debugPrint(
+        'Error checking user by email: '
+        '${e.code} - ${e.message}',
+      );
+
+      return false;
+    } catch (e) {
+      debugPrint(
+        'Error checking user by email: $e',
+      );
+
+      return false;
+    }
+  }
+
+  Future<bool> checkUserExistByPhone(
+    String phoneNumber,
+  ) async {
+    final String cleanPhone =
+        phoneNumber.trim();
+
+    if (cleanPhone.isEmpty) {
+      return false;
+    }
+
+    try {
+      final QuerySnapshot<Map<String, dynamic>>
+          snapshot = await _usersCollection
+              .where(
+                'phone',
+                isEqualTo: cleanPhone,
+              )
+              .limit(1)
+              .get();
+
+      return snapshot.docs.isNotEmpty;
+    } on FirebaseException catch (e) {
+      debugPrint(
+        'Error checking user by phone: '
+        '${e.code} - ${e.message}',
+      );
+
+      return false;
+    } catch (e) {
+      debugPrint(
+        'Error checking user by phone: $e',
+      );
+
+      return false;
+    }
+  }
+
   Future<bool> checkUserExistById() async {
-    final User? currentUser = firebaseAuth.currentUser;
+    final User? currentUser =
+        firebaseAuth.currentUser;
 
     if (currentUser == null) {
       return false;
     }
 
-    final DocumentSnapshot<Map<String, dynamic>> snapshot =
-        await _usersCollection.doc(currentUser.uid).get();
-
-    return snapshot.exists;
-  }
-
-  Future<void> createInitialPassengerDocument() async {
-    final User? currentUser = firebaseAuth.currentUser;
-
-    if (currentUser == null) {
-      throw FirebaseAuthException(
-        code: 'user-not-signed-in',
-        message: 'کاربر وارد نشده است.',
-      );
-    }
-
-    final DocumentReference<Map<String, dynamic>> userRef =
-        _usersCollection.doc(currentUser.uid);
-
-    final DocumentSnapshot<Map<String, dynamic>> snapshot =
-        await userRef.get();
-
-    if (snapshot.exists) {
-      return;
-    }
-
-    await userRef.set({
-      'id': currentUser.uid,
-      'name': currentUser.displayName ?? '',
-      'email': currentUser.email ?? '',
-      'phone': currentUser.phoneNumber ?? '',
-      'role': 'passenger',
-      'blockStatus': 'no',
-      'isBlocked': false,
-      'isApproved': true,
-      'status': 'active',
-      'createdAt': FieldValue.serverTimestamp(),
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
-
-    _uid = currentUser.uid;
-
-    _userModel = UserModel(
-      id: currentUser.uid,
-      name: currentUser.displayName ?? '',
-      email: currentUser.email ?? '',
-      phone: currentUser.phoneNumber ?? '',
-      blockStatus: 'no',
-    );
-
-    notifyListeners();
-  }
-
-  Future<void> getUserDataFromFirebaseDatabase() async {
-    final User? currentUser = firebaseAuth.currentUser;
-
-    if (currentUser == null) return;
-
     try {
-      final DocumentSnapshot<Map<String, dynamic>> snapshot =
-          await _usersCollection.doc(currentUser.uid).get();
+      final DocumentSnapshot<
+              Map<String, dynamic>>
+          snapshot = await _usersCollection
+              .doc(currentUser.uid)
+              .get();
 
-      if (!snapshot.exists || snapshot.data() == null) {
+      return snapshot.exists;
+    } on FirebaseException catch (e) {
+      debugPrint(
+        'Error checking user by id: '
+        '${e.code} - ${e.message}',
+      );
+
+      return false;
+    } catch (e) {
+      debugPrint(
+        'Error checking user by id: $e',
+      );
+
+      return false;
+    }
+  }
+
+  Future<void>
+      getUserDataFromFirebaseDatabase() async {
+    try {
+      final User? currentUser =
+          firebaseAuth.currentUser;
+
+      if (currentUser == null) {
+        return;
+      }
+
+      final DocumentSnapshot<
+              Map<String, dynamic>>
+          snapshot = await _usersCollection
+              .doc(currentUser.uid)
+              .get();
+
+      if (!snapshot.exists ||
+          snapshot.data() == null) {
         debugPrint(
-          'User document not found: users/${currentUser.uid}',
+          'User data not found in Firestore.',
         );
         return;
       }
 
-      final Map<String, dynamic> userData = snapshot.data()!;
+      final Map<String, dynamic> userData =
+          snapshot.data()!;
 
       _userModel = UserModel(
-        id: userData['id']?.toString() ?? currentUser.uid,
+        id: userData['id']?.toString() ??
+            currentUser.uid,
         name: userData['name']?.toString() ?? '',
-        email: userData['email']?.toString() ??
-            currentUser.email ??
-            '',
-        phone: userData['phone']?.toString() ??
-            currentUser.phoneNumber ??
-            '',
-        blockStatus: userData['blockStatus']?.toString() ?? 'no',
+        email:
+            userData['email']?.toString() ?? '',
+        phone:
+            userData['phone']?.toString() ?? '',
+        blockStatus:
+            userData['blockStatus']?.toString() ??
+                'no',
       );
 
       _uid = _userModel!.id;
@@ -384,50 +451,73 @@ class AuthenticationProvider extends ChangeNotifier {
       notifyListeners();
     } on FirebaseException catch (e) {
       debugPrint(
-        'getUserDataFromFirebaseDatabase error: '
+        'Firestore error while fetching user: '
         '${e.code} - ${e.message}',
       );
     } catch (e) {
       debugPrint(
-        'getUserDataFromFirebaseDatabase unknown error: $e',
+        'Error while fetching user data: $e',
       );
     }
   }
 
   Future<bool> checkIfUserIsBlocked() async {
-    final User? currentUser = firebaseAuth.currentUser;
-
-    if (currentUser == null) {
-      return false;
-    }
-
     try {
-      final DocumentSnapshot<Map<String, dynamic>> snapshot =
-          await _usersCollection.doc(currentUser.uid).get();
+      final User? currentUser =
+          firebaseAuth.currentUser;
 
-      if (!snapshot.exists || snapshot.data() == null) {
+      if (currentUser == null) {
         return false;
       }
 
-      final Map<String, dynamic> userData = snapshot.data()!;
+      final DocumentSnapshot<
+              Map<String, dynamic>>
+          snapshot = await _usersCollection
+              .doc(currentUser.uid)
+              .get();
+
+      // نبودن سند به‌معنای مسدود بودن نیست.
+      if (!snapshot.exists ||
+          snapshot.data() == null) {
+        return false;
+      }
+
+      final Map<String, dynamic> userData =
+          snapshot.data()!;
+
+      final dynamic rawBlockStatus =
+          userData['blockStatus'];
 
       final String blockStatus =
-          userData['blockStatus']?.toString().toLowerCase() ?? 'no';
+          rawBlockStatus
+                  ?.toString()
+                  .trim()
+                  .toLowerCase() ??
+              '';
 
-      final bool isBlockedByBoolean =
+      final bool isBlockedFromAdmin =
           userData['isBlocked'] == true;
 
       final bool isBlocked =
           blockStatus == 'yes' ||
           blockStatus == 'blocked' ||
-          isBlockedByBoolean;
+          blockStatus == 'true' ||
+          isBlockedFromAdmin;
 
       if (!isBlocked) {
         return false;
       }
 
+      // فقط کاربر مسدود واقعی از Firebase خارج می‌شود.
       await firebaseAuth.signOut();
-      await googleSignIn.signOut();
+
+      try {
+        await googleSignIn.signOut();
+      } catch (e) {
+        debugPrint(
+          'Google sign out after block failed: $e',
+        );
+      }
 
       _uid = null;
       _phoneNumber = null;
@@ -439,40 +529,57 @@ class AuthenticationProvider extends ChangeNotifier {
 
       return true;
     } on FirebaseException catch (e) {
+      // خطای Firestore نباید باعث Logout شود.
       debugPrint(
-        'checkIfUserIsBlocked error: '
+        'Firestore error while checking block status: '
         '${e.code} - ${e.message}',
       );
+
       return false;
     } catch (e) {
+      // خطای عادی هم نباید باعث Logout شود.
       debugPrint(
-        'checkIfUserIsBlocked unknown error: $e',
+        'Error while checking user block status: $e',
       );
+
       return false;
     }
   }
 
   Future<bool> checkUserFieldsFilled() async {
-    final User? currentUser = firebaseAuth.currentUser;
-
-    if (currentUser == null) {
-      return false;
-    }
-
     try {
-      final DocumentSnapshot<Map<String, dynamic>> snapshot =
-          await _usersCollection.doc(currentUser.uid).get();
+      final User? currentUser =
+          firebaseAuth.currentUser;
 
-      if (!snapshot.exists || snapshot.data() == null) {
+      if (currentUser == null) {
         return false;
       }
 
-      final Map<String, dynamic> userData = snapshot.data()!;
+      final DocumentSnapshot<
+              Map<String, dynamic>>
+          snapshot = await _usersCollection
+              .doc(currentUser.uid)
+              .get();
 
-      final String id = userData['id']?.toString() ?? '';
-      final String name = userData['name']?.toString() ?? '';
-      final String email = userData['email']?.toString() ?? '';
-      final String phone = userData['phone']?.toString() ?? '';
+      if (!snapshot.exists ||
+          snapshot.data() == null) {
+        return false;
+      }
+
+      final Map<String, dynamic> userData =
+          snapshot.data()!;
+
+      final String id =
+          userData['id']?.toString() ?? '';
+
+      final String name =
+          userData['name']?.toString() ?? '';
+
+      final String email =
+          userData['email']?.toString() ?? '';
+
+      final String phone =
+          userData['phone']?.toString() ?? '';
 
       return id.isNotEmpty &&
           name.isNotEmpty &&
@@ -480,21 +587,23 @@ class AuthenticationProvider extends ChangeNotifier {
           phone.isNotEmpty;
     } on FirebaseException catch (e) {
       debugPrint(
-        'checkUserFieldsFilled error: '
+        'Firestore error while checking fields: '
         '${e.code} - ${e.message}',
       );
+
       return false;
     } catch (e) {
       debugPrint(
-        'checkUserFieldsFilled unknown error: $e',
+        'Error while checking user fields: $e',
       );
+
       return false;
     }
   }
 
   Future<void> signInWithGoogle(
     BuildContext context,
-    Future<void> Function() onSuccess,
+    VoidCallback onSuccess,
   ) async {
     startGoogleLoading();
 
@@ -502,17 +611,32 @@ class AuthenticationProvider extends ChangeNotifier {
       final GoogleSignInAccount? googleUser =
           await googleSignIn.signIn();
 
+      // کاربر پنجره Google را بسته است.
       if (googleUser == null) {
         return;
       }
 
-      final GoogleSignInAuthentication googleAuth =
-          await googleUser.authentication;
+      final GoogleSignInAuthentication
+          googleAuth = await googleUser.authentication;
+
+      final String? accessToken =
+          googleAuth.accessToken;
+
+      final String? idToken =
+          googleAuth.idToken;
+
+      if (accessToken == null && idToken == null) {
+        throw FirebaseAuthException(
+          code: 'google-auth-token-null',
+          message:
+              'Google authentication token is empty.',
+        );
+      }
 
       final AuthCredential credential =
           GoogleAuthProvider.credential(
-        accessToken: googleAuth.accessToken,
-        idToken: googleAuth.idToken,
+        accessToken: accessToken,
+        idToken: idToken,
       );
 
       final UserCredential userCredential =
@@ -520,39 +644,51 @@ class AuthenticationProvider extends ChangeNotifier {
         credential,
       );
 
-      final User? user = userCredential.user;
+      final User? user =
+          userCredential.user;
 
       if (user == null) {
         throw FirebaseAuthException(
           code: 'google-user-null',
-          message: 'کاربر Google دریافت نشد.',
+          message:
+              'Google user is null after sign in.',
         );
       }
 
-      _setCurrentUser(user);
+      // تازه‌سازی کاربر Firebase.
+      await user.reload();
+
+      final User? signedInUser =
+          firebaseAuth.currentUser;
+
+      if (signedInUser == null) {
+        throw FirebaseAuthException(
+          code: 'firebase-user-null-after-login',
+          message:
+              'Firebase user is null after Google sign in.',
+        );
+      }
+
+      _uid = signedInUser.uid;
+      _phoneNumber = signedInUser.phoneNumber;
+      _isGoogleSignedIn = true;
       _isSuccessful = true;
 
       notifyListeners();
 
-      await onSuccess();
+      onSuccess();
     } on FirebaseAuthException catch (e) {
-      debugPrint(
-        'Google FirebaseAuth error: '
-        '${e.code} - ${e.message}',
-      );
-
       if (!context.mounted) return;
 
       commonMethods.displaySnackBar(
-        e.message ?? getTranslation(
-          context,
-          'google_sign_in_error',
-        ),
+        e.message ??
+            getTranslation(
+              context,
+              'google_sign_in_error',
+            ),
         context,
       );
     } catch (e) {
-      debugPrint('Google sign-in error: $e');
-
       if (!context.mounted) return;
 
       commonMethods.displaySnackBar(
@@ -564,7 +700,9 @@ class AuthenticationProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> signOut(BuildContext context) async {
+  Future<void> signOut(
+    BuildContext context,
+  ) async {
     startLoading();
 
     try {
@@ -584,7 +722,8 @@ class AuthenticationProvider extends ChangeNotifier {
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(
-          builder: (_) => const RegisterScreen(),
+          builder: (context) =>
+              const RegisterScreen(),
         ),
         (route) => false,
       );
@@ -592,10 +731,11 @@ class AuthenticationProvider extends ChangeNotifier {
       if (!context.mounted) return;
 
       commonMethods.displaySnackBar(
-        e.message ?? getTranslation(
-          context,
-          'sign_out_error',
-        ),
+        e.message ??
+            getTranslation(
+              context,
+              'sign_out_error',
+            ),
         context,
       );
     } finally {
