@@ -1,3 +1,4 @@
+import 'dart:ui' as ui;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -388,7 +389,7 @@ class _ChatPageState extends State<ChatPage> {
                   children: [
                     Text(
                       message,
-                      textDirection: TextDirection.rtl,
+                      textDirection: ui.TextDirection.ltr,
                       style: TextStyle(
                         color: isMe
                             ? Colors.white
@@ -404,7 +405,7 @@ class _ChatPageState extends State<ChatPage> {
                       children: [
                         Text(
                           _formatTimestamp(timestamp),
-                          textDirection: TextDirection.ltr,
+                          textDirection: ui.TextDirection.ltr,
                           style: TextStyle(
                             color: isMe
                                 ? Colors.white70
@@ -545,7 +546,7 @@ class _ChatPageState extends State<ChatPage> {
                 controller: _messageController,
                 minLines: 1,
                 maxLines: 4,
-                textDirection: TextDirection.rtl,
+                textDirection: ui.TextDirection.ltr,
                 textInputAction: TextInputAction.newline,
                 style: const TextStyle(
                   color: darkText,
