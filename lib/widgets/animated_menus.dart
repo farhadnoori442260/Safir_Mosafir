@@ -429,11 +429,52 @@ class _ProfileAnimatedMenuState
     return 'user_default'.tr();
   }
 
-  String _displayPhone() {
-    final String phone = userPhone.trim();
+  Future<String> _displayPhone() async {
+    final String globalPhone = userPhone.trim();
 
-    if (phone.isNotEmpty) {
-      return phone;
+    if (globalPhone.isNotEmpty) {
+      return globalPhone;
+    }
+
+    final User? currentUser =
+        FirebaseAuth.instance.currentUser;
+
+    final String? authPhone =
+        currentUser?.phoneNumber?.trim();
+
+    if (authPhone != null && authPhone.isNotEmpty) {
+      return authPhone;
+    }
+
+    if (currentUser == null) {
+      return '---';
+    }
+
+    try {
+      final DocumentSnapshot<Map<String, dynamic>> snapshot =
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(currentUser.uid)
+              .get();
+
+      final Map<String, dynamic>? data = snapshot.data();
+
+      final String firestorePhone =
+          (data?['phone'] ??
+                  data?['phoneNumber'] ??
+                  data?['mobile'] ??
+                  data?['userPhone'] ??
+                  '')
+              .toString()
+              .trim();
+
+      if (firestorePhone.isNotEmpty) {
+        return firestorePhone;
+      }
+    } catch (e) {
+      debugPrint(
+        'خطا در دریافت شماره مسافر: $e',
+      );
     }
 
     return '---';
@@ -644,14 +685,23 @@ class _ProfileAnimatedMenuState
                       ),
                     ),
                     const SizedBox(height: 5),
-                    Text(
-                      _displayPhone(),
-                      textDirection: TextDirection.ltr,
-                      style: const TextStyle(
-                        color: secondaryTextColor,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                      ),
+                    FutureBuilder<String>(
+                      future: _displayPhone(),
+                      builder: (context, snapshot) {
+                        final String phone =
+                            snapshot.data ?? '---';
+
+                        return Text(
+                          phone,
+                          textDirection:
+                              TextDirection.ltr,
+                          style: const TextStyle(
+                            color: secondaryTextColor,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        );
+                      },
                     ),
                     const SizedBox(height: 8),
                     Row(
@@ -748,7 +798,7 @@ class _ProfileAnimatedMenuState
                 ),
                 child: Icon(
                   icon,
-                  color: primaryAccent,
+                  color: Colors.black,
                   size: 20,
                 ),
               ),
