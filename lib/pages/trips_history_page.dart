@@ -1,4 +1,3 @@
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -12,7 +11,10 @@ class TripsHistoryPage extends StatefulWidget {
 
 class _TripsHistoryPageState extends State<TripsHistoryPage>
     with SingleTickerProviderStateMixin {
-  late TabController _tabController;
+  late final TabController _tabController;
+
+  final FirebaseFirestore _firestore =
+      FirebaseFirestore.instance;
 
   final Color safirBrandColor = const Color(0xFF145A41);
   final Color pageBackground = const Color(0xFFF8FAFC);
@@ -29,52 +31,276 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
     super.dispose();
   }
 
-  String _getString(Map<String, dynamic> data, List<String> keys,
-      {String fallback = ''}) {
-    for (final key in keys) {
-      final value = data[key];
-      if (value != null && value.toString().trim().isNotEmpty) {
-        return value.toString();
+  String _getString(
+    Map<String, dynamic> data,
+    List<String> keys, {
+    String fallback = '',
+  }) {
+    for (final String key in keys) {
+      final Object? value = data[key];
+
+      if (value == null) continue;
+
+      final String result = value.toString().trim();
+
+      if (result.isNotEmpty && result != 'null') {
+        return result;
       }
     }
+
     return fallback;
   }
 
-  String _formatDate(Map<String, dynamic> trip) {
-    dynamic value = trip['createdAt'] ??
-        trip['created_at'] ??
-        trip['timestamp'] ??
-        trip['date'];
+  String _getPassengerId(Map<String, dynamic> data) {
+    return _getString(data, [
+      'passengerid',
+      'passenger_id',
+      'passengerId',
+      'passengerID',
+      'userid',
+      'user_id',
+      'userId',
+      'userID',
+    ]);
+  }
 
-    if (value == null) return '';
+  String _getStatus(Map<String, dynamic> data) {
+    return _getString(data, ['status'])
+        .trim()
+        .toLowerCase()
+        .replaceAll('-', '_')
+        .replaceAll(' ', '_');
+  }
 
-    DateTime? date;
+  bool _isCompleted(String status) {
+    return [
+      'completed',
+      'complete',
+      'ended',
+      'finished',
+    ].contains(status);
+  }
 
-    if (value is Timestamp) {
-      date = value.toDate();
-    } else if (value is DateTime) {
-      date = value;
-    } else if (value is int) {
-      date = DateTime.fromMillisecondsSinceEpoch(value);
-    } else if (value is String) {
-      date = DateTime.tryParse(value);
+  bool _isActive(String status) {
+    return [
+      'searching',
+      'requested',
+      'pending',
+      'accepted',
+      'arrived',
+      'ontrip',
+      'on_trip',
+      'started',
+      'in_progress',
+    ].contains(status);
+  }
+
+  bool _isCancelled(String status) {
+    return status.contains('cancel');
+  }
+
+  double _getDistance(Map<String, dynamic> data) {
+    final Object? value = data['distance'] ??
+        data['distanceInKm'] ??
+        data['distanceKm'];
+
+    if (value == null) return 0;
+
+    if (value is num) {
+      return value.toDouble();
     }
 
-    if (date == null) return value.toString();
+    final String cleaned = value
+        .toString()
+        .replaceAll(',', '')
+        .replaceAll('km', '')
+        .replaceAll('کیلومتر', '')
+        .trim();
 
-    final y = date.year.toString().padLeft(4, '0');
-    final m = date.month.toString().padLeft(2, '0');
-    final d = date.day.toString().padLeft(2, '0');
-    final hour = date.hour.toString().padLeft(2, '0');
-    final minute = date.minute.toString().padLeft(2, '0');
+    return double.tryParse(cleaned) ?? 0;
+  }
 
-    return '$y/$m/$d  •  $hour:$minute';
+  DateTime? _getDate(Map<String, dynamic> data) {
+    final Object? value = data['completedAt'] ??
+        data['endedAt'] ??
+        data['updatedAt'] ??
+        data['createdAt'] ??
+        data['created_at'] ??
+        data['timestamp'] ??
+        data['date'];
+
+    if (value is Timestamp) {
+      return value.toDate();
+    }
+
+    if (value is DateTime) {
+      return value;
+    }
+
+    if (value is int) {
+      return DateTime.fromMillisecondsSinceEpoch(value);
+    }
+
+    if (value is String) {
+      return DateTime.tryParse(value);
+    }
+
+    return null;
+  }
+
+  String _formatDate(Map<String, dynamic> data) {
+    final DateTime? date = _getDate(data);
+
+    if (date == null) {
+      return 'تاریخ ثبت نشده';
+    }
+
+    final String year = date.year.toString().padLeft(4, '0');
+    final String month = date.month.toString().padLeft(2, '0');
+    final String day = date.day.toString().padLeft(2, '0');
+    final String hour = date.hour.toString().padLeft(2, '0');
+    final String minute = date.minute.toString().padLeft(2, '0');
+
+    return '$year/$month/$day  •  $hour:$minute';
   }
 
   @override
   Widget build(BuildContext context) {
-    final String? currentUserId = FirebaseAuth.instance.currentUser?.uid;
+    final User? currentUser =
+        FirebaseAuth.instance.currentUser;
 
+    if (currentUser == null) {
+      return _buildScaffold(
+        body: _buildEmptyState(
+          'برای مشاهده تاریخچه وارد حساب کاربری شوید',
+        ),
+      );
+    }
+
+    return _buildScaffold(
+      body: StreamBuilder<
+          QuerySnapshot<Map<String, dynamic>>>(
+        stream: _firestore
+            .collection('rides')
+            .snapshots(),
+        builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            return _buildErrorState(
+              'خطا در دریافت اطلاعات سفرها',
+            );
+          }
+
+          if (snapshot.connectionState ==
+              ConnectionState.waiting) {
+            return Center(
+              child: CircularProgressIndicator(
+                color: safirBrandColor,
+              ),
+            );
+          }
+
+          final List<Map<String, dynamic>> passengerTrips =
+              <Map<String, dynamic>>[];
+
+          for (final QueryDocumentSnapshot<
+              Map<String, dynamic>> document
+              in snapshot.data?.docs ?? <QueryDocumentSnapshot<
+                  Map<String, dynamic>> >[]) {
+            final Map<String, dynamic> data =
+                document.data();
+
+            final String passengerId =
+                _getPassengerId(data);
+
+            if (passengerId != currentUser.uid) {
+              continue;
+            }
+
+            passengerTrips.add(<String, dynamic>{
+              'documentId': document.id,
+              ...data,
+            });
+          }
+
+          passengerTrips.sort((a, b) {
+            final DateTime dateA =
+                _getDate(a) ??
+                    DateTime.fromMillisecondsSinceEpoch(0);
+
+            final DateTime dateB =
+                _getDate(b) ??
+                    DateTime.fromMillisecondsSinceEpoch(0);
+
+            return dateB.compareTo(dateA);
+          });
+
+          if (passengerTrips.isEmpty) {
+            return _buildEmptyState(
+              'هیچ سفری در تاریخچه شما ثبت نشده است',
+            );
+          }
+
+          final List<Map<String, dynamic>> completedTrips =
+              passengerTrips.where((trip) {
+            return _isCompleted(_getStatus(trip));
+          }).toList();
+
+          final List<Map<String, dynamic>> activeTrips =
+              passengerTrips.where((trip) {
+            return _isActive(_getStatus(trip));
+          }).toList();
+
+          final List<Map<String, dynamic>> cancelledTrips =
+              passengerTrips.where((trip) {
+            return _isCancelled(_getStatus(trip));
+          }).toList();
+
+          final double totalKm = passengerTrips.fold<double>(
+            0,
+            (double total, Map<String, dynamic> trip) {
+              return total + _getDistance(trip);
+            },
+          );
+
+          final int estimatedHours =
+              totalKm <= 0 ? 0 : (totalKm / 30).ceil();
+
+          return Column(
+            children: [
+              _buildStatsHeader(
+                km: totalKm.toStringAsFixed(1),
+                total: passengerTrips.length,
+                hours: estimatedHours,
+              ),
+              Expanded(
+                child: TabBarView(
+                  controller: _tabController,
+                  children: [
+                    _buildTripsList(
+                      completedTrips,
+                      'تکمیل شده',
+                    ),
+                    _buildTripsList(
+                      activeTrips,
+                      'جاری',
+                    ),
+                    _buildTripsList(
+                      cancelledTrips,
+                      'لغو شده',
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildScaffold({
+    required Widget body,
+  }) {
     return Scaffold(
       backgroundColor: pageBackground,
       appBar: AppBar(
@@ -91,7 +317,10 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
         centerTitle: true,
         leading: IconButton(
           onPressed: () => Navigator.pop(context),
-          icon: const Icon(Icons.arrow_back, color: Color(0xFF555B65)),
+          icon: const Icon(
+            Icons.arrow_back,
+            color: Color(0xFF555B65),
+          ),
         ),
         bottom: TabBar(
           controller: _tabController,
@@ -110,125 +339,21 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
           ],
         ),
       ),
-      body: currentUserId == null
-          ? _buildEmptyState('برای مشاهده تاریخچه وارد حساب کاربری شوید')
-          : StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('rides')
-                  .snapshots(),
-              builder: (context, snapshot) {
-                if (snapshot.hasError) {
-                  return Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(20),
-                      child: Text(
-                        'خطا در دریافت اطلاعات: ${snapshot.error}',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(color: Colors.redAccent),
-                      ),
-                    ),
-                  );
-                }
-
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return Center(
-                    child: CircularProgressIndicator(
-                      color: safirBrandColor,
-                    ),
-                  );
-                }
-
-                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                  return _buildEmptyState('هیچ سفری یافت نشد');
-                }
-
-                final allDocs = snapshot.data!.docs.where((doc) {
-                  final data = doc.data() as Map<String, dynamic>;
-                  final pId = _getString(data, [
-                    'passenger_id',
-                    'passengerId',
-                    'userID',
-                  ]);
-                  return pId == currentUserId;
-                }).toList();
-
-                if (allDocs.isEmpty) {
-                  return _buildEmptyState(
-                    'هیچ سفری در تاریخچه شما ثبت نشده است',
-                  );
-                }
-
-                double totalKm = 0;
-                for (final doc in allDocs) {
-                  final data = doc.data() as Map<String, dynamic>;
-                  final distance = data['distance'];
-                  if (distance != null) {
-                    totalKm +=
-                        double.tryParse(distance.toString()) ?? 0.0;
-                  }
-                }
-
-                final totalTrips = allDocs.length;
-                final estimatedHours = (totalKm / 30).ceil();
-
-                final completedTrips = allDocs.where((doc) {
-                  final status = _getString(
-                    doc.data() as Map<String, dynamic>,
-                    ['status'],
-                  ).toLowerCase();
-                  return status == 'completed' || status == 'ended';
-                }).toList();
-
-                final activeTrips = allDocs.where((doc) {
-                  final status = _getString(
-                    doc.data() as Map<String, dynamic>,
-                    ['status'],
-                  ).toLowerCase();
-                  return [
-                    'searching',
-                    'accepted',
-                    'arrived',
-                    'ontrip',
-                    'on_trip',
-                  ].contains(status);
-                }).toList();
-
-                final cancelledTrips = allDocs.where((doc) {
-                  final status = _getString(
-                    doc.data() as Map<String, dynamic>,
-                    ['status'],
-                  ).toLowerCase();
-                  return status.contains('cancel');
-                }).toList();
-
-                return Column(
-                  children: [
-                    _buildStatsHeader(
-                      totalKm.toStringAsFixed(1),
-                      totalTrips,
-                      estimatedHours,
-                    ),
-                    Expanded(
-                      child: TabBarView(
-                        controller: _tabController,
-                        children: [
-                          _buildTripsList(completedTrips, 'تکمیل شده'),
-                          _buildTripsList(activeTrips, 'جاری'),
-                          _buildTripsList(cancelledTrips, 'لغو شده'),
-                        ],
-                      ),
-                    ),
-                  ],
-                );
-              },
-            ),
+      body: body,
     );
   }
 
-  Widget _buildStatsHeader(String km, int total, int hours) {
+  Widget _buildStatsHeader({
+    required String km,
+    required int total,
+    required int hours,
+  }) {
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 14, 16, 12),
-      padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 8),
+      padding: const EdgeInsets.symmetric(
+        vertical: 18,
+        horizontal: 8,
+      ),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
@@ -244,11 +369,23 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          _buildStatItem(Icons.speed_rounded, km, 'کیلومتر'),
+          _buildStatItem(
+            Icons.speed_rounded,
+            km,
+            'کیلومتر',
+          ),
           _buildStatDivider(),
-          _buildStatItem(Icons.local_taxi_rounded, '$total', 'سفر'),
+          _buildStatItem(
+            Icons.local_taxi_rounded,
+            '$total',
+            'سفر',
+          ),
           _buildStatDivider(),
-          _buildStatItem(Icons.access_time_rounded, '$hours', 'ساعت'),
+          _buildStatItem(
+            Icons.access_time_rounded,
+            '$hours',
+            'ساعت',
+          ),
         ],
       ),
     );
@@ -262,11 +399,19 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
     );
   }
 
-  Widget _buildStatItem(IconData icon, String value, String label) {
+  Widget _buildStatItem(
+    IconData icon,
+    String value,
+    String label,
+  ) {
     return Expanded(
       child: Column(
         children: [
-          Icon(icon, color: safirBrandColor, size: 29),
+          Icon(
+            icon,
+            color: safirBrandColor,
+            size: 29,
+          ),
           const SizedBox(height: 7),
           Text(
             value,
@@ -284,111 +429,135 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
               color: Colors.grey.shade500,
             ),
           ),
-          const SizedBox(height: 3),
-          Text(
-            'با سفیر!',
-            style: TextStyle(
-              fontSize: 10,
-              color: Colors.grey.shade400,
-            ),
-          ),
         ],
       ),
     );
   }
 
   Widget _buildTripsList(
-    List<QueryDocumentSnapshot> docs,
+    List<Map<String, dynamic>> trips,
     String tabName,
   ) {
-    if (docs.isEmpty) {
-      return _buildEmptyState('هیچ سفری در بخش $tabName یافت نشد');
+    if (trips.isEmpty) {
+      return _buildEmptyState(
+        'هیچ سفری در بخش $tabName یافت نشد',
+      );
     }
 
     return ListView.builder(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
-      itemCount: docs.length,
+      itemCount: trips.length,
       itemBuilder: (context, index) {
-        final trip = docs[index].data() as Map<String, dynamic>;
-
-        final origin = _getString(trip, [
-          'originAddress',
-          'origin_address',
-          'pickup_address',
-        ], fallback: 'مبدأ نامشخص');
-
-        final destination = _getString(trip, [
-          'destinationAddress',
-          'destination_address',
-          'dropoff_address',
-        ], fallback: 'مقصد نامشخص');
-
-        final fare = _getString(trip, [
-          'fareAmount',
-          'fare',
-          'price',
-        ], fallback: '0');
-
-        final driverName = _getString(trip, [
-          'driver_name',
-          'driverName',
-        ], fallback: 'راننده سفیر');
-
-        final carDetails = _getString(trip, [
-          'car_details',
-          'carModel',
-          'car_model',
-          'vehicle',
-        ], fallback: 'خودرو سفیر');
-
-        final driverPhoto = _getString(trip, [
-          'driver_photo',
-          'driverPhoto',
-          'driver_profile',
-          'driverProfileImage',
-          'driver_image',
-          'driverImage',
-        ]);
-
-        final status = _getString(trip, ['status']);
-        final date = _formatDate(trip);
-
-        final lowerStatus = status.toLowerCase();
-        String statusText = 'تکمیل شده';
-        Color statusColor = safirBrandColor;
-
-        if (lowerStatus.contains('cancel')) {
-          statusText = lowerStatus.contains('passenger')
-              ? 'لغو شده توسط شما'
-              : 'لغو شده توسط راننده';
-          statusColor = Colors.redAccent;
-        } else if ([
-          'searching',
-          'accepted',
-          'arrived',
-          'ontrip',
-          'on_trip',
-        ].contains(lowerStatus)) {
-          statusText = 'سفر جاری';
-          statusColor = Colors.blue;
-        }
-
         return _buildTripCard(
-          origin: origin,
-          destination: destination,
-          fare: fare,
-          driverName: driverName,
-          carDetails: carDetails,
-          driverPhoto: driverPhoto,
-          statusText: statusText,
-          statusColor: statusColor,
-          date: date,
+          trip: trips[index],
         );
       },
     );
   }
 
   Widget _buildTripCard({
+    required Map<String, dynamic> trip,
+  }) {
+    final String origin = _getString(
+      trip,
+      [
+        'originAddress',
+        'originaddress',
+        'pickupaddress',
+        'pickup_address',
+        'pickUpAddress',
+      ],
+      fallback: 'مبدأ نامشخص',
+    );
+
+    final String destination = _getString(
+      trip,
+      [
+        'destinationAddress',
+        'destinationaddress',
+        'dropoffaddress',
+        'dropoff_address',
+        'dropOffAddress',
+      ],
+      fallback: 'مقصد نامشخص',
+    );
+
+    final String fare = _getString(
+      trip,
+      [
+        'fareAmount',
+        'fare',
+        'price',
+        'amount',
+      ],
+      fallback: '0',
+    );
+
+    final String driverName = _getString(
+      trip,
+      [
+        'driver_name',
+        'driverName',
+        'drivername',
+      ],
+      fallback: 'راننده سفیر',
+    );
+
+    final String carDetails = _getString(
+      trip,
+      [
+        'car_details',
+        'carDetails',
+        'carModel',
+        'car_model',
+        'vehicle',
+        'vehicletype',
+      ],
+      fallback: 'خودرو سفیر',
+    );
+
+    final String driverPhoto = _getString(
+      trip,
+      [
+        'driver_photo',
+        'driverPhoto',
+        'driver_profile',
+        'driverProfileImage',
+        'driver_image',
+        'driverImage',
+      ],
+    );
+
+    final String status =
+        _getStatus(trip);
+
+    String statusText = 'تکمیل شده';
+    Color statusColor = safirBrandColor;
+
+    if (_isCancelled(status)) {
+      statusText = status.contains('driver')
+          ? 'لغو شده توسط راننده'
+          : 'لغو شده توسط شما';
+      statusColor = Colors.redAccent;
+    } else if (_isActive(status)) {
+      statusText = 'سفر جاری';
+      statusColor = Colors.blue;
+    }
+
+    return _buildTripCardUi(
+      origin: origin,
+      destination: destination,
+      fare: fare,
+      driverName: driverName,
+      carDetails: carDetails,
+      driverPhoto: driverPhoto,
+      statusText: statusText,
+      statusColor: statusColor,
+      date: _formatDate(trip),
+    );
+  }
+
+  Widget _buildTripCardUi({
     required String origin,
     required String destination,
     required String fare,
@@ -417,12 +586,14 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // پیش‌نمایش مسیر
           _buildRoutePreview(),
-
-          // اطلاعات راننده و کرایه
           Padding(
-            padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+            padding: const EdgeInsets.fromLTRB(
+              14,
+              14,
+              14,
+              12,
+            ),
             child: Row(
               children: [
                 CircleAvatar(
@@ -442,7 +613,8 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
                 const SizedBox(width: 11),
                 Expanded(
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment:
+                        CrossAxisAlignment.start,
                     children: [
                       Text(
                         driverName,
@@ -499,7 +671,9 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
                   decoration: BoxDecoration(
                     color: const Color(0xFFF9FAFB),
                     borderRadius: BorderRadius.circular(30),
-                    border: Border.all(color: Colors.grey.shade200),
+                    border: Border.all(
+                      color: Colors.grey.shade200,
+                    ),
                   ),
                   child: Column(
                     children: [
@@ -525,10 +699,14 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
               ],
             ),
           ),
-
           if (date.isNotEmpty)
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+              padding: const EdgeInsets.fromLTRB(
+                16,
+                0,
+                16,
+                10,
+              ),
               child: Row(
                 children: [
                   Icon(
@@ -547,41 +725,30 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
                 ],
               ),
             ),
-
-          Divider(height: 1, color: Colors.grey.shade200),
-
-          // مبدأ
+          Divider(
+            height: 1,
+            color: Colors.grey.shade200,
+          ),
           _buildAddressRow(
             icon: Icons.circle,
             iconColor: const Color(0xFF69717B),
             address: origin,
           ),
-
-          // مقصد
           _buildAddressRow(
             icon: Icons.stop_rounded,
             iconColor: const Color(0xFF69717B),
             address: destination,
           ),
-
-          Divider(height: 1, color: Colors.grey.shade200),
-
-          // دکمه‌های پایین کارت
+          Divider(
+            height: 1,
+            color: Colors.grey.shade200,
+          ),
           Row(
             children: [
               Expanded(
                 child: _buildActionButton(
                   icon: Icons.arrow_back_rounded,
                   label: 'برگشت این سفر',
-                  onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text(
-                          'برای برگشت به مبدأ، این قابلیت هنوز متصل نشده است',
-                        ),
-                      ),
-                    );
-                  },
                 ),
               ),
               Container(
@@ -593,15 +760,6 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
                 child: _buildActionButton(
                   icon: Icons.repeat_rounded,
                   label: 'تکرار این سفر',
-                  onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text(
-                          'برای تکرار سفر، این قابلیت هنوز متصل نشده است',
-                        ),
-                      ),
-                    );
-                  },
                 ),
               ),
             ],
@@ -611,7 +769,6 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
     );
   }
 
-  // پیش‌نمایش گرافیکی مسیر
   Widget _buildRoutePreview() {
     return Container(
       height: 155,
@@ -628,12 +785,18 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
           Positioned(
             top: 39,
             left: 22,
-            child: _mapPointLabel('مبدأ', Icons.circle),
+            child: _mapPointLabel(
+              'مبدأ',
+              Icons.circle,
+            ),
           ),
           Positioned(
             bottom: 35,
             right: 22,
-            child: _mapPointLabel('مقصد', Icons.stop_rounded),
+            child: _mapPointLabel(
+              'مقصد',
+              Icons.stop_rounded,
+            ),
           ),
           Positioned(
             top: 9,
@@ -656,9 +819,15 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
     );
   }
 
-  Widget _mapPointLabel(String label, IconData icon) {
+  Widget _mapPointLabel(
+    String label,
+    IconData icon,
+  ) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+      padding: const EdgeInsets.symmetric(
+        horizontal: 9,
+        vertical: 6,
+      ),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(9),
@@ -673,7 +842,11 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 13, color: const Color(0xFF555D65)),
+          Icon(
+            icon,
+            size: 13,
+            color: const Color(0xFF555D65),
+          ),
           const SizedBox(width: 5),
           Text(
             label,
@@ -700,7 +873,11 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
       ),
       child: Row(
         children: [
-          Icon(icon, color: iconColor, size: 15),
+          Icon(
+            icon,
+            color: iconColor,
+            size: 15,
+          ),
           const SizedBox(width: 11),
           Expanded(
             child: Text(
@@ -722,12 +899,22 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
   Widget _buildActionButton({
     required IconData icon,
     required String label,
-    required VoidCallback onTap,
   }) {
     return InkWell(
-      onTap: onTap,
+      onTap: () {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '$label به‌زودی فعال می‌شود',
+            ),
+          ),
+        );
+      },
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 5),
+        padding: const EdgeInsets.symmetric(
+          vertical: 15,
+          horizontal: 5,
+        ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -781,36 +968,64 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
       ),
     );
   }
+
+  Widget _buildErrorState(String message) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(
+              Icons.cloud_off_rounded,
+              color: Colors.redAccent,
+              size: 54,
+            ),
+            const SizedBox(height: 14),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Colors.redAccent,
+                fontSize: 14,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
-// ترسیم مسیر تزئینی برای پیش‌نمایش کارت
 class _RoutePreviewPainter extends CustomPainter {
   final Color routeColor;
 
-  _RoutePreviewPainter({required this.routeColor});
+  const _RoutePreviewPainter({
+    required this.routeColor,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
-    final roadPaint = Paint()
+    final Paint minorRoadPaint = Paint()
+      ..color = const Color(0xFFDADDE0)
+      ..strokeWidth = 1.2
+      ..style = PaintingStyle.stroke;
+
+    final Paint roadPaint = Paint()
       ..color = Colors.white
       ..strokeWidth = 13
       ..strokeCap = StrokeCap.round
       ..style = PaintingStyle.stroke;
 
-    final minorRoadPaint = Paint()
-      ..color = const Color(0xFFDADDE0)
-      ..strokeWidth = 1.2
-      ..style = PaintingStyle.stroke;
-
-    final routePaint = Paint()
+    final Paint routePaint = Paint()
       ..color = routeColor
       ..strokeWidth = 4
       ..strokeCap = StrokeCap.round
       ..style = PaintingStyle.stroke;
 
-    // خیابان‌های پس‌زمینه
     for (int i = 0; i < 5; i++) {
-      final y = size.height * (i + 1) / 6;
+      final double y = size.height * (i + 1) / 6;
+
       canvas.drawLine(
         Offset(0, y),
         Offset(size.width, y - 14),
@@ -819,7 +1034,8 @@ class _RoutePreviewPainter extends CustomPainter {
     }
 
     for (int i = 0; i < 6; i++) {
-      final x = size.width * (i + 1) / 7;
+      final double x = size.width * (i + 1) / 7;
+
       canvas.drawLine(
         Offset(x, 0),
         Offset(x - 22, size.height),
@@ -827,8 +1043,7 @@ class _RoutePreviewPainter extends CustomPainter {
       );
     }
 
-    // خیابان اصلی
-    final roadPath = Path()
+    final Path roadPath = Path()
       ..moveTo(0, size.height * 0.72)
       ..lineTo(size.width * 0.25, size.height * 0.58)
       ..lineTo(size.width * 0.48, size.height * 0.67)
@@ -837,8 +1052,7 @@ class _RoutePreviewPainter extends CustomPainter {
 
     canvas.drawPath(roadPath, roadPaint);
 
-    // مسیر سفر
-    final path = Path()
+    final Path routePath = Path()
       ..moveTo(size.width * 0.12, size.height * 0.36)
       ..cubicTo(
         size.width * 0.28,
@@ -857,25 +1071,38 @@ class _RoutePreviewPainter extends CustomPainter {
         size.height * 0.70,
       );
 
-    canvas.drawPath(path, routePaint);
+    canvas.drawPath(routePath, routePaint);
 
-    // نقطه‌های ابتدا و انتهای مسیر
-    final pointPaint = Paint()..color = Colors.white;
-    final startPaint = Paint()..color = routeColor;
-    final endPaint = Paint()..color = const Color(0xFF555D65);
+    final Paint pointBorderPaint = Paint()
+      ..color = Colors.white;
 
-    final start = Offset(size.width * 0.12, size.height * 0.36);
-    final end = Offset(size.width * 0.88, size.height * 0.70);
+    final Paint startPaint = Paint()
+      ..color = routeColor;
 
-    canvas.drawCircle(start, 8, pointPaint);
+    final Paint endPaint = Paint()
+      ..color = const Color(0xFF555D65);
+
+    final Offset start = Offset(
+      size.width * 0.12,
+      size.height * 0.36,
+    );
+
+    final Offset end = Offset(
+      size.width * 0.88,
+      size.height * 0.70,
+    );
+
+    canvas.drawCircle(start, 8, pointBorderPaint);
     canvas.drawCircle(start, 5, startPaint);
 
-    canvas.drawCircle(end, 8, pointPaint);
+    canvas.drawCircle(end, 8, pointBorderPaint);
     canvas.drawCircle(end, 5, endPaint);
   }
 
   @override
-  bool shouldRepaint(covariant _RoutePreviewPainter oldDelegate) {
+  bool shouldRepaint(
+    covariant _RoutePreviewPainter oldDelegate,
+  ) {
     return oldDelegate.routeColor != routeColor;
   }
 }
