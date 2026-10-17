@@ -1,9 +1,10 @@
 import 'dart:ui' as ui;
+
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:easy_localization/easy_localization.dart';
 
 import 'package:safir_passengers/theme/app_colors.dart';
 
@@ -35,16 +36,24 @@ class _ChatPageState extends State<ChatPage> {
   final ScrollController _scrollController =
       ScrollController();
 
-  final String currentPassengerId =
-      FirebaseAuth.instance.currentUser?.uid ?? '';
+  final FirebaseFirestore _firestore =
+      FirebaseFirestore.instance;
+
+  final FirebaseAuth _auth =
+      FirebaseAuth.instance;
 
   bool _isSending = false;
 
-  CollectionReference<Map<String, dynamic>> get _chatCollection {
-    return FirebaseFirestore.instance
+  CollectionReference<Map<String, dynamic>>
+      get _chatCollection {
+    return _firestore
         .collection('rides')
         .doc(widget.tripId)
         .collection('chats');
+  }
+
+  String get _currentPassengerId {
+    return _auth.currentUser?.uid ?? '';
   }
 
   @override
@@ -58,11 +67,13 @@ class _ChatPageState extends State<ChatPage> {
     final String text =
         _messageController.text.trim();
 
-    if (text.isEmpty || _isSending) {
-      return;
-    }
+    final String passengerId =
+        _currentPassengerId;
 
-    if (currentPassengerId.isEmpty) {
+    if (text.isEmpty ||
+        passengerId.isEmpty ||
+        widget.tripId.trim().isEmpty ||
+        _isSending) {
       return;
     }
 
@@ -76,12 +87,35 @@ class _ChatPageState extends State<ChatPage> {
 
     try {
       await _chatCollection.add({
-        'senderId': currentPassengerId,
+        'senderId': passengerId,
         'senderType': 'passenger',
         'message': text,
         'timestamp': FieldValue.serverTimestamp(),
       });
-    } catch (e) {
+    } on FirebaseException catch (error) {
+      debugPrint(
+        'Passenger chat Firebase error: '
+        '${error.code} - ${error.message}',
+      );
+
+      if (!mounted) return;
+
+      _messageController.text = text;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            error.message ??
+                'error_occurred'.tr(),
+          ),
+          backgroundColor: Colors.red.shade700,
+        ),
+      );
+    } catch (error) {
+      debugPrint(
+        'Passenger chat sending error: $error',
+      );
+
       if (!mounted) return;
 
       _messageController.text = text;
@@ -103,14 +137,80 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
-  String _formatTimestamp(Timestamp? timestamp) {
-    if (timestamp == null) {
+  DateTime _getMessageDate(
+    QueryDocumentSnapshot<Map<String, dynamic>> document,
+  ) {
+    final Map<String, dynamic> data =
+        document.data();
+
+    final Object? value = data['timestamp'];
+
+    if (value is Timestamp) {
+      return value.toDate();
+    }
+
+    if (value is DateTime) {
+      return value;
+    }
+
+    if (value is String) {
+      return DateTime.tryParse(value) ??
+          DateTime.fromMillisecondsSinceEpoch(0);
+    }
+
+    return DateTime.fromMillisecondsSinceEpoch(0);
+  }
+
+  List<QueryDocumentSnapshot<Map<String, dynamic>>>
+      _sortMessages(
+    List<QueryDocumentSnapshot<Map<String, dynamic>>>
+        documents,
+  ) {
+    final List<QueryDocumentSnapshot<Map<String, dynamic>>>
+        sortedDocuments =
+        List<QueryDocumentSnapshot<Map<String, dynamic>>>.from(
+      documents,
+    );
+
+    sortedDocuments.sort((a, b) {
+      return _getMessageDate(a).compareTo(
+        _getMessageDate(b),
+      );
+    });
+
+    return sortedDocuments;
+  }
+
+  String _formatTimestamp(Object? value) {
+    DateTime? date;
+
+    if (value is Timestamp) {
+      date = value.toDate();
+    } else if (value is DateTime) {
+      date = value;
+    } else if (value is String) {
+      date = DateTime.tryParse(value);
+    }
+
+    if (date == null) {
       return 'اکنون';
     }
 
-    final DateTime date = timestamp.toDate();
-
     return DateFormat('HH:mm').format(date);
+  }
+
+  bool _isMyMessage(
+    Map<String, dynamic> data,
+  ) {
+    final String senderId =
+        data['senderId']?.toString().trim() ?? '';
+
+    final String senderType =
+        data['senderType']?.toString().trim().toLowerCase() ??
+            '';
+
+    return senderId == _currentPassengerId ||
+        senderType == 'passenger';
   }
 
   @override
@@ -136,7 +236,9 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 
-  PreferredSizeWidget _buildAppBar(String displayName) {
+  PreferredSizeWidget _buildAppBar(
+    String displayName,
+  ) {
     return AppBar(
       backgroundColor: Colors.white,
       foregroundColor: darkText,
@@ -190,10 +292,11 @@ class _ChatPageState extends State<ChatPage> {
     required double size,
     required double borderWidth,
   }) {
-    final String? photo = widget.driverPhoto;
+    final String? photo =
+        widget.driverPhoto?.trim();
 
     final bool hasPhoto =
-        photo != null && photo.trim().isNotEmpty;
+        photo != null && photo.isNotEmpty;
 
     return Container(
       width: size,
@@ -249,14 +352,18 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   Widget _buildMessages() {
+    if (widget.tripId.trim().isEmpty) {
+      return _buildErrorState(
+        'شناسه سفر برای چت موجود نیست',
+      );
+    }
+
     return StreamBuilder<
         QuerySnapshot<Map<String, dynamic>>>(
-      stream: _chatCollection
-          .orderBy(
-            'timestamp',
-            descending: true,
-          )
-          .snapshots(),
+      // عمداً orderBy حذف شده است.
+      // پیام‌ها در Dart مرتب می‌شوند تا پیام‌های قدیمی
+      // یا timestamp های null باعث خطا نشوند.
+      stream: _chatCollection.snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState ==
             ConnectionState.waiting) {
@@ -268,11 +375,22 @@ class _ChatPageState extends State<ChatPage> {
         }
 
         if (snapshot.hasError) {
-          return _buildErrorState();
+          debugPrint(
+            'Passenger chat stream error: '
+            '${snapshot.error}',
+          );
+
+          return _buildErrorState(
+            'خطا در دریافت پیام‌ها',
+          );
         }
 
-        final List<QueryDocumentSnapshot<Map<String, dynamic>>>
-            messages = snapshot.data?.docs ?? [];
+        final List<
+            QueryDocumentSnapshot<Map<String, dynamic>>>
+            messages = _sortMessages(
+          snapshot.data?.docs ?? <
+              QueryDocumentSnapshot<Map<String, dynamic>>>[],
+        );
 
         if (messages.isEmpty) {
           return _buildEmptyState();
@@ -303,31 +421,19 @@ class _ChatPageState extends State<ChatPage> {
   Widget _buildMessageBubble(
     Map<String, dynamic> data,
   ) {
-    final String senderType =
-        data['senderType']?.toString() ?? '';
-
-    final String senderId =
-        data['senderId']?.toString() ?? '';
-
-    final bool isMe =
-        senderId == currentPassengerId ||
-        senderType == 'passenger';
-
     final String message =
         data['message']?.toString().trim() ?? '';
-
-    final Timestamp? timestamp =
-        data['timestamp'] is Timestamp
-            ? data['timestamp'] as Timestamp
-            : null;
 
     if (message.isEmpty) {
       return const SizedBox.shrink();
     }
 
+    final bool isMe = _isMyMessage(data);
+
     return Align(
-      alignment:
-          isMe ? Alignment.centerRight : Alignment.centerLeft,
+      alignment: isMe
+          ? Alignment.centerRight
+          : Alignment.centerLeft,
       child: Padding(
         padding: const EdgeInsets.only(bottom: 8),
         child: Row(
@@ -347,7 +453,8 @@ class _ChatPageState extends State<ChatPage> {
               child: Container(
                 constraints: BoxConstraints(
                   maxWidth:
-                      MediaQuery.of(context).size.width * 0.76,
+                      MediaQuery.of(context).size.width *
+                          0.76,
                 ),
                 padding: const EdgeInsets.fromLTRB(
                   14,
@@ -389,7 +496,7 @@ class _ChatPageState extends State<ChatPage> {
                   children: [
                     Text(
                       message,
-                      textDirection: ui.TextDirection.ltr,
+                      textDirection: ui.TextDirection.rtl,
                       style: TextStyle(
                         color: isMe
                             ? Colors.white
@@ -404,7 +511,9 @@ class _ChatPageState extends State<ChatPage> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          _formatTimestamp(timestamp),
+                          _formatTimestamp(
+                            data['timestamp'],
+                          ),
                           textDirection: ui.TextDirection.ltr,
                           style: TextStyle(
                             color: isMe
@@ -439,7 +548,8 @@ class _ChatPageState extends State<ChatPage> {
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisAlignment:
+              MainAxisAlignment.center,
           children: [
             Container(
               width: 82,
@@ -479,12 +589,13 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 
-  Widget _buildErrorState() {
+  Widget _buildErrorState(String message) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisAlignment:
+              MainAxisAlignment.center,
           children: [
             Icon(
               Icons.cloud_off_rounded,
@@ -493,7 +604,7 @@ class _ChatPageState extends State<ChatPage> {
             ),
             const SizedBox(height: 12),
             Text(
-              'error_occurred'.tr(),
+              message,
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: Colors.grey.shade600,
@@ -546,15 +657,17 @@ class _ChatPageState extends State<ChatPage> {
                 controller: _messageController,
                 minLines: 1,
                 maxLines: 4,
-                textDirection: ui.TextDirection.ltr,
-                textInputAction: TextInputAction.newline,
+                textDirection: ui.TextDirection.rtl,
+                textInputAction:
+                    TextInputAction.newline,
                 style: const TextStyle(
                   color: darkText,
                   fontSize: 14,
                   height: 1.35,
                 ),
                 decoration: InputDecoration(
-                  hintText: 'chat_type_message_hint'.tr(),
+                  hintText:
+                      'chat_type_message_hint'.tr(),
                   hintStyle: const TextStyle(
                     color: Color(0xFF9AA5B1),
                     fontSize: 13,
@@ -584,13 +697,6 @@ class _ChatPageState extends State<ChatPage> {
                   ? Colors.grey.shade300
                   : messageGreen,
               shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: messageGreen.withOpacity(0.2),
-                  blurRadius: 8,
-                  offset: const Offset(0, 4),
-                ),
-              ],
             ),
             child: Material(
               color: Colors.transparent,
