@@ -419,36 +419,20 @@ class ProfileAnimatedMenu extends StatefulWidget {
 
 class _ProfileAnimatedMenuState
     extends State<ProfileAnimatedMenu> {
-  String _displayName() {
-    final String name = userName.trim();
 
-    if (name.isNotEmpty) {
-      return name;
+  // 🔧 خواندن آنلاین نام و نام خانوادگی کاربر از Firestore یا FirebaseAuth
+  Future<String> _displayName() async {
+    final String globalName = userName.trim();
+    if (globalName.isNotEmpty) return globalName;
+
+    final User? currentUser = FirebaseAuth.instance.currentUser;
+    final String? authName = currentUser?.displayName?.trim();
+
+    if (authName != null && authName.isNotEmpty) {
+      return authName;
     }
 
-    return 'user_default'.tr();
-  }
-
-  Future<String> _displayPhone() async {
-    final String globalPhone = userPhone.trim();
-
-    if (globalPhone.isNotEmpty) {
-      return globalPhone;
-    }
-
-    final User? currentUser =
-        FirebaseAuth.instance.currentUser;
-
-    final String? authPhone =
-        currentUser?.phoneNumber?.trim();
-
-    if (authPhone != null && authPhone.isNotEmpty) {
-      return authPhone;
-    }
-
-    if (currentUser == null) {
-      return '---';
-    }
+    if (currentUser == null) return 'user_default'.tr();
 
     try {
       final DocumentSnapshot<Map<String, dynamic>> snapshot =
@@ -459,22 +443,60 @@ class _ProfileAnimatedMenuState
 
       final Map<String, dynamic>? data = snapshot.data();
 
-      final String firestorePhone =
-          (data?['phone'] ??
-                  data?['phoneNumber'] ??
-                  data?['mobile'] ??
-                  data?['userPhone'] ??
-                  '')
-              .toString()
-              .trim();
+      final String firestoreName = (data?['name'] ??
+              data?['full_name'] ??
+              data?['fullName'] ??
+              data?['userName'] ??
+              '')
+          .toString()
+          .trim();
+
+      if (firestoreName.isNotEmpty) {
+        return firestoreName;
+      }
+    } catch (e) {
+      debugPrint('خطا در دریافت نام مسافر: $e');
+    }
+
+    return 'user_default'.tr();
+  }
+
+  // 🔧 خواندن آنلاین شماره تماس کاربر
+  Future<String> _displayPhone() async {
+    final String globalPhone = userPhone.trim();
+    if (globalPhone.isNotEmpty) return globalPhone;
+
+    final User? currentUser = FirebaseAuth.instance.currentUser;
+    final String? authPhone = currentUser?.phoneNumber?.trim();
+
+    if (authPhone != null && authPhone.isNotEmpty) {
+      return authPhone;
+    }
+
+    if (currentUser == null) return '---';
+
+    try {
+      final DocumentSnapshot<Map<String, dynamic>> snapshot =
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(currentUser.uid)
+              .get();
+
+      final Map<String, dynamic>? data = snapshot.data();
+
+      final String firestorePhone = (data?['phone'] ??
+              data?['phoneNumber'] ??
+              data?['mobile'] ??
+              data?['userPhone'] ??
+              '')
+          .toString()
+          .trim();
 
       if (firestorePhone.isNotEmpty) {
         return firestorePhone;
       }
     } catch (e) {
-      debugPrint(
-        'خطا در دریافت شماره مسافر: $e',
-      );
+      debugPrint('خطا در دریافت شماره مسافر: $e');
     }
 
     return '---';
@@ -512,18 +534,11 @@ class _ProfileAnimatedMenuState
       body: SafeArea(
         child: ListView(
           physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(
-            16,
-            6,
-            16,
-            28,
-          ),
+          padding: const EdgeInsets.fromLTRB(16, 6, 16, 28),
           children: [
             _buildProfileHeader(),
             const SizedBox(height: 24),
-            _buildSectionTitle(
-              'user_account_section'.tr(),
-            ),
+            _buildSectionTitle('user_account_section'.tr()),
             _buildMenuGroup([
               _buildMenuItem(
                 icon: Icons.route_rounded,
@@ -561,9 +576,7 @@ class _ProfileAnimatedMenuState
               ),
             ]),
             const SizedBox(height: 22),
-            _buildSectionTitle(
-              'services_and_support_section'.tr(),
-            ),
+            _buildSectionTitle('services_and_support_section'.tr()),
             _buildMenuGroup([
               _buildMenuItem(
                 icon: Icons.local_offer_outlined,
@@ -590,11 +603,8 @@ class _ProfileAnimatedMenuState
                     context,
                     MaterialPageRoute(
                       builder: (_) => SettingsScreen(
-                        currentLanguage:
-                            widget.currentLanguage ?? 'fa',
-                        onLanguageChanged:
-                            widget.onLanguageChanged ??
-                                (_) {},
+                        currentLanguage: widget.currentLanguage ?? 'fa',
+                        onLanguageChanged: widget.onLanguageChanged ?? (_) {},
                       ),
                     ),
                   );
@@ -646,13 +656,8 @@ class _ProfileAnimatedMenuState
               Container(
                 width: 58,
                 height: 58,
-                padding: const EdgeInsets.all(2),
-                decoration: BoxDecoration(
+                decoration: const BoxDecoration(
                   shape: BoxShape.circle,
-                  color: primaryAccent.withOpacity(0.12),
-                  border: Border.all(
-                    color: primaryAccent.withOpacity(0.22),
-                  ),
                 ),
                 child: ClipOval(
                   child: Image.asset(
@@ -671,59 +676,43 @@ class _ProfileAnimatedMenuState
               const SizedBox(width: 14),
               Expanded(
                 child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      _displayName(),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: darkTextColor,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 5),
+                    // نمایش نام کاربر با FutureBuilder
                     FutureBuilder<String>(
-                      future: _displayPhone(),
+                      future: _displayName(),
                       builder: (context, snapshot) {
-                        final String phone =
-                            snapshot.data ?? '---';
+                        final String name = snapshot.data ?? 'user_default'.tr();
 
                         return Text(
-                          phone,
-                          textDirection:
-                              TextDirection.ltr,
+                          name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
-                            color: secondaryTextColor,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
+                            color: darkTextColor,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
                           ),
                         );
                       },
                     ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Container(
-                          width: 7,
-                          height: 7,
-                          decoration: const BoxDecoration(
-                            color: Color(0xFF22C55E),
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          'active_account'.tr(),
+                    const SizedBox(height: 5),
+                    // نمایش شماره کاربر با FutureBuilder و سایز 15
+                    FutureBuilder<String>(
+                      future: _displayPhone(),
+                      builder: (context, snapshot) {
+                        final String phone = snapshot.data ?? '---';
+
+                        return Text(
+                          phone,
+                          textDirection: TextDirection.ltr,
                           style: const TextStyle(
-                            color: Color(0xFF16A34A),
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
+                            color: secondaryTextColor,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w500,
                           ),
-                        ),
-                      ],
+                        );
+                      },
                     ),
                   ],
                 ),
@@ -805,8 +794,7 @@ class _ProfileAnimatedMenuState
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       title,
