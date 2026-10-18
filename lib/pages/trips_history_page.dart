@@ -16,13 +16,20 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
   final FirebaseFirestore _firestore =
       FirebaseFirestore.instance;
 
-  final Color safirBrandColor = const Color(0xFF145A41);
-  final Color pageBackground = const Color(0xFFF8FAFC);
+  final Color safirBrandColor =
+      const Color(0xFF145A41);
+
+  final Color pageBackground =
+      const Color(0xFFF8FAFC);
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+
+    _tabController = TabController(
+      length: 3,
+      vsync: this,
+    );
   }
 
   @override
@@ -31,19 +38,34 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
     super.dispose();
   }
 
+  String _valueToString(Object? value) {
+    if (value == null) {
+      return '';
+    }
+
+    if (value is DocumentReference) {
+      return value.id.trim();
+    }
+
+    final String result = value.toString().trim();
+
+    if (result.isEmpty || result == 'null') {
+      return '';
+    }
+
+    return result;
+  }
+
   String _getString(
     Map<String, dynamic> data,
     List<String> keys, {
     String fallback = '',
   }) {
     for (final String key in keys) {
-      final Object? value = data[key];
+      final String result =
+          _valueToString(data[key]);
 
-      if (value == null) continue;
-
-      final String result = value.toString().trim();
-
-      if (result.isNotEmpty && result != 'null') {
+      if (result.isNotEmpty) {
         return result;
       }
     }
@@ -51,21 +73,117 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
     return fallback;
   }
 
-  String _getPassengerId(Map<String, dynamic> data) {
-    return _getString(data, [
-      'passengerid',
-      'passenger_id',
-      'passengerId',
-      'passengerID',
-      'userid',
-      'user_id',
-      'userId',
-      'userID',
-    ]);
+  String _getNestedString(
+    Map<String, dynamic> data,
+    String parentKey,
+    List<String> childKeys,
+  ) {
+    final Object? parent = data[parentKey];
+
+    if (parent is Map) {
+      final Map<String, dynamic> nested =
+          Map<String, dynamic>.from(parent);
+
+      return _getString(nested, childKeys);
+    }
+
+    if (parent is DocumentReference) {
+      return parent.id.trim();
+    }
+
+    if (parent is String) {
+      return parent.trim();
+    }
+
+    return '';
   }
 
-  String _getStatus(Map<String, dynamic> data) {
-    return _getString(data, ['status'])
+  String _getPassengerId(
+    Map<String, dynamic> data,
+  ) {
+    final String directId = _getString(
+      data,
+      [
+        'passengerid',
+        'passenger_id',
+        'passengerId',
+        'passengerID',
+        'passengerUid',
+        'passengerUID',
+        'passenger_uid',
+        'riderId',
+        'riderID',
+        'rider_id',
+        'userid',
+        'user_id',
+        'userId',
+        'userID',
+        'customerId',
+        'customerID',
+        'customer_id',
+        'customerUid',
+        'customer_uid',
+        'customerUID',
+        'createdBy',
+        'createdByUid',
+      ],
+    );
+
+    if (directId.isNotEmpty) {
+      return directId;
+    }
+
+    final List<String> nestedKeys = [
+      'id',
+      'uid',
+      'userId',
+      'userID',
+      'user_id',
+      'passengerId',
+      'passengerID',
+      'passenger_id',
+      'customerId',
+      'customerID',
+      'customer_id',
+    ];
+
+    for (final String parentKey in [
+      'passenger',
+      'user',
+      'rider',
+      'customer',
+      'passengerInfo',
+      'userInfo',
+    ]) {
+      final String nestedId = _getNestedString(
+        data,
+        parentKey,
+        nestedKeys,
+      );
+
+      if (nestedId.isNotEmpty) {
+        return nestedId;
+      }
+    }
+
+    return '';
+  }
+
+  String _getStatus(
+    Map<String, dynamic> data,
+  ) {
+    final String status = _getString(
+      data,
+      [
+        'status',
+        'tripStatus',
+        'trip_status',
+        'rideStatus',
+        'ride_status',
+      ],
+    );
+
+    return status
         .trim()
         .toLowerCase()
         .replaceAll('-', '_')
@@ -78,6 +196,11 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
       'complete',
       'ended',
       'finished',
+      'done',
+      'completed_trip',
+      'سفر_تکمیل_شده',
+      'تکمیل_شده',
+      'تکمیل_شده_است',
     ].contains(status);
   }
 
@@ -92,19 +215,32 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
       'on_trip',
       'started',
       'in_progress',
+      'inprogress',
+      'ongoing',
+      'active',
+      'در_حال_جستجو',
+      'در_حال_سفر',
+      'جاری',
     ].contains(status);
   }
 
   bool _isCancelled(String status) {
-    return status.contains('cancel');
+    return status.contains('cancel') ||
+        status.contains('لغو');
   }
 
-  double _getDistance(Map<String, dynamic> data) {
-    final Object? value = data['distance'] ??
-        data['distanceInKm'] ??
-        data['distanceKm'];
+  double _getDistance(
+    Map<String, dynamic> data,
+  ) {
+    final Object? value =
+        data['distance'] ??
+            data['distanceInKm'] ??
+            data['distanceKm'] ??
+            data['distance_km'];
 
-    if (value == null) return 0;
+    if (value == null) {
+      return 0;
+    }
 
     if (value is num) {
       return value.toDouble();
@@ -114,20 +250,27 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
         .toString()
         .replaceAll(',', '')
         .replaceAll('km', '')
+        .replaceAll('KM', '')
         .replaceAll('کیلومتر', '')
         .trim();
 
     return double.tryParse(cleaned) ?? 0;
   }
 
-  DateTime? _getDate(Map<String, dynamic> data) {
-    final Object? value = data['completedAt'] ??
-        data['endedAt'] ??
-        data['updatedAt'] ??
-        data['createdAt'] ??
-        data['created_at'] ??
-        data['timestamp'] ??
-        data['date'];
+  DateTime? _getDate(
+    Map<String, dynamic> data,
+  ) {
+    final Object? value =
+        data['completedAt'] ??
+            data['completed_at'] ??
+            data['endedAt'] ??
+            data['ended_at'] ??
+            data['updatedAt'] ??
+            data['updated_at'] ??
+            data['createdAt'] ??
+            data['created_at'] ??
+            data['timestamp'] ??
+            data['date'];
 
     if (value is Timestamp) {
       return value.toDate();
@@ -138,7 +281,15 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
     }
 
     if (value is int) {
-      return DateTime.fromMillisecondsSinceEpoch(value);
+      return DateTime.fromMillisecondsSinceEpoch(
+        value,
+      );
+    }
+
+    if (value is double) {
+      return DateTime.fromMillisecondsSinceEpoch(
+        value.toInt(),
+      );
     }
 
     if (value is String) {
@@ -148,20 +299,125 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
     return null;
   }
 
-  String _formatDate(Map<String, dynamic> data) {
+  String _formatDate(
+    Map<String, dynamic> data,
+  ) {
     final DateTime? date = _getDate(data);
 
     if (date == null) {
       return 'تاریخ ثبت نشده';
     }
 
-    final String year = date.year.toString().padLeft(4, '0');
-    final String month = date.month.toString().padLeft(2, '0');
-    final String day = date.day.toString().padLeft(2, '0');
-    final String hour = date.hour.toString().padLeft(2, '0');
-    final String minute = date.minute.toString().padLeft(2, '0');
+    final String year =
+        date.year.toString().padLeft(4, '0');
+
+    final String month =
+        date.month.toString().padLeft(2, '0');
+
+    final String day =
+        date.day.toString().padLeft(2, '0');
+
+    final String hour =
+        date.hour.toString().padLeft(2, '0');
+
+    final String minute =
+        date.minute.toString().padLeft(2, '0');
 
     return '$year/$month/$day  •  $hour:$minute';
+  }
+
+  bool _belongsToCurrentPassenger(
+    Map<String, dynamic> data,
+    User currentUser,
+  ) {
+    final String currentUid =
+        currentUser.uid.trim();
+
+    final String passengerId =
+        _getPassengerId(data);
+
+    if (passengerId == currentUid) {
+      return true;
+    }
+
+    final String currentEmail =
+        currentUser.email?.trim().toLowerCase() ?? '';
+
+    final String passengerEmail = _getString(
+      data,
+      [
+        'passengerEmail',
+        'passenger_email',
+        'passengeremail',
+        'userEmail',
+        'user_email',
+        'useremail',
+        'customerEmail',
+        'customer_email',
+        'customeremail',
+      ],
+    ).toLowerCase();
+
+    if (currentEmail.isNotEmpty &&
+        passengerEmail.isNotEmpty &&
+        currentEmail == passengerEmail) {
+      return true;
+    }
+
+    final String currentPhone =
+        currentUser.phoneNumber?.trim() ?? '';
+
+    final String passengerPhone = _getString(
+      data,
+      [
+        'passengerPhone',
+        'passenger_phone',
+        'passengerphone',
+        'userPhone',
+        'user_phone',
+        'userphone',
+        'customerPhone',
+        'customer_phone',
+        'customerphone',
+      ],
+    );
+
+    if (currentPhone.isNotEmpty &&
+        passengerPhone.isNotEmpty &&
+        currentPhone == passengerPhone) {
+      return true;
+    }
+
+    return false;
+  }
+
+  String _formatFare(
+    Map<String, dynamic> data,
+  ) {
+    final Object? rawFare =
+        data['fareAmount'] ??
+            data['fare_amount'] ??
+            data['fare'] ??
+            data['price'] ??
+            data['amount'] ??
+            data['totalFare'] ??
+            data['total_fare'];
+
+    if (rawFare == null) {
+      return '0';
+    }
+
+    if (rawFare is num) {
+      return rawFare
+          .toStringAsFixed(0)
+          .replaceAllMapped(
+            RegExp(r'(d)(?=(d{3})+(?!d))'),
+            (Match match) =>
+                '${match[1]},',
+          );
+    }
+
+    return _valueToString(rawFare);
   }
 
   @override
@@ -183,7 +439,12 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
         stream: _firestore
             .collection('rides')
             .snapshots(),
-        builder: (context, snapshot) {
+        builder: (
+          BuildContext context,
+          AsyncSnapshot<
+                  QuerySnapshot<Map<String, dynamic>>>
+              snapshot,
+        ) {
           if (snapshot.hasError) {
             return _buildErrorState(
               'خطا در دریافت اطلاعات سفرها',
@@ -199,40 +460,58 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
             );
           }
 
-          final List<Map<String, dynamic>> passengerTrips =
+          final List<Map<String, dynamic>>
+              passengerTrips =
               <Map<String, dynamic>>[];
+
+          final List<
+                  QueryDocumentSnapshot<
+                      Map<String, dynamic>>>
+              documents = snapshot.data?.docs ??
+                  <QueryDocumentSnapshot<
+                      Map<String, dynamic>>>[];
 
           for (final QueryDocumentSnapshot<
               Map<String, dynamic>> document
-              in snapshot.data?.docs ?? <QueryDocumentSnapshot<
-                  Map<String, dynamic>> >[]) {
+              in documents) {
             final Map<String, dynamic> data =
                 document.data();
 
-            final String passengerId =
-                _getPassengerId(data);
-
-            if (passengerId != currentUser.uid) {
+            if (!_belongsToCurrentPassenger(
+              data,
+              currentUser,
+            )) {
               continue;
             }
 
-            passengerTrips.add(<String, dynamic>{
-              'documentId': document.id,
-              ...data,
-            });
+            passengerTrips.add(
+              <String, dynamic>{
+                'documentId': document.id,
+                ...data,
+              },
+            );
           }
 
-          passengerTrips.sort((a, b) {
-            final DateTime dateA =
-                _getDate(a) ??
-                    DateTime.fromMillisecondsSinceEpoch(0);
+          passengerTrips.sort(
+            (
+              Map<String, dynamic> a,
+              Map<String, dynamic> b,
+            ) {
+              final DateTime dateA =
+                  _getDate(a) ??
+                      DateTime.fromMillisecondsSinceEpoch(
+                        0,
+                      );
 
-            final DateTime dateB =
-                _getDate(b) ??
-                    DateTime.fromMillisecondsSinceEpoch(0);
+              final DateTime dateB =
+                  _getDate(b) ??
+                      DateTime.fromMillisecondsSinceEpoch(
+                        0,
+                      );
 
-            return dateB.compareTo(dateA);
-          });
+              return dateB.compareTo(dateA);
+            },
+          );
 
           if (passengerTrips.isEmpty) {
             return _buildEmptyState(
@@ -240,30 +519,51 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
             );
           }
 
-          final List<Map<String, dynamic>> completedTrips =
-              passengerTrips.where((trip) {
-            return _isCompleted(_getStatus(trip));
-          }).toList();
+          final List<Map<String, dynamic>>
+              completedTrips =
+              passengerTrips.where(
+            (Map<String, dynamic> trip) {
+              return _isCompleted(
+                _getStatus(trip),
+              );
+            },
+          ).toList();
 
-          final List<Map<String, dynamic>> activeTrips =
-              passengerTrips.where((trip) {
-            return _isActive(_getStatus(trip));
-          }).toList();
+          final List<Map<String, dynamic>>
+              activeTrips =
+              passengerTrips.where(
+            (Map<String, dynamic> trip) {
+              return _isActive(
+                _getStatus(trip),
+              );
+            },
+          ).toList();
 
-          final List<Map<String, dynamic>> cancelledTrips =
-              passengerTrips.where((trip) {
-            return _isCancelled(_getStatus(trip));
-          }).toList();
+          final List<Map<String, dynamic>>
+              cancelledTrips =
+              passengerTrips.where(
+            (Map<String, dynamic> trip) {
+              return _isCancelled(
+                _getStatus(trip),
+              );
+            },
+          ).toList();
 
-          final double totalKm = passengerTrips.fold<double>(
+          final double totalKm =
+              passengerTrips.fold<double>(
             0,
-            (double total, Map<String, dynamic> trip) {
+            (
+              double total,
+              Map<String, dynamic> trip,
+            ) {
               return total + _getDistance(trip);
             },
           );
 
           final int estimatedHours =
-              totalKm <= 0 ? 0 : (totalKm / 30).ceil();
+              totalKm <= 0
+                  ? 0
+                  : (totalKm / 30).ceil();
 
           return Column(
             children: [
@@ -349,7 +649,12 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
     required int hours,
   }) {
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+      margin: const EdgeInsets.fromLTRB(
+        16,
+        14,
+        16,
+        12,
+      ),
       padding: const EdgeInsets.symmetric(
         vertical: 18,
         horizontal: 8,
@@ -357,7 +662,9 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.grey.shade100),
+        border: Border.all(
+          color: Colors.grey.shade100,
+        ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.07),
@@ -367,7 +674,8 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
         ],
       ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        mainAxisAlignment:
+            MainAxisAlignment.spaceEvenly,
         children: [
           _buildStatItem(
             Icons.speed_rounded,
@@ -445,9 +753,17 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
+      padding: const EdgeInsets.fromLTRB(
+        16,
+        4,
+        16,
+        20,
+      ),
       itemCount: trips.length,
-      itemBuilder: (context, index) {
+      itemBuilder: (
+        BuildContext context,
+        int index,
+      ) {
         return _buildTripCard(
           trip: trips[index],
         );
@@ -466,6 +782,10 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
         'pickupaddress',
         'pickup_address',
         'pickUpAddress',
+        'pickupAddress',
+        'origin',
+        'startAddress',
+        'start_address',
       ],
       fallback: 'مبدأ نامشخص',
     );
@@ -478,20 +798,15 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
         'dropoffaddress',
         'dropoff_address',
         'dropOffAddress',
+        'dropoffAddress',
+        'destination',
+        'endAddress',
+        'end_address',
       ],
       fallback: 'مقصد نامشخص',
     );
 
-    final String fare = _getString(
-      trip,
-      [
-        'fareAmount',
-        'fare',
-        'price',
-        'amount',
-      ],
-      fallback: '0',
-    );
+    final String fare = _formatFare(trip);
 
     final String driverName = _getString(
       trip,
@@ -499,6 +814,7 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
         'driver_name',
         'driverName',
         'drivername',
+        'driverFullName',
       ],
       fallback: 'راننده سفیر',
     );
@@ -512,6 +828,7 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
         'car_model',
         'vehicle',
         'vehicletype',
+        'vehicleType',
       ],
       fallback: 'خودرو سفیر',
     );
@@ -528,8 +845,7 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
       ],
     );
 
-    final String status =
-        _getStatus(trip);
+    final String status = _getStatus(trip);
 
     String statusText = 'تکمیل شده';
     Color statusColor = safirBrandColor;
@@ -538,10 +854,19 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
       statusText = status.contains('driver')
           ? 'لغو شده توسط راننده'
           : 'لغو شده توسط شما';
+
       statusColor = Colors.redAccent;
     } else if (_isActive(status)) {
       statusText = 'سفر جاری';
       statusColor = Colors.blue;
+    } else if (!_isCompleted(status)) {
+      statusText = status.isEmpty
+          ? 'سفر'
+          : _getString(
+              trip,
+              ['status'],
+              fallback: 'سفر',
+            );
     }
 
     return _buildTripCardUi(
@@ -573,7 +898,9 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(19),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(
+          color: Colors.grey.shade200,
+        ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.08),
@@ -584,7 +911,8 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+        crossAxisAlignment:
+            CrossAxisAlignment.stretch,
         children: [
           _buildRoutePreview(),
           Padding(
@@ -619,7 +947,8 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
                       Text(
                         driverName,
                         maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                        overflow:
+                            TextOverflow.ellipsis,
                         style: const TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.bold,
@@ -630,7 +959,8 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
                       Text(
                         carDetails,
                         maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                        overflow:
+                            TextOverflow.ellipsis,
                         style: TextStyle(
                           fontSize: 12,
                           color: Colors.grey.shade500,
@@ -649,11 +979,13 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
                             child: Text(
                               statusText,
                               maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                              overflow:
+                                  TextOverflow.ellipsis,
                               style: TextStyle(
                                 fontSize: 11,
                                 color: statusColor,
-                                fontWeight: FontWeight.w600,
+                                fontWeight:
+                                    FontWeight.w600,
                               ),
                             ),
                           ),
@@ -670,7 +1002,8 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
                   ),
                   decoration: BoxDecoration(
                     color: const Color(0xFFF9FAFB),
-                    borderRadius: BorderRadius.circular(30),
+                    borderRadius:
+                        BorderRadius.circular(30),
                     border: Border.all(
                       color: Colors.grey.shade200,
                     ),
@@ -805,7 +1138,8 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
               padding: const EdgeInsets.all(7),
               decoration: BoxDecoration(
                 color: Colors.white.withOpacity(0.9),
-                borderRadius: BorderRadius.circular(10),
+                borderRadius:
+                    BorderRadius.circular(10),
               ),
               child: Icon(
                 Icons.map_outlined,
@@ -902,7 +1236,8 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
   }) {
     return InkWell(
       onTap: () {
-        ScaffoldMessenger.of(context).showSnackBar(
+        ScaffoldMessenger.of(context)
+            .showSnackBar(
           SnackBar(
             content: Text(
               '$label به‌زودی فعال می‌شود',
@@ -916,7 +1251,8 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
           horizontal: 5,
         ),
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisAlignment:
+              MainAxisAlignment.center,
           children: [
             Icon(
               icon,
@@ -928,7 +1264,8 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
               child: Text(
                 label,
                 maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+                overflow:
+                    TextOverflow.ellipsis,
                 style: const TextStyle(
                   color: Color(0xFF5965C5),
                   fontSize: 13,
@@ -942,12 +1279,15 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
     );
   }
 
-  Widget _buildEmptyState(String message) {
+  Widget _buildEmptyState(
+    String message,
+  ) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisAlignment:
+              MainAxisAlignment.center,
           children: [
             Icon(
               Icons.history_toggle_off_rounded,
@@ -969,12 +1309,15 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
     );
   }
 
-  Widget _buildErrorState(String message) {
+  Widget _buildErrorState(
+    String message,
+  ) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisAlignment:
+              MainAxisAlignment.center,
           children: [
             const Icon(
               Icons.cloud_off_rounded,
@@ -997,7 +1340,8 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
   }
 }
 
-class _RoutePreviewPainter extends CustomPainter {
+class _RoutePreviewPainter
+    extends CustomPainter {
   final Color routeColor;
 
   const _RoutePreviewPainter({
@@ -1005,7 +1349,10 @@ class _RoutePreviewPainter extends CustomPainter {
   });
 
   @override
-  void paint(Canvas canvas, Size size) {
+  void paint(
+    Canvas canvas,
+    Size size,
+  ) {
     final Paint minorRoadPaint = Paint()
       ..color = const Color(0xFFDADDE0)
       ..strokeWidth = 1.2
@@ -1024,7 +1371,8 @@ class _RoutePreviewPainter extends CustomPainter {
       ..style = PaintingStyle.stroke;
 
     for (int i = 0; i < 5; i++) {
-      final double y = size.height * (i + 1) / 6;
+      final double y =
+          size.height * (i + 1) / 6;
 
       canvas.drawLine(
         Offset(0, y),
@@ -1034,7 +1382,8 @@ class _RoutePreviewPainter extends CustomPainter {
     }
 
     for (int i = 0; i < 6; i++) {
-      final double x = size.width * (i + 1) / 7;
+      final double x =
+          size.width * (i + 1) / 7;
 
       canvas.drawLine(
         Offset(x, 0),
@@ -1044,16 +1393,37 @@ class _RoutePreviewPainter extends CustomPainter {
     }
 
     final Path roadPath = Path()
-      ..moveTo(0, size.height * 0.72)
-      ..lineTo(size.width * 0.25, size.height * 0.58)
-      ..lineTo(size.width * 0.48, size.height * 0.67)
-      ..lineTo(size.width * 0.68, size.height * 0.40)
-      ..lineTo(size.width, size.height * 0.32);
+      ..moveTo(
+        0,
+        size.height * 0.72,
+      )
+      ..lineTo(
+        size.width * 0.25,
+        size.height * 0.58,
+      )
+      ..lineTo(
+        size.width * 0.48,
+        size.height * 0.67,
+      )
+      ..lineTo(
+        size.width * 0.68,
+        size.height * 0.40,
+      )
+      ..lineTo(
+        size.width,
+        size.height * 0.32,
+      );
 
-    canvas.drawPath(roadPath, roadPaint);
+    canvas.drawPath(
+      roadPath,
+      roadPaint,
+    );
 
     final Path routePath = Path()
-      ..moveTo(size.width * 0.12, size.height * 0.36)
+      ..moveTo(
+        size.width * 0.12,
+        size.height * 0.36,
+      )
       ..cubicTo(
         size.width * 0.28,
         size.height * 0.20,
@@ -1071,7 +1441,10 @@ class _RoutePreviewPainter extends CustomPainter {
         size.height * 0.70,
       );
 
-    canvas.drawPath(routePath, routePaint);
+    canvas.drawPath(
+      routePath,
+      routePaint,
+    );
 
     final Paint pointBorderPaint = Paint()
       ..color = Colors.white;
@@ -1092,17 +1465,36 @@ class _RoutePreviewPainter extends CustomPainter {
       size.height * 0.70,
     );
 
-    canvas.drawCircle(start, 8, pointBorderPaint);
-    canvas.drawCircle(start, 5, startPaint);
+    canvas.drawCircle(
+      start,
+      8,
+      pointBorderPaint,
+    );
 
-    canvas.drawCircle(end, 8, pointBorderPaint);
-    canvas.drawCircle(end, 5, endPaint);
+    canvas.drawCircle(
+      start,
+      5,
+      startPaint,
+    );
+
+    canvas.drawCircle(
+      end,
+      8,
+      pointBorderPaint,
+    );
+
+    canvas.drawCircle(
+      end,
+      5,
+      endPaint,
+    );
   }
 
   @override
   bool shouldRepaint(
     covariant _RoutePreviewPainter oldDelegate,
   ) {
-    return oldDelegate.routeColor != routeColor;
+    return oldDelegate.routeColor !=
+        routeColor;
   }
 }
