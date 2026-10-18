@@ -28,6 +28,7 @@ Future<void> _makeSupportCall(BuildContext context) async {
             .get();
 
     final Map<String, dynamic>? data = snapshot.data();
+
     final String? firestorePhone =
         data?['support_phone']?.toString();
 
@@ -108,9 +109,12 @@ void _showDiscountModal(BuildContext context) {
     isScrollControlled: true,
     useSafeArea: true,
     backgroundColor: Colors.transparent,
-    builder: (sheetContext) {
+    builder: (BuildContext sheetContext) {
       return StatefulBuilder(
-        builder: (context, setModalState) {
+        builder: (
+          BuildContext context,
+          StateSetter setModalState,
+        ) {
           return Container(
             padding: EdgeInsets.fromLTRB(
               20,
@@ -245,14 +249,15 @@ void _showDiscountModal(BuildContext context) {
                                       .get();
 
                               final Map<String, dynamic>?
-                                  couponData =
-                                  snapshot.data();
+                                  couponData = snapshot.data();
 
                               final bool isActive =
                                   couponData?['isActive'] !=
                                       false;
 
-                              if (!context.mounted) return;
+                              if (!context.mounted) {
+                                return;
+                              }
 
                               setModalState(() {
                                 isLoading = false;
@@ -285,7 +290,9 @@ void _showDiscountModal(BuildContext context) {
                                 );
                               }
                             } catch (e) {
-                              if (!context.mounted) return;
+                              if (!context.mounted) {
+                                return;
+                              }
 
                               setModalState(() {
                                 isLoading = false;
@@ -315,8 +322,7 @@ void _showDiscountModal(BuildContext context) {
                         ? const SizedBox(
                             width: 21,
                             height: 21,
-                            child:
-                                CircularProgressIndicator(
+                            child: CircularProgressIndicator(
                               strokeWidth: 2.3,
                               color: Colors.white,
                             ),
@@ -341,67 +347,6 @@ void _showDiscountModal(BuildContext context) {
   });
 }
 
-void _showAboutAppDialog(BuildContext context) {
-  showDialog(
-    context: context,
-    builder: (dialogContext) {
-      return Directionality(
-        textDirection: TextDirection.rtl,
-        child: AlertDialog(
-          backgroundColor: Colors.white,
-          surfaceTintColor: Colors.white,
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(24),
-          ),
-          title: Row(
-            children: [
-              _buildHeaderIcon(
-                Icons.info_outline_rounded,
-                primaryAccent,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  'about_app'.tr(),
-                  style: const TextStyle(
-                    color: darkTextColor,
-                    fontSize: 17,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          content: Text(
-            'about_app_desc'.tr(),
-            style: const TextStyle(
-              color: secondaryTextColor,
-              fontSize: 14,
-              height: 1.7,
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(dialogContext);
-              },
-              child: Text(
-                'close'.tr(),
-                style: const TextStyle(
-                  color: primaryAccent,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
-    },
-  );
-}
-
 class ProfileAnimatedMenu extends StatefulWidget {
   const ProfileAnimatedMenu({
     super.key,
@@ -419,29 +364,36 @@ class ProfileAnimatedMenu extends StatefulWidget {
 
 class _ProfileAnimatedMenuState
     extends State<ProfileAnimatedMenu> {
-
-  // 🔧 خواندن آنلاین نام و نام خانوادگی کاربر از Firestore یا FirebaseAuth
   Future<String> _displayName() async {
     final String globalName = userName.trim();
-    if (globalName.isNotEmpty) return globalName;
 
-    final User? currentUser = FirebaseAuth.instance.currentUser;
-    final String? authName = currentUser?.displayName?.trim();
+    if (globalName.isNotEmpty) {
+      return globalName;
+    }
+
+    final User? currentUser =
+        FirebaseAuth.instance.currentUser;
+
+    final String? authName =
+        currentUser?.displayName?.trim();
 
     if (authName != null && authName.isNotEmpty) {
       return authName;
     }
 
-    if (currentUser == null) return 'user_default'.tr();
+    if (currentUser == null) {
+      return 'user_default'.tr();
+    }
 
     try {
-      final DocumentSnapshot<Map<String, dynamic>> snapshot =
-          await FirebaseFirestore.instance
+      final DocumentSnapshot<Map<String, dynamic>>
+          snapshot = await FirebaseFirestore.instance
               .collection('users')
               .doc(currentUser.uid)
               .get();
 
-      final Map<String, dynamic>? data = snapshot.data();
+      final Map<String, dynamic>? data =
+          snapshot.data();
 
       final String firestoreName = (data?['name'] ??
               data?['full_name'] ??
@@ -461,28 +413,36 @@ class _ProfileAnimatedMenuState
     return 'user_default'.tr();
   }
 
-  // 🔧 خواندن آنلاین شماره تماس کاربر
   Future<String> _displayPhone() async {
     final String globalPhone = userPhone.trim();
-    if (globalPhone.isNotEmpty) return globalPhone;
 
-    final User? currentUser = FirebaseAuth.instance.currentUser;
-    final String? authPhone = currentUser?.phoneNumber?.trim();
+    if (globalPhone.isNotEmpty) {
+      return globalPhone;
+    }
+
+    final User? currentUser =
+        FirebaseAuth.instance.currentUser;
+
+    final String? authPhone =
+        currentUser?.phoneNumber?.trim();
 
     if (authPhone != null && authPhone.isNotEmpty) {
       return authPhone;
     }
 
-    if (currentUser == null) return '---';
+    if (currentUser == null) {
+      return '---';
+    }
 
     try {
-      final DocumentSnapshot<Map<String, dynamic>> snapshot =
-          await FirebaseFirestore.instance
+      final DocumentSnapshot<Map<String, dynamic>>
+          snapshot = await FirebaseFirestore.instance
               .collection('users')
               .doc(currentUser.uid)
               .get();
 
-      final Map<String, dynamic>? data = snapshot.data();
+      final Map<String, dynamic>? data =
+          snapshot.data();
 
       final String firestorePhone = (data?['phone'] ??
               data?['phoneNumber'] ??
@@ -514,7 +474,9 @@ class _ProfileAnimatedMenuState
         automaticallyImplyLeading: false,
         leading: IconButton(
           tooltip: 'back'.tr(),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () {
+            Navigator.pop(context);
+          },
           icon: const Icon(
             Icons.arrow_back_ios_new_rounded,
             color: darkTextColor,
@@ -534,11 +496,18 @@ class _ProfileAnimatedMenuState
       body: SafeArea(
         child: ListView(
           physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(16, 6, 16, 28),
+          padding: const EdgeInsets.fromLTRB(
+            16,
+            6,
+            16,
+            28,
+          ),
           children: [
             _buildProfileHeader(),
             const SizedBox(height: 24),
-            _buildSectionTitle('user_account_section'.tr()),
+            _buildSectionTitle(
+              'user_account_section'.tr(),
+            ),
             _buildMenuGroup([
               _buildMenuItem(
                 icon: Icons.route_rounded,
@@ -576,7 +545,9 @@ class _ProfileAnimatedMenuState
               ),
             ]),
             const SizedBox(height: 22),
-            _buildSectionTitle('services_and_support_section'.tr()),
+            _buildSectionTitle(
+              'services_and_support_section'.tr(),
+            ),
             _buildMenuGroup([
               _buildMenuItem(
                 icon: Icons.local_offer_outlined,
@@ -603,19 +574,13 @@ class _ProfileAnimatedMenuState
                     context,
                     MaterialPageRoute(
                       builder: (_) => SettingsScreen(
-                        currentLanguage: widget.currentLanguage ?? 'fa',
-                        onLanguageChanged: widget.onLanguageChanged ?? (_) {},
+                        currentLanguage:
+                            widget.currentLanguage ?? 'fa',
+                        onLanguageChanged:
+                            widget.onLanguageChanged ?? (_) {},
                       ),
                     ),
                   );
-                },
-              ),
-              _buildMenuItem(
-                icon: Icons.info_outline_rounded,
-                title: 'about_app'.tr(),
-                subtitle: 'about_app_sub'.tr(),
-                onTap: () {
-                  _showAboutAppDialog(context);
                 },
               ),
             ]),
@@ -676,13 +641,18 @@ class _ProfileAnimatedMenuState
               const SizedBox(width: 14),
               Expanded(
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment:
+                      CrossAxisAlignment.start,
                   children: [
-                    // نمایش نام کاربر با FutureBuilder
                     FutureBuilder<String>(
                       future: _displayName(),
-                      builder: (context, snapshot) {
-                        final String name = snapshot.data ?? 'user_default'.tr();
+                      builder: (
+                        BuildContext context,
+                        AsyncSnapshot<String> snapshot,
+                      ) {
+                        final String name =
+                            snapshot.data ??
+                                'user_default'.tr();
 
                         return Text(
                           name,
@@ -697,11 +667,14 @@ class _ProfileAnimatedMenuState
                       },
                     ),
                     const SizedBox(height: 5),
-                    // نمایش شماره کاربر با FutureBuilder و سایز 15
                     FutureBuilder<String>(
                       future: _displayPhone(),
-                      builder: (context, snapshot) {
-                        final String phone = snapshot.data ?? '---';
+                      builder: (
+                        BuildContext context,
+                        AsyncSnapshot<String> snapshot,
+                      ) {
+                        final String phone =
+                            snapshot.data ?? '---';
 
                         return Text(
                           phone,
@@ -794,7 +767,8 @@ class _ProfileAnimatedMenuState
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment:
+                      CrossAxisAlignment.start,
                   children: [
                     Text(
                       title,
