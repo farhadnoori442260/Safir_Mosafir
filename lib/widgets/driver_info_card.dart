@@ -40,9 +40,9 @@ class DriverInfoCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // استخراج اطلاعات راننده
-    String driverName = driverData['full_name'] ?? 'نام راننده';
-    String rawCarModel = driverData['car_model'] ?? 'تویوتا کرولا';
-    String rawCarColor = driverData['car_color'] ?? 'سفید';
+    String driverName = driverData['full_name'] ?? 'driver_default_name'.tr();
+    String rawCarModel = driverData['car_model'] ?? 'driver_default_car_model'.tr();
+    String rawCarColor = driverData['car_color'] ?? 'driver_default_car_color'.tr();
     
     // عنوان اصلاح‌شده خودرو
     String carTitle = _buildCarTitle(rawCarModel, rawCarColor);
@@ -54,8 +54,8 @@ class DriverInfoCard extends StatelessWidget {
     String currency = 'currency_afg'.tr();
 
     // اطلاعات پلاک افغانستان
-    String province = driverData['plate_province'] ?? 'کابل';
-    String category = driverData['plate_category'] ?? 'ش';
+    String province = driverData['plate_province'] ?? 'plate_default_province'.tr();
+    String category = driverData['plate_category'] ?? 'plate_default_category'.tr();
     String farsiNum = (driverData['plate_farsi_num'] != null && driverData['plate_farsi_num'].toString().isNotEmpty)
         ? driverData['plate_farsi_num'].toString()
         : '٤٤٨٩٢';
@@ -182,15 +182,15 @@ class DriverInfoCard extends StatelessWidget {
                       color: const Color(0xFFF2F4F7),
                       borderRadius: BorderRadius.circular(24),
                     ),
-                    child: const Row(
+                    child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.chat_bubble_rounded,
+                        const Icon(Icons.chat_bubble_rounded,
                             color: Color(0xFF2C6B56), size: 18),
-                        SizedBox(width: 6),
+                        const SizedBox(width: 6),
                         Text(
-                          "ارسال پیام به راننده...",
-                          style: TextStyle(
+                          "driver_send_message_hint".tr(),
+                          style: const TextStyle(
                             color: Color(0xFF2C6B56),
                             fontWeight: FontWeight.bold,
                             fontSize: 13,
@@ -238,9 +238,9 @@ class DriverInfoCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(10),
                   ),
                 ),
-                child: const Text(
-                  "پرداخت",
-                  style: TextStyle(
+                child: Text(
+                  "driver_pay_button".tr(),
+                  style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
                     fontSize: 13.5,
@@ -251,7 +251,7 @@ class DriverInfoCard extends StatelessWidget {
               Row(
                 children: [
                   Text(
-                    "هزینهٔ سفر: ${fareAmount.toStringAsFixed(0)} $currency",
+                    "driver_trip_cost_label".tr(args: [fareAmount.toStringAsFixed(0), currency]),
                     style: const TextStyle(
                       fontSize: 14.5,
                       fontWeight: FontWeight.bold,
