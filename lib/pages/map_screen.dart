@@ -213,9 +213,12 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
   static const int _offRouteConfirmCount = 3;
   static const int _rerouteCooldownSeconds = 10;
 
+  // ───────── حرکت نقشه و پینِ وسط ─────────
   bool _isMapMoving = false;
   bool _isProgrammaticMove = false;
   bool _isUserGesture = false; // پرچم تشخیص لمس صفحه توسط دست کاربر
+  int _activePointers = 0; // تعداد انگشت‌های روی نقشه (برای زوم دو انگشتی)
+  Timer? _mapIdleFallbackTimer; // اگر onCameraIdle نیامد، پین را رها می‌کند
   bool _isSheetExpanded = true;
   Timer? _debounceTimer;
 
@@ -284,6 +287,14 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
   bool _hasPlayedAcceptedSound = false;
   bool _hasPlayedArrivedSound = false;
 
+  // جلوگیری از درخواست دوباره با دو بار کلیک، و از رفتن دوباره به صفحهٔ امتیاز
+  bool _isRequestingTrip = false;
+  bool _isTripFinished = false;
+
+  // اگر تا ۵ دقیقه راننده‌ای پیدا نشد، درخواست خودکار لغو می‌شود
+  static const Duration _searchTimeout = Duration(minutes: 5);
+  Timer? _searchTimeoutTimer;
+
   double actualFareAmount = 50.0;
   double? bidAmount;
   String selectedVehicle = "Car";
@@ -327,6 +338,8 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
   @override
   void dispose() {
     _debounceTimer?.cancel();
+    _mapIdleFallbackTimer?.cancel();
+    _searchTimeoutTimer?.cancel();
     _positionStreamSubscription?.cancel();
     _gpsServiceSubscription?.cancel();
     tripStreamSubscription?.cancel();
@@ -346,6 +359,20 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
     _tripAudioPlayer.dispose();
     _driverAnimationController.dispose();
     super.dispose();
+  }
+
+  void _showSnack(String message, {Color? color}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          message,
+          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w400),
+        ),
+        backgroundColor: color,
+      ),
+    );
   }
 
   // ════════════════════════════════════════════════════════════
@@ -1078,6 +1105,19 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
     }
   }
 
+  /// بعد از لغو (توسط مسافر، راننده یا زمان‌گذشته) به مرحلهٔ انتخاب سرویس
+  /// برمی‌گردد و مسیر پیش‌نمایش را دوباره می‌کشد.
+  Future<void> _resetToRequestStep() async {
+    _searchTimeoutTimer?.cancel();
+    await _stopListeningToDriverLocation();
+    _lastTripStatus = null;
+
+    if (!mounted) return;
+    setState(() => _currentStep = 2);
+
+    _fetchRoute();
+  }
+
   // ════════════════════════════════════════════════════════════
   //  📍 موقعیت مسافر و وضعیت GPS
   // ════════════════════════════════════════════════════════════
@@ -1222,6 +1262,98 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
     );
   }
 
+  // ════════════════════════════════════════════════════════════
+  //  📌 پینِ وسط نقشه (بالا‌رفتن هنگام حرکت، فرود هنگام توقف)
+  //
+  //  باگ قبلی: وقتی کشوی پایین بسته بود، فقط متغیر _isMapMoving عوض می‌شد
+  //  ولی setState صدا زده نمی‌شد؛ پس پین بالا نمی‌پرید و روی نقشه می‌چسبید.
+  //  همچنین اگر onCameraIdle نمی‌آمد یا پرچم «حرکت برنامه‌ای» گیر می‌کرد،
+  //  پین تا لمس بعدی خراب می‌ماند.
+  // ════════════════════════════════════════════════════════════
+
+  void _onMapPointerDown() {
+    _activePointers++;
+    _isUserGesture = true;
+    // لمس کاربر همیشه بر هر حرکت برنامه‌ای قبلی غلبه می‌کند
+    _isProgrammaticMove = false;
+    _mapIdleFallbackTimer?.cancel();
+  }
+
+  void _onMapPointerReleased() {
+    _activePointers = max(0, _activePointers - 1);
+
+    if (_activePointers == 0) {
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (mounted && _activePointers == 0) {
+          _isUserGesture = false;
+        }
+      });
+
+      if (_isMapMoving) {
+        _restartMapIdleFallback();
+      }
+    }
+  }
+
+  void _onMapCameraMove() {
+    // پین فقط وقتی بالا می‌آید که دست کاربر نقشه را حرکت داده باشد
+    if (_isUserGesture &&
+        !_isProgrammaticMove &&
+        _currentStep < 2 &&
+        !_isMapMoving &&
+        mounted) {
+      setState(() {
+        _isMapMoving = true;
+        _isSheetExpanded = false;
+      });
+    }
+
+    if (_isMapMoving) {
+      _restartMapIdleFallback();
+    }
+  }
+
+  /// اگر به هر دلیلی onCameraIdle نیامد، بعد از مدتی که دوربین حرکت نکرد
+  /// پین خودش پایین می‌آید.
+  void _restartMapIdleFallback() {
+    _mapIdleFallbackTimer?.cancel();
+    _mapIdleFallbackTimer = Timer(
+      const Duration(milliseconds: 900),
+      _onMapIdleFallback,
+    );
+  }
+
+  void _onMapIdleFallback() {
+    if (!mounted || !_isMapMoving) return;
+    if (_activePointers > 0) return; // انگشت هنوز روی نقشه است
+    _handleMapIdle();
+  }
+
+  void _handleMapIdle() {
+    _mapIdleFallbackTimer?.cancel();
+
+    final bool wasProgrammaticMove = _isProgrammaticMove;
+
+    if (_isMapMoving && mounted) {
+      setState(() {
+        _isMapMoving = false;
+      });
+    }
+
+    Future.delayed(const Duration(milliseconds: 300), () {
+      if (mounted) {
+        _isProgrammaticMove = false;
+      }
+    });
+
+    if (!wasProgrammaticMove && _currentStep < 2 && _mapController != null) {
+      final LatLng? target = _mapController!.cameraPosition?.target;
+      if (target != null) {
+        _updateAddressFromCamera(target);
+      }
+    }
+  }
+
   void _updateAddressFromCamera(LatLng center) {
     _debounceTimer?.cancel();
     _debounceTimer = Timer(const Duration(milliseconds: 300), () async {
@@ -1311,6 +1443,8 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
       ),
     );
 
+    if (!mounted) return;
+
     setState(() {
       _originLatLng = currentCenter;
     });
@@ -1390,6 +1524,8 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
       ),
     );
 
+    if (!mounted) return;
+
     setState(() {
       _destinationLatLng = currentCenter;
     });
@@ -1462,7 +1598,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
             _estimatedArrivalTime = arrivalTime;
           });
 
-          if (_routePolylinePoints.isNotEmpty) {
+          if (_routePolylinePoints.isNotEmpty && _mapController != null) {
             await _mapController!.addLine(
               LineOptions(
                 geometry: _routePolylinePoints,
@@ -1582,232 +1718,387 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
     }
   }
 
+  // ════════════════════════════════════════════════════════════
+  //  🚕 ثبت، پیگیری و لغو سفر
+  // ════════════════════════════════════════════════════════════
+
   void startTrip() async {
     HapticFeedback.heavyImpact();
+
+    if (_isRequestingTrip) return;
 
     var appInfo = Provider.of<AppInfo>(context, listen: false);
 
     if (appInfo.pickUpLocation == null || appInfo.dropOffLocation == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            "لطفاً مبدأ و مقصد را مشخص کنید.",
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w400),
-          ),
-        ),
-      );
+      _showSnack("لطفاً مبدأ و مقصد را مشخص کنید.");
       return;
     }
 
-    await _clearPreviewRoute();
-
-    // مبدأ و مقصد واقعی سفر (همان‌هایی که در rides ذخیره می‌شود)
-    _tripOriginLatLng = LatLng(
-      appInfo.pickUpLocation!.latitudePosition!,
-      appInfo.pickUpLocation!.longitudePosition!,
-    );
-    _tripDestinationLatLng = LatLng(
-      appInfo.dropOffLocation!.latitudePosition!,
-      appInfo.dropOffLocation!.longitudePosition!,
-    );
-
-    setState(() {
-      _driverTripPolylinePoints.clear();
-      _lastDriverLatLng = null;
-      _isDriverTripRouteVisible = false;
-      _isFetchingDriverTripRoute = false;
-      _currentStep = 3;
-    });
-    _latestDriverRaw = null;
-    _pendingDriverRawPosition = null;
-    _driverRouteLine = null;
-    _driverTraveledLine = null;
-    _driverProgressIndex = 0;
-    _driverOffRouteCount = 0;
-    _driverLastRenderedSegment = -1;
-    _driverLastRenderedPoint = null;
-    _driverDisplayLatLng = null;
-    _lastDriverUpdateAt = null;
-    _driverRouteBuiltForPhase = null;
-    _lastDriverRouteFetchAt = null;
-    _lastEtaAt = null;
-    _hasPlayedAcceptedSound = false;
-    _hasPlayedArrivedSound = false;
-    _lastTripStatus = null;
+    _isRequestingTrip = true;
 
     try {
-      tripRequestRef = FirebaseFirestore.instance.collection('rides').doc();
+      await _clearPreviewRoute();
+      if (!mounted) return;
 
-      String passengerUid = FirebaseAuth.instance.currentUser?.uid ?? '';
-      String passengerNameVal = FirebaseAuth.instance.currentUser?.displayName ?? 'مسافر سفیر';
-      String passengerPhoneVal = FirebaseAuth.instance.currentUser?.phoneNumber ?? '';
+      // اگر استریم سفر قبلی هنوز باز است، ببند
+      await tripStreamSubscription?.cancel();
+      tripStreamSubscription = null;
+      _searchTimeoutTimer?.cancel();
 
-      Map<String, dynamic> passengerTripDetails = {
-        'ride_id': tripRequestRef!.id,
-        'status': TripStatus.searching,
-        'driver_id': 'waiting',
-        'createdAt': FieldValue.serverTimestamp(),
+      // مبدأ و مقصد واقعی سفر (همان‌هایی که در rides ذخیره می‌شود)
+      _tripOriginLatLng = LatLng(
+        appInfo.pickUpLocation!.latitudePosition!,
+        appInfo.pickUpLocation!.longitudePosition!,
+      );
+      _tripDestinationLatLng = LatLng(
+        appInfo.dropOffLocation!.latitudePosition!,
+        appInfo.dropOffLocation!.longitudePosition!,
+      );
 
-        'passenger_id': passengerUid,
-        'passenger_name': passengerNameVal,
-        'passenger_phone': passengerPhoneVal,
-        'userName': passengerNameVal,
-        'userPhone': passengerPhoneVal,
-        'userRating': '4.8',
+      setState(() {
+        _driverTripPolylinePoints.clear();
+        _lastDriverLatLng = null;
+        _isDriverTripRouteVisible = false;
+        _isFetchingDriverTripRoute = false;
+        _currentStep = 3;
+      });
+      _latestDriverRaw = null;
+      _pendingDriverRawPosition = null;
+      _driverRouteLine = null;
+      _driverTraveledLine = null;
+      _driverProgressIndex = 0;
+      _driverOffRouteCount = 0;
+      _driverLastRenderedSegment = -1;
+      _driverLastRenderedPoint = null;
+      _driverDisplayLatLng = null;
+      _lastDriverUpdateAt = null;
+      _driverRouteBuiltForPhase = null;
+      _lastDriverRouteFetchAt = null;
+      _lastEtaAt = null;
+      _hasPlayedAcceptedSound = false;
+      _hasPlayedArrivedSound = false;
+      _lastTripStatus = null;
+      _isTripFinished = false;
 
-        'originAddress': appInfo.pickUpLocation!.placeName ?? '',
-        'destinationAddress': appInfo.dropOffLocation!.placeName ?? '',
-        'origin_address': appInfo.pickUpLocation!.placeName ?? '',
-        'destination_address': appInfo.dropOffLocation!.placeName ?? '',
-        'pickup_address': appInfo.pickUpLocation!.placeName ?? '',
-        'dropoff_address': appInfo.dropOffLocation!.placeName ?? '',
+      try {
+        tripRequestRef = FirebaseFirestore.instance.collection('rides').doc();
 
-        'origin': {
-          'latitude': appInfo.pickUpLocation!.latitudePosition,
-          'longitude': appInfo.pickUpLocation!.longitudePosition,
-        },
-        'destination': {
-          'latitude': appInfo.dropOffLocation!.latitudePosition,
-          'longitude': appInfo.dropOffLocation!.longitudePosition,
-        },
-        'originLatLng': GeoPoint(
-          appInfo.pickUpLocation!.latitudePosition!,
-          appInfo.pickUpLocation!.longitudePosition!,
-        ),
-        'destinationLatLng': GeoPoint(
-          appInfo.dropOffLocation!.latitudePosition!,
-          appInfo.dropOffLocation!.longitudePosition!,
-        ),
+        String passengerUid = FirebaseAuth.instance.currentUser?.uid ?? '';
+        String passengerNameVal = FirebaseAuth.instance.currentUser?.displayName ?? 'مسافر سفیر';
+        String passengerPhoneVal = FirebaseAuth.instance.currentUser?.phoneNumber ?? '';
 
-        'fareAmount': actualFareAmount,
-        'fare': actualFareAmount,
-        'price': actualFareAmount,
-        'distance': _tripDistanceInKm,
-        'duration': _tripDurationText,
-        'service_type': widget.serviceType,
-        'vehicle_type': selectedVehicle,
-      };
+        Map<String, dynamic> passengerTripDetails = {
+          'ride_id': tripRequestRef!.id,
+          'status': TripStatus.searching,
+          'driver_id': 'waiting',
+          'createdAt': FieldValue.serverTimestamp(),
 
-      await tripRequestRef!.set(passengerTripDetails);
+          'passenger_id': passengerUid,
+          'passenger_name': passengerNameVal,
+          'passenger_phone': passengerPhoneVal,
+          'userName': passengerNameVal,
+          'userPhone': passengerPhoneVal,
+          'userRating': '4.8',
 
-      tripStreamSubscription = tripRequestRef!.snapshots().listen((snapshot) {
-        if (!snapshot.exists || snapshot.data() == null) return;
+          'originAddress': appInfo.pickUpLocation!.placeName ?? '',
+          'destinationAddress': appInfo.dropOffLocation!.placeName ?? '',
+          'origin_address': appInfo.pickUpLocation!.placeName ?? '',
+          'destination_address': appInfo.dropOffLocation!.placeName ?? '',
+          'pickup_address': appInfo.pickUpLocation!.placeName ?? '',
+          'dropoff_address': appInfo.dropOffLocation!.placeName ?? '',
 
-        final data = snapshot.data() as Map<String, dynamic>;
-        final String tripStatus = data["status"] ?? TripStatus.searching;
-        final String driverId = data["driver_id"] ?? data["driverId"] ?? "";
+          'origin': {
+            'latitude': appInfo.pickUpLocation!.latitudePosition,
+            'longitude': appInfo.pickUpLocation!.longitudePosition,
+          },
+          'destination': {
+            'latitude': appInfo.dropOffLocation!.latitudePosition,
+            'longitude': appInfo.dropOffLocation!.longitudePosition,
+          },
+          'originLatLng': GeoPoint(
+            appInfo.pickUpLocation!.latitudePosition!,
+            appInfo.pickUpLocation!.longitudePosition!,
+          ),
+          'destinationLatLng': GeoPoint(
+            appInfo.dropOffLocation!.latitudePosition!,
+            appInfo.dropOffLocation!.longitudePosition!,
+          ),
 
-        if (_lastTripStatus != tripStatus) {
-          _lastTripStatus = tripStatus;
-          _playTripStatusSound(tripStatus);
+          'fareAmount': actualFareAmount,
+          'fare': actualFareAmount,
+          'price': actualFareAmount,
+          'distance': _tripDistanceInKm,
+          'duration': _tripDurationText,
+          'service_type': widget.serviceType,
+          'vehicle_type': selectedVehicle,
 
-          // سفر شروع شد → مسیر باید از راننده تا مقصد باشد
-          if (tripStatus == TripStatus.onTrip) {
-            _refreshDriverRouteNow();
+          // ───── گزینه‌های سفر (قبلاً ذخیره نمی‌شدند) ─────
+          'is_round_trip': _isRoundTrip,
+          'has_extra_luggage': _hasExtraLuggage,
+          'prefer_silence': _preferSilence,
+          'stop_duration_minutes': _stopDurationMinutes,
+          'second_destination_address': _secondDestinationAddress,
+          'is_scheduled': _isScheduled,
+          'scheduled_at': _scheduledDateTime != null
+              ? Timestamp.fromDate(_scheduledDateTime!)
+              : null,
+          'promo_code': _appliedPromoCode,
+
+          // ───── باربری ─────
+          if (widget.serviceType == 'cargo') ...<String, dynamic>{
+            'cargo_vehicle': _cargoSelectedVehicle,
+            'cargo_package_type': _cargoPackageType,
+            'cargo_insurance': _cargoInsurance,
+            'cargo_payer': _cargoPaymentPayer,
+            'cargo_sender_name': _senderNameController.text.trim(),
+            'cargo_sender_phone': _senderPhoneController.text.trim(),
+            'cargo_sender_address': _senderAddressController.text.trim(),
+            'cargo_sender_unit': _senderUnitController.text.trim(),
+            'cargo_sender_floor': _senderFloorController.text.trim(),
+            'cargo_sender_note': _senderNoteController.text.trim(),
+            'cargo_receiver_name': _receiverNameController.text.trim(),
+            'cargo_receiver_phone': _receiverPhoneController.text.trim(),
+            'cargo_receiver_address': _receiverAddressController.text.trim(),
+            'cargo_receiver_unit': _receiverUnitController.text.trim(),
+            'cargo_receiver_floor': _receiverFloorController.text.trim(),
+            'cargo_receiver_note': _receiverNoteController.text.trim(),
+          },
+
+          // ───── بین‌شهری ─────
+          if (widget.serviceType == 'intercity') ...<String, dynamic>{
+            'intercity_date': _intercityTravelDate,
+            'intercity_passengers': _intercityPassengers,
+          },
+        };
+
+        await tripRequestRef!.set(passengerTripDetails);
+
+        // اگر در حین ثبت، صفحه بسته شد یا کاربر منصرف شد
+        if (!mounted) return;
+
+        _startSearchTimeout(tripRequestRef!.id);
+
+        tripStreamSubscription = tripRequestRef!.snapshots().listen((snapshot) {
+          if (!snapshot.exists || snapshot.data() == null) return;
+
+          final data = snapshot.data() as Map<String, dynamic>;
+          final String tripStatus = data["status"] ?? TripStatus.searching;
+          final String driverId = data["driver_id"] ?? data["driverId"] ?? "";
+
+          if (_lastTripStatus != tripStatus) {
+            _lastTripStatus = tripStatus;
+            _playTripStatusSound(tripStatus);
+
+            // وقتی از حالت جستجو خارج شد، تایمر انقضا لازم نیست
+            if (tripStatus != TripStatus.searching) {
+              _searchTimeoutTimer?.cancel();
+            }
+
+            // سفر شروع شد → مسیر باید از راننده تا مقصد باشد
+            if (tripStatus == TripStatus.onTrip) {
+              _refreshDriverRouteNow();
+            }
           }
-        }
 
-        final bool isDriverActive = tripStatus == TripStatus.accepted ||
-            tripStatus == TripStatus.arrived ||
-            tripStatus == TripStatus.onTrip;
+          final bool isDriverActive = tripStatus == TripStatus.accepted ||
+              tripStatus == TripStatus.arrived ||
+              tripStatus == TripStatus.onTrip;
 
-        if (mounted) {
-          setState(() {
-            nameDriver = data["driver_name"] ?? data["driverName"] ?? nameDriver;
-            phoneNumberDriver = data["driver_phone"] ?? data["driverPhone"] ?? phoneNumberDriver;
-            photoDriver = data["driver_photo"] ?? data["driverPhoto"] ?? photoDriver;
-            carDetailsDriver = data["car_details"] ?? data["carModel"] ?? carDetailsDriver;
+          if (mounted) {
+            setState(() {
+              nameDriver = data["driver_name"] ?? data["driverName"] ?? nameDriver;
+              phoneNumberDriver = data["driver_phone"] ?? data["driverPhone"] ?? phoneNumberDriver;
+              photoDriver = data["driver_photo"] ?? data["driverPhoto"] ?? photoDriver;
+              carDetailsDriver = data["car_details"] ?? data["carModel"] ?? carDetailsDriver;
 
-            _driverCarColor = data["car_color"] ?? data["carColor"] ?? "سفید";
-            _driverPlateProvince = data["plate_province"] ?? "کابل";
-            _driverPlateCategory = data["plate_category"] ?? "ش";
-            _driverPlateFarsiNum = data["plate_farsi_num"] ?? data["plateNumber"] ?? "";
-            _driverPlateNum = data["plate_num"] ?? data["plateNumber"] ?? "";
-            _driverIsTempPlate = data["is_temp_plate"] ?? false;
+              _driverCarColor = data["car_color"] ?? data["carColor"] ?? "سفید";
+              _driverPlateProvince = data["plate_province"] ?? "کابل";
+              _driverPlateCategory = data["plate_category"] ?? "ش";
+              _driverPlateFarsiNum = data["plate_farsi_num"] ?? data["plateNumber"] ?? "";
+              _driverPlateNum = data["plate_num"] ?? data["plateNumber"] ?? "";
+              _driverIsTempPlate = data["is_temp_plate"] ?? false;
 
-            if (isDriverActive) {
-              _currentStep = 4;
+              if (isDriverActive) {
+                _currentStep = 4;
+              }
+            });
+
+            if (isDriverActive && driverId.isNotEmpty && driverId != "waiting") {
+              _listenToDriverLiveLocation(driverId);
+            }
+
+            if (tripStatus == TripStatus.arrived) {
+              _showSnack("راننده به مبدأ شما رسید.");
             }
 
             if (tripStatus == TripStatus.cancelledByDriver) {
-              _currentStep = 2;
+              tripStreamSubscription?.cancel();
+              tripStreamSubscription = null;
+
+              // برگشت به مرحلهٔ انتخاب سرویس و کشیدن دوبارهٔ مسیر پیش‌نمایش
+              unawaited(_resetToRequestStep());
+
+              _showSnack("سفر توسط سفیر لغو گردید.", color: Colors.red);
             }
-          });
-
-          if (isDriverActive && driverId.isNotEmpty && driverId != "waiting") {
-            _listenToDriverLiveLocation(driverId);
           }
 
-          if (tripStatus == TripStatus.arrived) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text(
-                  "راننده به مبدأ شما رسید.",
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w400),
-                ),
-              ),
-            );
-          }
+          if (tripStatus == TripStatus.completed || tripStatus == TripStatus.ended) {
+            if (_isTripFinished) return;
+            _isTripFinished = true;
 
-          if (tripStatus == TripStatus.cancelledByDriver) {
+            _searchTimeoutTimer?.cancel();
             tripStreamSubscription?.cancel();
+            tripStreamSubscription = null;
             _stopListeningToDriverLocation();
 
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text(
-                  "سفر توسط سفیر لغو گردید.",
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w400),
+            if (mounted) {
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => RateDriverScreen(
+                    tripId: tripRequestRef?.id ?? "",
+                    driverId: driverId,
+                    driverName: nameDriver,
+                    carModel: carDetailsDriver,
+                    plateNumber: _driverPlateFarsiNum.isNotEmpty ? _driverPlateFarsiNum : _driverPlateNum,
+                    driverPhoto: photoDriver,
+                  ),
                 ),
-                backgroundColor: Colors.red,
-              ),
-            );
+              );
+            }
           }
+        });
+      } catch (e) {
+        debugPrint("Error starting trip: $e");
+        _searchTimeoutTimer?.cancel();
+        if (mounted) {
+          setState(() => _currentStep = 2);
+          _fetchRoute();
+          _showSnack("ثبت درخواست انجام نشد. دوباره تلاش کنید.", color: Colors.red);
         }
-
-        if (tripStatus == TripStatus.completed || tripStatus == TripStatus.ended) {
-          tripStreamSubscription?.cancel();
-          _stopListeningToDriverLocation();
-
-          if (mounted) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (context) => RateDriverScreen(
-                  tripId: tripRequestRef?.id ?? "",
-                  driverId: driverId,
-                  driverName: nameDriver,
-                  carModel: carDetailsDriver,
-                  plateNumber: _driverPlateFarsiNum.isNotEmpty ? _driverPlateFarsiNum : _driverPlateNum,
-                  driverPhoto: photoDriver,
-                ),
-              ),
-            );
-          }
-        }
-      });
-    } catch (e) {
-      debugPrint("Error starting trip: $e");
-      if (mounted) {
-        setState(() => _currentStep = 2);
       }
+    } finally {
+      _isRequestingTrip = false;
     }
   }
 
-  void cancelTrip() async {
+  /// اگر تا ۵ دقیقه راننده‌ای قبول نکرد، درخواست را لغو می‌کند
+  /// (راننده‌ها هم سفرهای قدیمی‌تر از ۵ دقیقه را نادیده می‌گیرند).
+  void _startSearchTimeout(String tripId) {
+    _searchTimeoutTimer?.cancel();
+    _searchTimeoutTimer = Timer(_searchTimeout, () {
+      unawaited(_handleSearchTimeout(tripId));
+    });
+  }
+
+  Future<void> _handleSearchTimeout(String tripId) async {
+    if (!mounted) return;
+
+    final DocumentReference? ref = tripRequestRef;
+    if (ref == null || ref.id != tripId) return;
+
+    try {
+      final bool cancelled =
+          await FirebaseFirestore.instance.runTransaction<bool>((Transaction tx) async {
+        final DocumentSnapshot snap = await tx.get(ref);
+        if (!snap.exists) return false;
+
+        final Map<String, dynamic> data =
+            (snap.data() as Map<String, dynamic>?) ?? <String, dynamic>{};
+
+        final String status =
+            data['status']?.toString().trim().toLowerCase() ?? '';
+
+        // فقط اگر هنوز در حال جستجو است (راننده‌ای قبول نکرده)
+        if (status != TripStatus.searching.toString().toLowerCase()) {
+          return false;
+        }
+
+        tx.update(ref, {
+          'status': TripStatus.cancelledByPassenger,
+          'cancelled_by': 'system_timeout',
+          'cancel_reason': 'no_driver_found',
+          'cancelled_at': FieldValue.serverTimestamp(),
+          'updated_at': FieldValue.serverTimestamp(),
+        });
+
+        return true;
+      });
+
+      if (!cancelled || !mounted) return;
+
+      await tripStreamSubscription?.cancel();
+      tripStreamSubscription = null;
+
+      await _resetToRequestStep();
+
+      _showSnack(
+        "راننده‌ای برای سفر شما پیدا نشد. لطفاً دوباره تلاش کنید.",
+        color: Colors.orange.shade800,
+      );
+    } catch (e) {
+      debugPrint('Search timeout cancel error: $e');
+    }
+  }
+
+  void cancelTrip() {
+    unawaited(_cancelTripInternal());
+  }
+
+  Future<void> _cancelTripInternal() async {
     HapticFeedback.lightImpact();
 
-    if (tripRequestRef != null) {
-      await tripRequestRef!.update({
-        'status': TripStatus.cancelledByPassenger,
-        'cancelled_at': FieldValue.serverTimestamp(),
-      });
+    _searchTimeoutTimer?.cancel();
+
+    final DocumentReference? ref = tripRequestRef;
+
+    if (ref != null) {
+      try {
+        // لغو با تراکنش: سفر تمام‌شده یا قبلاً لغوشده دوباره لغو نمی‌شود
+        final bool alreadyFinished =
+            await FirebaseFirestore.instance.runTransaction<bool>((Transaction tx) async {
+          final DocumentSnapshot snap = await tx.get(ref);
+          if (!snap.exists) return false;
+
+          final Map<String, dynamic> data =
+              (snap.data() as Map<String, dynamic>?) ?? <String, dynamic>{};
+
+          final String status =
+              data['status']?.toString().trim().toLowerCase() ?? '';
+
+          final bool finished = status == TripStatus.completed.toString().toLowerCase() ||
+              status == TripStatus.ended.toString().toLowerCase() ||
+              status == TripStatus.cancelledByDriver.toString().toLowerCase() ||
+              status == TripStatus.cancelledByPassenger.toString().toLowerCase();
+
+          if (finished) return true;
+
+          tx.update(ref, {
+            'status': TripStatus.cancelledByPassenger,
+            'cancelled_by': 'passenger',
+            'cancelled_at': FieldValue.serverTimestamp(),
+            'updated_at': FieldValue.serverTimestamp(),
+          });
+
+          return false;
+        }).timeout(const Duration(seconds: 15));
+
+        if (alreadyFinished) {
+          // سفر قبلاً پایان یافته یا لغو شده؛ listener وضعیت را مدیریت می‌کند
+          _showSnack("این سفر قبلاً پایان یافته یا لغو شده است.");
+          return;
+        }
+      } catch (e) {
+        debugPrint('Cancel trip error: $e');
+        _showSnack("لغو سفر انجام نشد. دوباره تلاش کنید.", color: Colors.red);
+        return;
+      }
     }
 
-    tripStreamSubscription?.cancel();
-    _stopListeningToDriverLocation();
+    await tripStreamSubscription?.cancel();
+    tripStreamSubscription = null;
 
-    if (mounted) setState(() => _currentStep = 2);
+    await _resetToRequestStep();
   }
 
   void _handleBackAction() {
@@ -1920,14 +2211,9 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
             // 🗺️ ۱. نقشه تمام صفحه
             RepaintBoundary(
               child: Listener(
-                onPointerDown: (_) {
-                  _isUserGesture = true; // کاربر صفحه را لمس کرد
-                },
-                onPointerUp: (_) {
-                  Future.delayed(const Duration(milliseconds: 300), () {
-                    if (mounted) _isUserGesture = false;
-                  });
-                },
+                onPointerDown: (_) => _onMapPointerDown(),
+                onPointerUp: (_) => _onMapPointerReleased(),
+                onPointerCancel: (_) => _onMapPointerReleased(),
                 child: MapLibreMap(
                   initialCameraPosition: CameraPosition(
                     target: widget.targetLocation ?? _currentUserLatLng,
@@ -1975,38 +2261,10 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
                     }
                   },
                   onCameraMove: (CameraPosition position) {
-                    // کشو فقط زمانی پایین می‌رود که دست کاربر روی صفحه باشد
-                    if (_isUserGesture && !_isProgrammaticMove) {
-                      if (!_isMapMoving) {
-                        _isMapMoving = true;
-                        if (_isSheetExpanded) {
-                          setState(() {
-                            _isSheetExpanded = false;
-                          });
-                        }
-                      }
-                    }
+                    _onMapCameraMove();
                   },
                   onCameraIdle: () {
-                    final bool wasProgrammaticMove = _isProgrammaticMove;
-
-                    if (_isMapMoving && mounted) {
-                      setState(() {
-                        _isMapMoving = false;
-                      });
-                    }
-
-                    Future.delayed(const Duration(milliseconds: 300), () {
-                      if (mounted) {
-                        _isProgrammaticMove = false;
-                      }
-                    });
-
-                    if (!wasProgrammaticMove && _currentStep < 2 && _mapController != null) {
-                      _updateAddressFromCamera(
-                        _mapController!.cameraPosition!.target,
-                      );
-                    }
+                    _handleMapIdle();
                   },
                   onMapClick: (_, __) {},
                 ),
