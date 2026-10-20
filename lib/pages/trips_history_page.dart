@@ -1,8 +1,14 @@
 import 'dart:math';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:maplibre_gl/maplibre_gl.dart' show LatLng;
+
+// ⚠️ اگر نام یا مسیر فایل صفحهٔ نقشه فرق دارد، فقط همین یک خط را درست کنید
+// (برای پیدا کردن فایل، در پروژه «class SafirMapScreen» را جستجو کنید)
+import 'package:safir_passengers/pages/map_screen.dart';
 
 class TripsHistoryPage extends StatefulWidget {
   const TripsHistoryPage({super.key});
@@ -215,13 +221,13 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
 
     String period;
     if (hour24 < 12) {
-      period = 'صبح';
+      period = 'trip_period_morning'.tr();
     } else if (hour24 < 16) {
-      period = 'بعد از ظهر';
+      period = 'trip_period_afternoon'.tr();
     } else if (hour24 < 19) {
-      period = 'عصر';
+      period = 'trip_period_evening'.tr();
     } else {
-      period = 'شب';
+      period = 'trip_period_night'.tr();
     }
 
     return '$weekDay ${_toFa(j[2])} $month ${_toFa(j[0])}'
@@ -327,6 +333,56 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
   //  ساخت مدل نمایشی (یک بار برای هر snapshot)
   // ════════════════════════════════════════════════════════════
 
+  double? _numOrNull(Object? value) {
+    if (value == null) return null;
+    if (value is num) return value.toDouble();
+
+    final String s = _toEnglishDigits(value.toString()).trim().replaceAll('٫', '.');
+    return double.tryParse(s);
+  }
+
+  bool _validPoint(double? lat, double? lng) {
+    if (lat == null || lng == null) return false;
+    if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return false;
+    if (lat == 0 && lng == 0) return false;
+    return true;
+  }
+
+  /// مختصات مبدأ/مقصد را از شکل‌های مختلف ذخیره‌شده در سند سفر می‌خواند
+  _GeoPt? _extractPoint(
+    Map<String, dynamic> data, {
+    required List<String> keys,
+    required List<String> latKeys,
+    required List<String> lngKeys,
+  }) {
+    for (final String key in keys) {
+      final Object? value = data[key];
+
+      if (value is GeoPoint) {
+        if (_validPoint(value.latitude, value.longitude)) {
+          return _GeoPt(value.latitude, value.longitude);
+        }
+      }
+
+      if (value is Map) {
+        final double? lat = _numOrNull(value['latitude'] ?? value['lat']);
+        final double? lng = _numOrNull(value['longitude'] ?? value['lng'] ?? value['lon']);
+
+        if (_validPoint(lat, lng)) return _GeoPt(lat!, lng!);
+      }
+    }
+
+    final int count = min(latKeys.length, lngKeys.length);
+    for (int i = 0; i < count; i++) {
+      final double? lat = _numOrNull(data[latKeys[i]]);
+      final double? lng = _numOrNull(data[lngKeys[i]]);
+
+      if (_validPoint(lat, lng)) return _GeoPt(lat!, lng!);
+    }
+
+    return null;
+  }
+
   _TripItem _buildItem(String id, Map<String, dynamic> data) {
     final String status = _normalizeStatus(data);
     final DateTime? created = _createdAt(data);
@@ -336,12 +392,12 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
         DateTime.now().difference(created) > _searchExpiry;
 
     _TripGroup group = _TripGroup.other;
-    String statusText = 'سفر';
+    String statusText = 'trip_status_generic'.tr();
     Color statusColor = _muted;
 
     if (_isCompletedStatus(status)) {
       group = _TripGroup.completed;
-      statusText = 'تکمیل شده';
+      statusText = 'trip_status_completed'.tr();
       statusColor = _brand;
     } else if (_isCancelledStatus(status)) {
       group = _TripGroup.cancelled;
@@ -351,17 +407,17 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
       final String by = _getString(data, <String>['cancelled_by']).toLowerCase();
 
       if (reason == 'no_driver_found') {
-        statusText = 'راننده‌ای پیدا نشد';
+        statusText = 'trip_status_no_driver'.tr();
       } else if (status.contains('driver') || by == 'driver') {
-        statusText = 'لغو شده توسط راننده';
+        statusText = 'trip_status_cancelled_by_driver'.tr();
       } else if (status.contains('passenger') || by == 'passenger') {
-        statusText = 'لغو شده توسط شما';
+        statusText = 'trip_status_cancelled_by_you'.tr();
       } else {
-        statusText = 'لغو شده';
+        statusText = 'trip_status_cancelled'.tr();
       }
     } else if (expiredSearch) {
       group = _TripGroup.cancelled;
-      statusText = 'منقضی شد، راننده‌ای پیدا نشد';
+      statusText = 'trip_status_expired_no_driver'.tr();
       statusColor = const Color(0xFFE5484D);
     } else if (_isActiveStatus(status)) {
       group = _TripGroup.active;
@@ -371,16 +427,16 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
         case 'searching':
         case 'requested':
         case 'pending':
-          statusText = 'در جستجوی راننده';
+          statusText = 'trip_status_searching_driver'.tr();
           break;
         case 'accepted':
-          statusText = 'راننده در راه است';
+          statusText = 'trip_status_driver_on_way'.tr();
           break;
         case 'arrived':
-          statusText = 'راننده به مبدأ رسید';
+          statusText = 'trip_status_driver_arrived'.tr();
           break;
         default:
-          statusText = 'سفر در جریان است';
+          statusText = 'trip_status_in_progress'.tr();
       }
     }
 
@@ -397,7 +453,7 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
         'startAddress',
         'start_address',
       ],
-      fallback: 'مبدأ نامشخص',
+      fallback: 'trip_origin_unknown'.tr(),
     );
 
     final String destination = _getString(
@@ -413,7 +469,7 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
         'endAddress',
         'end_address',
       ],
-      fallback: 'مقصد نامشخص',
+      fallback: 'trip_destination_unknown'.tr(),
     );
 
     final double fareValue = _parseNumber(
@@ -444,7 +500,7 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
     final String driverName = _getString(
       data,
       <String>['driver_name', 'driverName', 'drivername', 'driverFullName'],
-      fallback: hasDriver ? 'راننده سفیر' : 'راننده تعیین نشده',
+      fallback: hasDriver ? 'trip_driver_safir'.tr() : 'trip_driver_not_assigned'.tr(),
     );
 
     final String carDetails = _getString(
@@ -475,6 +531,32 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
 
     final DateTime? date = _displayDate(data);
 
+    final _GeoPt? originPoint = _extractPoint(
+      data,
+      keys: const <String>[
+        'originLatLng',
+        'pickup_location',
+        'pickupLatLng',
+        'origin',
+        'pickup',
+      ],
+      latKeys: const <String>['from_lat', 'pickup_lat', 'origin_lat'],
+      lngKeys: const <String>['from_lng', 'pickup_lng', 'origin_lng'],
+    );
+
+    final _GeoPt? destinationPoint = _extractPoint(
+      data,
+      keys: const <String>[
+        'destinationLatLng',
+        'dropoff_location',
+        'dropoffLatLng',
+        'destination',
+        'dropoff',
+      ],
+      latKeys: const <String>['to_lat', 'dropoff_lat', 'destination_lat'],
+      lngKeys: const <String>['to_lng', 'dropoff_lng', 'destination_lng'],
+    );
+
     return _TripItem(
       id: id,
       group: group,
@@ -486,11 +568,15 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
       driverPhoto: driverPhoto,
       statusText: statusText,
       statusColor: statusColor,
-      dateText: date == null ? 'تاریخ ثبت نشده' : _formatJalaliDate(date),
+      dateText: date == null ? 'trip_date_not_recorded'.tr() : _formatJalaliDate(date),
       sortDate: date ?? DateTime.fromMillisecondsSinceEpoch(0),
       km: km,
       minutes: _parseMinutes(data, km),
       seed: id.hashCode,
+      originPoint: originPoint,
+      destinationPoint: destinationPoint,
+      serviceType: _getString(data, <String>['service_type', 'serviceType']),
+      vehicleType: _getString(data, <String>['vehicle_type', 'vehicleType']),
     );
   }
 
@@ -508,7 +594,7 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
         body: _ridesStream == null
             ? _buildMessageState(
                 icon: Icons.lock_outline_rounded,
-                message: 'برای مشاهده تاریخچه وارد حساب کاربری شوید',
+                message: 'trip_msg_login_required'.tr(),
               )
             : StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
                 stream: _ridesStream,
@@ -520,7 +606,7 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
                     debugPrint('Trips history error: ${snapshot.error}');
                     return _buildMessageState(
                       icon: Icons.cloud_off_rounded,
-                      message: 'خطا در دریافت اطلاعات سفرها.\nاتصال اینترنت را بررسی کنید.',
+                      message: 'trip_msg_error_fetching'.tr(),
                       isError: true,
                     );
                   }
@@ -553,20 +639,6 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
 
                   return Column(
                     children: <Widget>[
-                      Container(
-                      width: double.infinity,
-                      margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                      padding: const EdgeInsets.all(8),
-                      color: Colors.yellow.shade100,
-                      child: Text(
-                        'DEBUG\n'
-                        'uid=${FirebaseAuth.instance.currentUser?.uid}\n'
-                        'docs=${snapshot.data!.docs.length}  fromCache=${snapshot.data!.metadata.isFromCache}\n'
-                        '${snapshot.data!.docs.take(3).map((d) => '${d.id}: status=${d.data()['status']} pid=${d.data()['passenger_id']}').join('\n')}',
-                        style: const TextStyle(fontSize: 11),
-                        textDirection: TextDirection.ltr,
-                      ),
-                    ),
                       _buildStatsHeader(
                         km: totalKm,
                         total: completed.length,
@@ -578,15 +650,15 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
                           children: <Widget>[
                             _buildTripsList(
                               completed,
-                              'هنوز سفر تکمیل‌شده‌ای ندارید',
+                              'trip_msg_no_completed'.tr(),
                             ),
                             _buildTripsList(
                               active,
-                              'سفر جاری ندارید',
+                              'trip_msg_no_active'.tr(),
                             ),
                             _buildTripsList(
                               cancelled,
-                              'سفر لغوشده‌ای ندارید',
+                              'trip_msg_no_cancelled'.tr(),
                             ),
                           ],
                         ),
@@ -608,9 +680,9 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
         elevation: 0,
         scrolledUnderElevation: 0.5,
         centerTitle: true,
-        title: const Text(
-          'سفرها',
-          style: TextStyle(
+        title: Text(
+          'trip_screen_title'.tr(),
+          style: const TextStyle(
             color: _ink,
             fontWeight: FontWeight.w800,
             fontSize: 19,
@@ -646,10 +718,10 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
                 fontWeight: FontWeight.w600,
                 fontSize: 13,
               ),
-              tabs: const <Widget>[
-                Tab(text: 'تاریخچه سفرها'),
-                Tab(text: 'سفرهای جاری'),
-                Tab(text: 'سفرهای لغو شده'),
+              tabs: <Widget>[
+                Tab(text: 'trip_tab_history'.tr()),
+                Tab(text: 'trip_tab_active'.tr()),
+                Tab(text: 'trip_tab_cancelled'.tr()),
               ],
             ),
           ),
@@ -690,11 +762,11 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
       ),
       child: Row(
         children: <Widget>[
-          _buildStatItem(Icons.speed_rounded, kmText, 'کیلومتر'),
+          _buildStatItem(Icons.speed_rounded, kmText, 'trip_stat_km'.tr()),
           _buildStatDivider(),
-          _buildStatItem(Icons.local_taxi_rounded, _toFa(total), 'سفر'),
+          _buildStatItem(Icons.local_taxi_rounded, _toFa(total), 'trip_stat_trips'.tr()),
           _buildStatDivider(),
-          _buildStatItem(Icons.schedule_rounded, hoursText, 'ساعت'),
+          _buildStatItem(Icons.schedule_rounded, hoursText, 'trip_stat_hours'.tr()),
         ],
       ),
     );
@@ -846,14 +918,16 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
                 Expanded(
                   child: _buildActionButton(
                     icon: Icons.swap_horiz_rounded,
-                    label: 'برگشت این سفر',
+                    label: 'trip_action_return'.tr(),
+                    onTap: () => _repeatTrip(trip, reverse: true),
                   ),
                 ),
                 Container(height: 44, width: 1, color: _line),
                 Expanded(
                   child: _buildActionButton(
                     icon: Icons.replay_rounded,
-                    label: 'تکرار این سفر',
+                    label: 'trip_action_repeat'.tr(),
+                    onTap: () => _repeatTrip(trip, reverse: false),
                   ),
                 ),
               ],
@@ -966,9 +1040,9 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
             ),
           ),
           const SizedBox(height: 2),
-          const Text(
-            'افغانی',
-            style: TextStyle(fontSize: 10, color: _muted),
+          Text(
+            'trip_currency_afghani'.tr(),
+            style: const TextStyle(fontSize: 10, color: _muted),
           ),
         ],
       ),
@@ -1046,17 +1120,69 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
     );
   }
 
+  void _showSnack(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
+  /// «تکرار» همان مبدأ و مقصد؛ «برگشت» با جابه‌جایی مبدأ و مقصد.
+  /// صفحهٔ نقشه با مبدأ و مقصد آماده باز می‌شود و مستقیم به مرحلهٔ انتخاب
+  /// سرویس و قیمت می‌رود.
+  void _repeatTrip(_TripItem trip, {required bool reverse}) {
+    final String service = trip.serviceType.trim().toLowerCase();
+
+    if (service == 'cargo') {
+      _showSnack('trip_cargo_repeat_error'.tr());
+      return;
+    }
+
+    final _GeoPt? from = reverse ? trip.destinationPoint : trip.originPoint;
+    final _GeoPt? to = reverse ? trip.originPoint : trip.destinationPoint;
+
+    if (from == null || to == null) {
+      _showSnack('trip_coords_missing_error'.tr());
+      return;
+    }
+
+    final String fromName = reverse ? trip.destination : trip.origin;
+    final String toName = reverse ? trip.origin : trip.destination;
+
+    String serviceType;
+
+    if (service == 'intercity') {
+      serviceType = 'intercity';
+    } else if (trip.vehicleType.trim().isNotEmpty) {
+      serviceType = trip.vehicleType.trim();
+    } else if (trip.serviceType.trim().isNotEmpty) {
+      serviceType = trip.serviceType.trim();
+    } else {
+      serviceType = 'Car';
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute<void>(
+        builder: (_) => SafirMapScreen(
+          serviceType: serviceType,
+          presetOrigin: LatLng(from.lat, from.lng),
+          presetDestination: LatLng(to.lat, to.lng),
+          presetOriginName: fromName,
+          presetDestinationName: toName,
+        ),
+      ),
+    );
+  }
+
   Widget _buildActionButton({
     required IconData icon,
     required String label,
+    required VoidCallback onTap,
   }) {
     return InkWell(
-      onTap: () {
-        ScaffoldMessenger.of(context).hideCurrentSnackBar();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$label به‌زودی فعال می‌شود')),
-        );
-      },
+      onTap: onTap,
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 6),
         child: Row(
@@ -1110,7 +1236,7 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
                 top: geometry.start.dy * h,
                 child: FractionalTranslation(
                   translation: const Offset(-0.5, -1.45),
-                  child: _mapPointLabel('مبدأ'),
+                  child: _mapPointLabel('trip_label_origin'.tr()),
                 ),
               ),
               Positioned(
@@ -1118,7 +1244,7 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
                 top: geometry.end.dy * h,
                 child: FractionalTranslation(
                   translation: const Offset(-0.5, -1.45),
-                  child: _mapPointLabel('مقصد'),
+                  child: _mapPointLabel('trip_label_destination'.tr()),
                 ),
               ),
             ],
@@ -1219,6 +1345,10 @@ class _TripItem {
   final double km;
   final int minutes;
   final int seed;
+  final _GeoPt? originPoint;
+  final _GeoPt? destinationPoint;
+  final String serviceType;
+  final String vehicleType;
 
   const _TripItem({
     required this.id,
@@ -1236,7 +1366,18 @@ class _TripItem {
     required this.km,
     required this.minutes,
     required this.seed,
+    required this.originPoint,
+    required this.destinationPoint,
+    required this.serviceType,
+    required this.vehicleType,
   });
+}
+
+class _GeoPt {
+  final double lat;
+  final double lng;
+
+  const _GeoPt(this.lat, this.lng);
 }
 
 // ══════════════════════════════════════════════════════════════
