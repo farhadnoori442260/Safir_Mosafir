@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import 'package:safir_passengers/global/global_var.dart';
 import 'package:safir_passengers/pages/settings_screen.dart';
+import 'package:safir_passengers/pages/trips_history_page.dart';
 import 'package:safir_passengers/pages/saved_addresses_screen.dart';
 import 'package:safir_passengers/pages/sub_screens.dart';
 import 'package:safir_passengers/pages/user_profile_screen.dart';
@@ -518,7 +519,7 @@ class _ProfileAnimatedMenuState
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) => const TripsScreen(),
+            builder: (_) => const TripsHistoryPage(),
           ),
         );
       },
