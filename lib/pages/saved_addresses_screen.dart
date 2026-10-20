@@ -764,7 +764,8 @@ class _SavedAddressesScreenState
                     int index,
                   ) {
                     final document = addresses[index];
-                    final data = document.data();
+                    final Map<String, dynamic> data =
+                          document.data() ?? <String, dynamic>{};
                     final String type =
                         data['type']?.toString() ?? 'other';
                     final String title =
