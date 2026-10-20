@@ -129,8 +129,12 @@ class MapBottomSheets {
                           onCategoryChanged(index);
                         },
                         children: [
+                          // ✅ کنترلر کشو فقط به صفحهٔ فعال وصل می‌شود
+                          // (قبلاً به هر دو لیست همزمان وصل بود)
                           ListView(
-                            controller: scrollController,
+                            controller:
+                                selectedCategory == 0 ? scrollController : null,
+                            primary: false,
                             padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
                             children: [
                               _buildVehicleCard(
@@ -165,7 +169,9 @@ class MapBottomSheets {
                             ],
                           ),
                           ListView(
-                            controller: scrollController,
+                            controller:
+                                selectedCategory == 1 ? scrollController : null,
+                            primary: false,
                             padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
                             children: [
                               _buildVehicleCard(
@@ -656,38 +662,47 @@ class MapBottomSheets {
                               ? null
                               : () async {
                                   HapticFeedback.mediumImpact();
+
+                                  // دلیل انتخاب‌شده را قبل از بستن دیالوگ نگه می‌داریم
+                                  final String reasonKey = selectedReasonKey!;
+
                                   if (context.mounted) {
                                     Navigator.pop(context);
                                   }
+
+                                  // ✅ لغو واقعی سفر (وضعیت، پنل و نقشه) را
+                                  // خود صفحهٔ نقشه انجام می‌دهد
                                   onConfirmCancel();
 
+                                  // ✅ اینجا فقط «دلیل لغو» و گزارش ثبت می‌شود.
+                                  // وضعیت سفر دوباره نوشته نمی‌شود تا با لغوِ
+                                  // اصلی تداخل نکند (قبلاً دوبار نوشته می‌شد).
                                   if (currentRideId != null &&
                                       currentRideId.isNotEmpty) {
                                     try {
-                                      WriteBatch batch =
+                                      final WriteBatch batch =
                                           FirebaseFirestore.instance.batch();
-                                      DocumentReference rideRef =
+
+                                      final DocumentReference rideRef =
                                           FirebaseFirestore.instance
                                               .collection('rides')
                                               .doc(currentRideId);
 
                                       batch.update(rideRef, {
-                                        'status': 'cancelled_by_passenger',
-                                        'cancelReason': selectedReasonKey,
+                                        'cancelReason': reasonKey,
                                         'cancelledAfterDriverAssigned':
                                             isDriverAssigned,
-                                        'cancelledAt':
-                                            FieldValue.serverTimestamp(),
                                       });
 
-                                      DocumentReference adminReportRef =
+                                      final DocumentReference adminReportRef =
                                           FirebaseFirestore.instance
                                               .collection('reports')
                                               .doc();
+
                                       batch.set(adminReportRef, {
                                         'tripId': currentRideId,
                                         'type': 'cancellation',
-                                        'reason': selectedReasonKey,
+                                        'reason': reasonKey,
                                         'afterDriverAssigned': isDriverAssigned,
                                         'timestamp':
                                             FieldValue.serverTimestamp(),
@@ -695,7 +710,9 @@ class MapBottomSheets {
 
                                       await batch.commit();
                                     } catch (e) {
-                                      debugPrint("Error cancelling trip: $e");
+                                      debugPrint(
+                                        "Error saving cancel reason: $e",
+                                      );
                                     }
                                   }
                                 },
@@ -733,6 +750,11 @@ class MapBottomSheets {
   }
 
   // 💳 شیت تسویه حساب
+  //
+  // ✅ اصلاح مهم: قبلاً با زدن این دکمه مسافر خودش وضعیت سفر را «completed»
+  // می‌کرد و در «transactions» (که فقط ادمین اجازهٔ نوشتن دارد) سند می‌ساخت.
+  // پایان سفر باید فقط با دکمهٔ «پایان سفر» راننده انجام شود، وگرنه درآمد
+  // راننده ثبت نمی‌شود. حالا فقط «تأیید پرداخت نقدی توسط مسافر» ثبت می‌شود.
   static void _showPaymentSheet(BuildContext context, String tripId, dynamic amount) {
     showModalBottomSheet(
       context: context,
@@ -798,30 +820,37 @@ class MapBottomSheets {
                   ),
                   onPressed: () async {
                     Navigator.pop(ctx);
-                    if (tripId.isNotEmpty) {
-                      WriteBatch batch = FirebaseFirestore.instance.batch();
-                      DocumentReference rideRef = FirebaseFirestore.instance.collection('rides').doc(tripId);
-                      
-                      batch.update(rideRef, {
-                        'paymentStatus': 'paid',
-                        'status': 'completed',
-                        'paidAmount': amount,
-                        'paidAt': FieldValue.serverTimestamp(),
-                      });
 
-                      DocumentReference transRef = FirebaseFirestore.instance.collection('transactions').doc();
-                      batch.set(transRef, {
-                        'tripId': tripId,
-                        'amount': amount,
-                        'status': 'success',
-                        'timestamp': FieldValue.serverTimestamp(),
-                      });
+                    if (tripId.isEmpty) return;
 
-                      await batch.commit();
+                    try {
+                      await FirebaseFirestore.instance
+                          .collection('rides')
+                          .doc(tripId)
+                          .update({
+                        'payment_method': 'cash',
+                        'passenger_confirmed_payment': true,
+                        'paid_amount': amount,
+                        'passenger_confirmed_payment_at':
+                            FieldValue.serverTimestamp(),
+                      });
 
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(content: Text('payment_success_msg'.tr())),
+                        );
+                      }
+                    } catch (e) {
+                      debugPrint('Payment confirm error: $e');
+
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              'error_occurred'.tr(args: [e.toString()]),
+                            ),
+                            backgroundColor: Colors.red.shade700,
+                          ),
                         );
                       }
                     }
