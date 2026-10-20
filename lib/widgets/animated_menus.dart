@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import 'package:safir_passengers/global/global_var.dart';
 import 'package:safir_passengers/pages/settings_screen.dart';
+import 'package:safir_passengers/pages/saved_addresses_screen.dart';
 import 'package:safir_passengers/pages/sub_screens.dart';
 import 'package:safir_passengers/pages/user_profile_screen.dart';
 
@@ -503,47 +504,63 @@ class _ProfileAnimatedMenuState
             28,
           ),
           children: [
-            _buildProfileHeader(),
-            const SizedBox(height: 24),
-            _buildSectionTitle(
-              'user_account_section'.tr(),
-            ),
-            _buildMenuGroup([
-              _buildMenuItem(
-                icon: Icons.route_rounded,
-                title: 'trips_history'.tr(),
-                subtitle: 'trips_history_sub'.tr(),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const TripsScreen(),
-                    ),
-                  );
-                },
-              ),
-              _buildMenuItem(
-                icon: Icons.person_add_alt_1_rounded,
-                title: 'invite_friends'.tr(),
-                subtitle: 'invite_friends_sub'.tr(),
-                onTap: () {
-                  _shareInviteCode(context);
-                },
-              ),
-              _buildMenuItem(
-                icon: Icons.chat_bubble_outline_rounded,
-                title: 'messages'.tr(),
-                subtitle: 'messages_sub'.tr(),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const MessagesScreen(),
-                    ),
-                  );
-                },
-              ),
-            ]),
+  _buildProfileHeader(),
+  const SizedBox(height: 24),
+  _buildSectionTitle(
+    'user_account_section'.tr(),
+  ),
+  _buildMenuGroup([
+    _buildMenuItem(
+      icon: Icons.route_rounded,
+      title: 'trips_history'.tr(),
+      subtitle: 'trips_history_sub'.tr(),
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => const TripsScreen(),
+          ),
+        );
+      },
+    ),
+
+    // این بخش جدید را اضافه کن
+    _buildMenuItem(
+      icon: Icons.bookmark_border_rounded,
+      title: 'آدرس‌های ذخیره‌شده',
+      subtitle: 'خانه، محل کار و مکان‌های پرکاربرد',
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => const SavedAddressesScreen(),
+          ),
+        );
+      },
+    ),
+
+    _buildMenuItem(
+      icon: Icons.person_add_alt_1_rounded,
+      title: 'invite_friends'.tr(),
+      subtitle: 'invite_friends_sub'.tr(),
+      onTap: () {
+        _shareInviteCode(context);
+      },
+    ),
+    _buildMenuItem(
+      icon: Icons.chat_bubble_outline_rounded,
+      title: 'messages'.tr(),
+      subtitle: 'messages_sub'.tr(),
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => const MessagesScreen(),
+          ),
+        );
+      },
+    ),
+  ]),
             const SizedBox(height: 22),
             _buildSectionTitle(
               'services_and_support_section'.tr(),
