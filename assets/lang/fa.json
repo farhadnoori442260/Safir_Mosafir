@@ -697,6 +697,16 @@
 
   "saved_address_empty_title": "هنوز آدرسی ذخیره نکرده‌اید",
   "saved_address_empty_description": "خانه، محل کار یا مکان‌های پرکاربرد خود را ذخیره کنید تا بعداً سریع‌تر مقصد انتخاب کنید.",
-  "saved_address_no_details": "بدون جزئیات آدرس"
+  "saved_address_no_details": "بدون جزئیات آدرس",
+  {
+  "rate_driver_missing_data": "اطلاعات سفر یا راننده کامل نیست.",
+  "rate_driver_submit_success": "امتیاز شما با موفقیت ثبت شد. سپاس از بازخورد شما.",
+  "rate_driver_submit_error_detail": "ثبت امتیاز انجام نشد: {error}",
+  "rate_driver_already_submitted": "شما قبلاً برای این سفر امتیاز ثبت کرده‌اید.",
+  "rate_driver_trip_not_found": "اطلاعات این سفر یافت نشد.",
+  "rate_driver_default_car": "خودروی راننده",
+  "rate_driver_default_name": "راننده سفیر",
+  "rate_driver_default_plate": "پلاک نامشخص"
+}
 }
 }
