@@ -706,7 +706,16 @@
   "rate_driver_trip_not_found": "اطلاعات این سفر یافت نشد.",
   "rate_driver_default_car": "خودروی راننده",
   "rate_driver_default_name": "راننده سفیر",
-  "rate_driver_default_plate": "پلاک نامشخص"
+  "rate_driver_default_plate": "پلاک نامشخص",
+  {
+  "saved_addresses_title": "آدرس‌های ذخیره‌شده",
+  "saved_addresses_sub": "خانه، محل کار و مکان‌های پرکاربرد",
+  {
+  "messages_empty": "هیچ پیامی دریافت نشده است",
+  "messages_default_title": "اطلاعیه سفیر"
+}
+}
+
 }
 }
 }
