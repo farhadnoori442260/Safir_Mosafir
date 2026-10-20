@@ -13,6 +13,82 @@ import 'package:safir_passengers/global/global_var.dart';
 import 'package:safir_passengers/utils/time_helper.dart';
 
 class MapControllerLogic {
+  static final DocumentReference<Map<String, dynamic>> _settingsRef =
+      FirebaseFirestore.instance
+          .collection('settings')
+          .doc('app_config');
+
+  static Future<Map<String, dynamic>> _getPricingConfig() async {
+    try {
+      final DocumentSnapshot<Map<String, dynamic>> snapshot =
+          await _settingsRef.get(
+        const GetOptions(
+          source: Source.serverAndCache,
+        ),
+      );
+
+      return snapshot.data() ?? <String, dynamic>{};
+    } catch (e) {
+      debugPrint('Pricing settings read error: $e');
+      return <String, dynamic>{};
+    }
+  }
+
+  static double _toDouble(
+    dynamic value, {
+    required double fallback,
+  }) {
+    if (value is num) {
+      return value.toDouble();
+    }
+
+    return double.tryParse(
+          value?.toString().replaceAll(',', '').trim() ?? '',
+        ) ??
+        fallback;
+  }
+
+  static double _calculateFare({
+    required String selectedVehicle,
+    required double distanceInKm,
+    required Map<String, dynamic> config,
+  }) {
+    final String vehicle =
+        selectedVehicle.toLowerCase().trim();
+
+    double baseFare = _toDouble(
+      config['base_fare_taxi'],
+      fallback: 30,
+    );
+
+    double perKmFare = _toDouble(
+      config['per_km_taxi'],
+      fallback: 10,
+    );
+
+    switch (vehicle) {
+      case 'bike':
+      case 'motorcycle':
+        baseFare = _toDouble(
+          config['base_fare_bike'],
+          fallback: 20,
+        );
+        perKmFare = _toDouble(
+          config['per_km_bike'],
+          fallback: 5,
+        );
+        break;
+
+      case 'auto':
+      case 'rickshaw':
+        // پنل فعلی فیلد مستقل Auto ندارد،
+        // پس فعلاً همان نرخ تاکسی استفاده می‌شود.
+        break;
+    }
+
+    return baseFare + (distanceInKm * perKmFare);
+  }
+
   static Future<void> getOSRMRoute({
     required BuildContext context,
     required String selectedVehicle,
@@ -27,9 +103,11 @@ class MapControllerLogic {
     ) onRouteFetched,
   }) async {
     try {
-      if (!context.mounted) return;
+      if (!context.mounted) {
+        return;
+      }
 
-      final appInfo = Provider.of<AppInfo>(
+      final AppInfo appInfo = Provider.of<AppInfo>(
         context,
         listen: false,
       );
@@ -39,10 +117,13 @@ class MapControllerLogic {
 
       final double? pickupLat =
           customOrigin?.latitude ?? pickUp?.latitudePosition;
+
       final double? pickupLng =
           customOrigin?.longitude ?? pickUp?.longitudePosition;
+
       final double? destinationLat =
           customDestination?.latitude ?? dropOff?.latitudePosition;
+
       final double? destinationLng =
           customDestination?.longitude ?? dropOff?.longitudePosition;
 
@@ -60,9 +141,9 @@ class MapControllerLogic {
         '?overview=full&geometries=geojson',
       );
 
-      final http.Response response = await http.get(url).timeout(
-        const Duration(seconds: 10),
-      );
+      final http.Response response = await http
+          .get(url)
+          .timeout(const Duration(seconds: 10));
 
       if (response.statusCode != 200) {
         debugPrint(
@@ -71,11 +152,11 @@ class MapControllerLogic {
         return;
       }
 
-      final Map<String, dynamic> data =
+      final Map<String, dynamic> routeData =
           jsonDecode(response.body) as Map<String, dynamic>;
 
       final List<dynamic> routes =
-          (data['routes'] as List<dynamic>?) ?? <dynamic>[];
+          (routeData['routes'] as List<dynamic>?) ?? <dynamic>[];
 
       if (routes.isEmpty) {
         debugPrint('OSRM returned no route.');
@@ -97,32 +178,44 @@ class MapControllerLogic {
 
       final List<LatLng> points = coordinates
           .whereType<List<dynamic>>()
-          .where((point) => point.length >= 2)
+          .where((List<dynamic> point) => point.length >= 2)
           .map(
-            (point) => LatLng(
+            (List<dynamic> point) => LatLng(
               (point[1] as num).toDouble(),
               (point[0] as num).toDouble(),
             ),
           )
           .toList();
 
-      final double distanceInKm = distanceInMeters / 1000.0;
-      const double baseFare = 30.0;
-      final double calculatedFare =
-          baseFare + (distanceInKm * 10.0);
+      final double distanceInKm =
+          distanceInMeters / 1000.0;
 
-      double finalFare = calculatedFare;
+      final Map<String, dynamic> pricingConfig =
+          await _getPricingConfig();
 
-      switch (selectedVehicle.toLowerCase().trim()) {
-        case 'auto':
-        case 'rickshaw':
-          finalFare = calculatedFare * 1.4;
-          break;
-        case 'bike':
-        case 'motorcycle':
-          finalFare = calculatedFare * 0.5;
-          break;
+      final bool serviceIsActive =
+          pricingConfig['is_service_active'] != false;
+
+      if (!serviceIsActive) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'سرویس سفیر موقتاً غیرفعال است.',
+              ),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+
+        return;
       }
+
+      final double finalFare = _calculateFare(
+        selectedVehicle: selectedVehicle,
+        distanceInKm: distanceInKm,
+        config: pricingConfig,
+      );
 
       onRouteFetched(
         points,
@@ -156,7 +249,7 @@ class MapControllerLogic {
       throw StateError('کاربر وارد حساب نشده است.');
     }
 
-    final appInfo = Provider.of<AppInfo>(
+    final AppInfo appInfo = Provider.of<AppInfo>(
       context,
       listen: false,
     );
@@ -166,10 +259,13 @@ class MapControllerLogic {
 
     final double pickupLat =
         pickUp?.latitudePosition ?? 34.5553;
+
     final double pickupLng =
         pickUp?.longitudePosition ?? 69.2073;
+
     final double destinationLat =
         dropOff?.latitudePosition ?? 34.5200;
+
     final double destinationLng =
         dropOff?.longitudePosition ?? 69.1800;
 
@@ -190,16 +286,16 @@ class MapControllerLogic {
         (bidAmount ?? actualFareAmount).round();
 
     final DocumentReference<Map<String, dynamic>> tripRef =
-        FirebaseFirestore.instance.collection('rides').doc();
+        FirebaseFirestore.instance
+            .collection('rides')
+            .doc();
 
     final Map<String, dynamic> dataMap =
         <String, dynamic>{
       'ride_id': tripRef.id,
-
       'passenger_id': currentUser.uid,
       'passenger_name': passengerName,
       'passenger_phone': passengerPhone,
-
       'driver_id': 'waiting',
       'status': 'searching',
 
@@ -230,11 +326,13 @@ class MapControllerLogic {
       'to_lng': destinationLng,
 
       'fare_amount': fareAmount,
+      'fare': fareAmount,
+      'price': fareAmount,
       'service_type': vehicleType,
+      'vehicle_type': vehicleType,
       'trip_duration': tripDurationText ?? '',
       'estimated_arrival_time':
           estimatedArrivalTime ?? '',
-
       'created_at': FieldValue.serverTimestamp(),
       'updated_at': FieldValue.serverTimestamp(),
     };
