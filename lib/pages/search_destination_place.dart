@@ -136,11 +136,15 @@ class _SearchDestinationPlaceState extends State<SearchDestinationPlace> {
       );
 
       Provider.of<AppInfo>(context, listen: false)
-          .updateDropOffLocation(selectedDestination);
+    .updateDropOffLocation(selectedDestination);
 
-      Navigator.pop(context, "placeSelected");
-    }
-  }
+Navigator.pop(
+  context,
+  {
+    'result': 'placeSelected',
+    'address': selectedDestination,
+  },
+);
 
   @override
   void initState() {
