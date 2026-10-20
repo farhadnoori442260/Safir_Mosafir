@@ -3,7 +3,9 @@ import 'package:easy_localization/easy_localization.dart'
     hide TextDirection;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
+import 'package:safir_passengers/appInfo/app_info.dart';
 import 'package:safir_passengers/models/address_models.dart';
 import 'package:safir_passengers/pages/search_destination_place.dart';
 
@@ -70,9 +72,14 @@ class _SavedAddressesScreenState
 
       if (latitude != null && longitude != null) {
         selectedAddress = AddressModel(
-          placeName: oldData['address']?.toString() ?? '',
+          placeName:
+              oldData['placeName']?.toString() ??
+                  oldData['address']?.toString() ??
+                  '',
           humanReadableAddress:
-              oldData['address']?.toString() ?? '',
+              oldData['address']?.toString() ??
+                  oldData['placeName']?.toString() ??
+                  '',
           latitudePosition: latitude,
           longitudePosition: longitude,
         );
@@ -95,7 +102,7 @@ class _SavedAddressesScreenState
             final String addressText =
                 selectedAddress?.humanReadableAddress ??
                     selectedAddress?.placeName ??
-                    'آدرس را انتخاب کنید';
+                    'saved_address_select_location'.tr();
 
             return Padding(
               padding: EdgeInsets.only(
@@ -116,398 +123,348 @@ class _SavedAddressesScreenState
                     top: Radius.circular(28),
                   ),
                 ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Center(
-                      child: Container(
-                        width: 42,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFD1D5DB),
-                          borderRadius:
-                              BorderRadius.circular(20),
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Center(
+                        child: Container(
+                          width: 42,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFD1D5DB),
+                            borderRadius:
+                                BorderRadius.circular(20),
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 20),
-                    Row(
-                      children: [
-                        Container(
-                          width: 42,
-                          height: 42,
-                          decoration: BoxDecoration(
-                            color: savedIconBackground,
-                            borderRadius:
-                                BorderRadius.circular(14),
-                          ),
-                          child: const Icon(
-                            Icons.bookmark_add_outlined,
-                            color: savedPrimaryAccent,
-                            size: 22,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            addressDocument == null
-                                ? 'افزودن آدرس'
-                                : 'ویرایش آدرس',
-                            style: const TextStyle(
-                              color: savedDarkTextColor,
-                              fontSize: 17,
-                              fontWeight: FontWeight.w800,
+                      const SizedBox(height: 20),
+                      Row(
+                        children: [
+                          Container(
+                            width: 42,
+                            height: 42,
+                            decoration: BoxDecoration(
+                              color: savedIconBackground,
+                              borderRadius:
+                                  BorderRadius.circular(14),
+                            ),
+                            child: const Icon(
+                              Icons.bookmark_add_outlined,
+                              color: savedPrimaryAccent,
+                              size: 22,
                             ),
                           ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              addressDocument == null
+                                  ? 'saved_address_add'.tr()
+                                  : 'saved_address_edit'.tr(),
+                              style: const TextStyle(
+                                color: savedDarkTextColor,
+                                fontSize: 17,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () {
+                              Navigator.pop(sheetContext);
+                            },
+                            icon: const Icon(
+                              Icons.close_rounded,
+                              color: savedSecondaryTextColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 18),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildTypeButton(
+                              icon: Icons.home_outlined,
+                              label: 'saved_address_home'.tr(),
+                              isSelected:
+                                  selectedType == 'home',
+                              onTap: () {
+                                setSheetState(() {
+                                  selectedType = 'home';
+
+                                  if (_titleController.text
+                                      .trim()
+                                      .isEmpty) {
+                                    _titleController.text =
+                                        'saved_address_home'
+                                            .tr();
+                                  }
+                                });
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: _buildTypeButton(
+                              icon: Icons.business_outlined,
+                              label: 'saved_address_work'.tr(),
+                              isSelected:
+                                  selectedType == 'work',
+                              onTap: () {
+                                setSheetState(() {
+                                  selectedType = 'work';
+
+                                  if (_titleController.text
+                                      .trim()
+                                      .isEmpty) {
+                                    _titleController.text =
+                                        'saved_address_work'
+                                            .tr();
+                                  }
+                                });
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: _buildTypeButton(
+                              icon:
+                                  Icons.star_outline_rounded,
+                              label: 'saved_address_other'.tr(),
+                              isSelected:
+                                  selectedType == 'other',
+                              onTap: () {
+                                setSheetState(() {
+                                  selectedType = 'other';
+                                });
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      TextField(
+                        controller: _titleController,
+                        maxLength: 35,
+                        style: const TextStyle(
+                          color: savedDarkTextColor,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
                         ),
-                        IconButton(
-                          onPressed: () {
-                            Navigator.pop(sheetContext);
-                          },
-                          icon: const Icon(
-                            Icons.close_rounded,
+                        decoration: InputDecoration(
+                          labelText:
+                              'saved_address_name_label'.tr(),
+                          hintText:
+                              'saved_address_name_hint'.tr(),
+                          counterText: '',
+                          prefixIcon: const Icon(
+                            Icons.edit_location_alt_outlined,
                             color: savedSecondaryTextColor,
                           ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 18),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildTypeButton(
-                            icon: Icons.home_outlined,
-                            label: 'خانه',
-                            isSelected: selectedType == 'home',
-                            onTap: () {
-                              setSheetState(() {
-                                selectedType = 'home';
-
-                                if (_titleController.text
-                                    .trim()
-                                    .isEmpty) {
-                                  _titleController.text =
-                                      'خانه';
-                                }
-                              });
-                            },
+                          filled: true,
+                          fillColor: savedPageBackground,
+                          contentPadding:
+                              const EdgeInsets.symmetric(
+                            horizontal: 15,
+                            vertical: 13,
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: _buildTypeButton(
-                            icon: Icons.business_outlined,
-                            label: 'محل کار',
-                            isSelected: selectedType == 'work',
-                            onTap: () {
-                              setSheetState(() {
-                                selectedType = 'work';
-
-                                if (_titleController.text
-                                    .trim()
-                                    .isEmpty) {
-                                  _titleController.text =
-                                      'محل کار';
-                                }
-                              });
-                            },
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: _buildTypeButton(
-                            icon: Icons.star_outline_rounded,
-                            label: 'دلخواه',
-                            isSelected: selectedType == 'other',
-                            onTap: () {
-                              setSheetState(() {
-                                selectedType = 'other';
-                              });
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: _titleController,
-                      maxLength: 35,
-                      style: const TextStyle(
-                        color: savedDarkTextColor,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                      ),
-                      decoration: InputDecoration(
-                        labelText: 'نام آدرس',
-                        hintText: 'مثلاً خانه، محل کار یا دانشگاه',
-                        counterText: '',
-                        prefixIcon: const Icon(
-                          Icons.edit_location_alt_outlined,
-                          color: savedSecondaryTextColor,
-                        ),
-                        filled: true,
-                        fillColor: savedPageBackground,
-                        contentPadding:
-                            const EdgeInsets.symmetric(
-                          horizontal: 15,
-                          vertical: 13,
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius:
-                              BorderRadius.circular(15),
-                          borderSide: const BorderSide(
-                            color: Color(0xFFE2E8F0),
-                          ),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius:
-                              BorderRadius.circular(15),
-                          borderSide: const BorderSide(
-                            color: savedPrimaryAccent,
-                            width: 1.4,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        borderRadius:
-                            BorderRadius.circular(15),
-                        onTap: () async {
-                          final dynamic result =
-                              await Navigator.push(
-                            sheetContext,
-                            MaterialPageRoute(
-                              builder: (_) =>
-                                  const SearchDestinationPlace(),
-                            ),
-                          );
-
-                          if (result is Map &&
-                              result['address']
-                                  is AddressModel) {
-                            setSheetState(() {
-                              selectedAddress =
-                                  result['address']
-                                      as AddressModel;
-                            });
-                          }
-                        },
-                        child: Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(
-                            color: savedPageBackground,
+                          enabledBorder: OutlineInputBorder(
                             borderRadius:
                                 BorderRadius.circular(15),
-                            border: Border.all(
-                              color: selectedAddress == null
-                                  ? const Color(0xFFE2E8F0)
-                                  : savedPrimaryAccent,
+                            borderSide: const BorderSide(
+                              color: Color(0xFFE2E8F0),
                             ),
                           ),
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 38,
-                                height: 38,
-                                decoration: BoxDecoration(
-                                  color: selectedAddress == null
-                                      ? const Color(
-                                          0xFFE2E8F0,
-                                        )
-                                      : savedIconBackground,
-                                  borderRadius:
-                                      BorderRadius.circular(
-                                    12,
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius:
+                                BorderRadius.circular(15),
+                            borderSide: const BorderSide(
+                              color: savedPrimaryAccent,
+                              width: 1.4,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          borderRadius:
+                              BorderRadius.circular(15),
+                          onTap: () async {
+                            final dynamic result =
+                                await Navigator.push(
+                              sheetContext,
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    const SearchDestinationPlace(),
+                              ),
+                            );
+
+                            if (!mounted) return;
+
+                            if (result is Map &&
+                                result['address']
+                                    is AddressModel) {
+                              setSheetState(() {
+                                selectedAddress =
+                                    result['address']
+                                        as AddressModel;
+                              });
+                              return;
+                            }
+
+                            final AppInfo appInfo =
+                                Provider.of<AppInfo>(
+                              this.context,
+                              listen: false,
+                            );
+
+                            final AddressModel? fallbackAddress =
+                                appInfo.dropOffLocation;
+
+                            if (fallbackAddress != null &&
+                                fallbackAddress
+                                        .latitudePosition !=
+                                    null &&
+                                fallbackAddress
+                                        .longitudePosition !=
+                                    null) {
+                              setSheetState(() {
+                                selectedAddress =
+                                    fallbackAddress;
+                              });
+                            }
+                          },
+                          child: Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: savedPageBackground,
+                              borderRadius:
+                                  BorderRadius.circular(15),
+                              border: Border.all(
+                                color: selectedAddress == null
+                                    ? const Color(0xFFE2E8F0)
+                                    : savedPrimaryAccent,
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 38,
+                                  height: 38,
+                                  decoration: BoxDecoration(
+                                    color: selectedAddress == null
+                                        ? const Color(
+                                            0xFFE2E8F0,
+                                          )
+                                        : savedIconBackground,
+                                    borderRadius:
+                                        BorderRadius.circular(12),
+                                  ),
+                                  child: Icon(
+                                    Icons.location_on_outlined,
+                                    color:
+                                        selectedAddress == null
+                                            ? savedSecondaryTextColor
+                                            : savedPrimaryAccent,
+                                    size: 20,
                                   ),
                                 ),
-                                child: Icon(
-                                  Icons.location_on_outlined,
-                                  color: selectedAddress == null
-                                      ? savedSecondaryTextColor
-                                      : savedPrimaryAccent,
-                                  size: 20,
-                                ),
-                              ),
-                              const SizedBox(width: 11),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
-                                  children: [
-                                    const Text(
-                                      'موقعیت آدرس',
-                                      style: TextStyle(
-                                        color: savedDarkTextColor,
-                                        fontSize: 13,
-                                        fontWeight:
-                                            FontWeight.w800,
+                                const SizedBox(width: 11),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'saved_address_location'
+                                            .tr(),
+                                        style: const TextStyle(
+                                          color: savedDarkTextColor,
+                                          fontSize: 13,
+                                          fontWeight:
+                                              FontWeight.w800,
+                                        ),
                                       ),
-                                    ),
-                                    const SizedBox(height: 3),
-                                    Text(
-                                      addressText,
-                                      maxLines: 2,
-                                      overflow:
-                                          TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        color:
-                                            savedSecondaryTextColor,
-                                        fontSize: 11,
-                                        height: 1.35,
-                                        fontWeight:
-                                            FontWeight.w500,
+                                      const SizedBox(height: 3),
+                                      Text(
+                                        addressText,
+                                        maxLines: 2,
+                                        overflow: TextOverflow
+                                            .ellipsis,
+                                        style: const TextStyle(
+                                          color:
+                                              savedSecondaryTextColor,
+                                          fontSize: 11,
+                                          height: 1.35,
+                                          fontWeight:
+                                              FontWeight.w500,
+                                        ),
                                       ),
-                                    ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(width: 8),
-                              const Icon(
-                                Icons.chevron_left_rounded,
-                                color: Color(0xFF94A3B8),
-                              ),
-                            ],
+                                const SizedBox(width: 8),
+                                const Icon(
+                                  Icons.chevron_left_rounded,
+                                  color: Color(0xFF94A3B8),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 18),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 50,
-                      child: ElevatedButton(
-                        onPressed: _isSaving
-                            ? null
-                            : () async {
-                                final String title =
-                                    _titleController.text
-                                        .trim();
-
-                                if (title.isEmpty) {
-                                  _showMessage(
-                                    'لطفاً نام آدرس را وارد کنید.',
-                                    isError: true,
+                      const SizedBox(height: 18),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 50,
+                        child: ElevatedButton(
+                          onPressed: _isSaving
+                              ? null
+                              : () async {
+                                  await _saveAddress(
+                                    sheetContext: sheetContext,
+                                    setSheetState: setSheetState,
+                                    addressDocument:
+                                        addressDocument,
+                                    type: selectedType,
+                                    selectedAddress:
+                                        selectedAddress,
                                   );
-                                  return;
-                                }
-
-                                if (selectedAddress == null ||
-                                    selectedAddress!
-                                            .latitudePosition ==
-                                        null ||
-                                    selectedAddress!
-                                            .longitudePosition ==
-                                        null) {
-                                  _showMessage(
-                                    'لطفاً موقعیت آدرس را انتخاب کنید.',
-                                    isError: true,
-                                  );
-                                  return;
-                                }
-
-                                final collection =
-                                    _savedAddressesCollection;
-
-                                if (collection == null) {
-                                  _showMessage(
-                                    'ابتدا وارد حساب کاربری شوید.',
-                                    isError: true,
-                                  );
-                                  return;
-                                }
-
-                                setSheetState(() {
-                                  _isSaving = true;
-                                });
-
-                                try {
-                                  final Map<String, dynamic>
-                                      addressData = {
-                                    'title': title,
-                                    'type': selectedType,
-                                    'address': selectedAddress!
-                                            .humanReadableAddress ??
-                                        selectedAddress!
-                                            .placeName ??
-                                        '',
-                                    'placeName': selectedAddress!
-                                            .placeName ??
-                                        '',
-                                    'latitude': selectedAddress!
-                                        .latitudePosition,
-                                    'longitude': selectedAddress!
-                                        .longitudePosition,
-                                    'updatedAt':
-                                        FieldValue.serverTimestamp(),
-                                  };
-
-                                  if (addressDocument == null) {
-                                    addressData['createdAt'] =
-                                        FieldValue.serverTimestamp();
-
-                                    await collection.add(
-                                      addressData,
-                                    );
-                                  } else {
-                                    await addressDocument.reference
-                                        .update(addressData);
-                                  }
-
-                                  if (!mounted) return;
-
-                                  Navigator.pop(sheetContext);
-
-                                  _showMessage(
-                                    addressDocument == null
-                                        ? 'آدرس ذخیره شد.'
-                                        : 'آدرس ویرایش شد.',
-                                  );
-                                } catch (e) {
-                                  _showMessage(
-                                    'ذخیره‌کردن آدرس انجام نشد.',
-                                    isError: true,
-                                  );
-                                } finally {
-                                  if (mounted) {
-                                    setSheetState(() {
-                                      _isSaving = false;
-                                    });
-                                  }
-                                }
-                              },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: savedPrimaryAccent,
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius:
-                                BorderRadius.circular(15),
+                                },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor:
+                                savedPrimaryAccent,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius:
+                                  BorderRadius.circular(15),
+                            ),
                           ),
+                          child: _isSaving
+                              ? const SizedBox(
+                                  width: 21,
+                                  height: 21,
+                                  child:
+                                      CircularProgressIndicator(
+                                    strokeWidth: 2.3,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : Text(
+                                  'saved_address_save'.tr(),
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
                         ),
-                        child: _isSaving
-                            ? const SizedBox(
-                                width: 21,
-                                height: 21,
-                                child:
-                                    CircularProgressIndicator(
-                                  strokeWidth: 2.3,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : const Text(
-                                'ذخیرهٔ آدرس',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             );
@@ -517,6 +474,130 @@ class _SavedAddressesScreenState
     );
 
     _titleController.clear();
+
+    if (mounted) {
+      setState(() {
+        _isSaving = false;
+      });
+    }
+  }
+
+  Future<void> _saveAddress({
+    required BuildContext sheetContext,
+    required StateSetter setSheetState,
+    required DocumentSnapshot<Map<String, dynamic>>?
+        addressDocument,
+    required String type,
+    required AddressModel? selectedAddress,
+  }) async {
+    final String title = _titleController.text.trim();
+
+    if (title.isEmpty) {
+      _showMessage(
+        'saved_address_name_required'.tr(),
+        isError: true,
+      );
+      return;
+    }
+
+    final double? latitude = selectedAddress?.latitudePosition;
+    final double? longitude = selectedAddress?.longitudePosition;
+
+    if (selectedAddress == null ||
+        latitude == null ||
+        longitude == null) {
+      _showMessage(
+        'saved_address_location_required'.tr(),
+        isError: true,
+      );
+      return;
+    }
+
+    final CollectionReference<Map<String, dynamic>>?
+        collection = _savedAddressesCollection;
+
+    if (collection == null) {
+      _showMessage(
+        'saved_address_login_required'.tr(),
+        isError: true,
+      );
+      return;
+    }
+
+    setSheetState(() {
+      _isSaving = true;
+    });
+
+    try {
+      final String address =
+          selectedAddress.humanReadableAddress ??
+              selectedAddress.placeName ??
+              '';
+
+      final Map<String, dynamic> addressData =
+          <String, dynamic>{
+        'title': title,
+        'type': type,
+        'address': address,
+        'placeName': selectedAddress.placeName ?? '',
+        'latitude': latitude,
+        'longitude': longitude,
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+
+      if (addressDocument == null) {
+        addressData['createdAt'] =
+            FieldValue.serverTimestamp();
+
+        await collection.add(addressData);
+      } else {
+        await addressDocument.reference.set(
+          addressData,
+          SetOptions(merge: true),
+        );
+      }
+
+      if (!mounted) return;
+
+      Navigator.pop(sheetContext);
+
+      _showMessage(
+        addressDocument == null
+            ? 'saved_address_saved'.tr()
+            : 'saved_address_updated'.tr(),
+      );
+    } on FirebaseException catch (e) {
+      debugPrint(
+        'Saved address Firestore error: '
+        '${e.code} | ${e.message}',
+      );
+
+      if (!mounted) return;
+
+      _showMessage(
+        'saved_address_save_failed_detail'.tr(
+          namedArgs: <String, String>{
+            'error': e.message ?? e.code,
+          },
+        ),
+        isError: true,
+      );
+    } catch (e) {
+      debugPrint('Saved address error: $e');
+
+      if (!mounted) return;
+
+      _showMessage(
+        'saved_address_save_failed'.tr(),
+        isError: true,
+      );
+    } finally {
+      if (mounted) {
+        setSheetState(() {
+          _isSaving = false;
+        });
+      }
+    }
   }
 
   Future<void> _deleteAddress(
@@ -529,16 +610,16 @@ class _SavedAddressesScreenState
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(22),
           ),
-          title: const Text(
-            'حذف آدرس',
-            style: TextStyle(
+          title: Text(
+            'saved_address_delete_title'.tr(),
+            style: const TextStyle(
               color: savedDarkTextColor,
               fontWeight: FontWeight.w800,
             ),
           ),
-          content: const Text(
-            'آیا مطمئن هستید که می‌خواهید این آدرس را حذف کنید؟',
-            style: TextStyle(
+          content: Text(
+            'saved_address_delete_message'.tr(),
+            style: const TextStyle(
               color: savedSecondaryTextColor,
               fontSize: 14,
               height: 1.45,
@@ -549,9 +630,9 @@ class _SavedAddressesScreenState
               onPressed: () {
                 Navigator.pop(dialogContext, false);
               },
-              child: const Text(
-                'انصراف',
-                style: TextStyle(
+              child: Text(
+                'saved_address_cancel'.tr(),
+                style: const TextStyle(
                   color: savedSecondaryTextColor,
                   fontWeight: FontWeight.w700,
                 ),
@@ -569,7 +650,9 @@ class _SavedAddressesScreenState
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
-              child: const Text('حذف'),
+              child: Text(
+                'saved_address_delete'.tr(),
+              ),
             ),
           ],
         );
@@ -583,12 +666,30 @@ class _SavedAddressesScreenState
 
       if (!mounted) return;
 
-      _showMessage('آدرس حذف شد.');
+      _showMessage(
+        'saved_address_deleted'.tr(),
+      );
+    } on FirebaseException catch (e) {
+      debugPrint(
+        'Delete saved address error: '
+        '${e.code} | ${e.message}',
+      );
+
+      if (!mounted) return;
+
+      _showMessage(
+        'saved_address_delete_failed_detail'.tr(
+          namedArgs: <String, String>{
+            'error': e.message ?? e.code,
+          },
+        ),
+        isError: true,
+      );
     } catch (e) {
       if (!mounted) return;
 
       _showMessage(
-        'حذف‌کردن آدرس انجام نشد.',
+        'saved_address_delete_failed'.tr(),
         isError: true,
       );
     }
@@ -643,17 +744,18 @@ class _SavedAddressesScreenState
   String _addressTypeText(String type) {
     switch (type) {
       case 'home':
-        return 'خانه';
+        return 'saved_address_home'.tr();
       case 'work':
-        return 'محل کار';
+        return 'saved_address_work'.tr();
       default:
-        return 'آدرس ذخیره‌شده';
+        return 'saved_address_default_title'.tr();
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final collection = _savedAddressesCollection;
+    final CollectionReference<Map<String, dynamic>>?
+        collection = _savedAddressesCollection;
 
     return Scaffold(
       backgroundColor: savedPageBackground,
@@ -662,9 +764,9 @@ class _SavedAddressesScreenState
         surfaceTintColor: savedPageBackground,
         elevation: 0,
         scrolledUnderElevation: 0,
-        title: const Text(
-          'آدرس‌های ذخیره‌شده',
-          style: TextStyle(
+        title: Text(
+          'saved_addresses_title'.tr(),
+          style: const TextStyle(
             color: savedDarkTextColor,
             fontSize: 18,
             fontWeight: FontWeight.w800,
@@ -690,16 +792,18 @@ class _SavedAddressesScreenState
         foregroundColor: Colors.white,
         elevation: 2,
         icon: const Icon(Icons.add_location_alt_outlined),
-        label: const Text(
-          'افزودن آدرس',
-          style: TextStyle(fontWeight: FontWeight.w800),
+        label: Text(
+          'saved_address_add'.tr(),
+          style: const TextStyle(
+            fontWeight: FontWeight.w800,
+          ),
         ),
       ),
       body: collection == null
-          ? const Center(
+          ? Center(
               child: Text(
-                'ابتدا وارد حساب کاربری شوید.',
-                style: TextStyle(
+                'saved_address_login_required'.tr(),
+                style: const TextStyle(
                   color: savedSecondaryTextColor,
                   fontSize: 14,
                 ),
@@ -727,13 +831,18 @@ class _SavedAddressesScreenState
                 }
 
                 if (snapshot.hasError) {
-                  return const Center(
+                  debugPrint(
+                    'Saved addresses stream error: '
+                    '${snapshot.error}',
+                  );
+
+                  return Center(
                     child: Padding(
-                      padding: EdgeInsets.all(24),
+                      padding: const EdgeInsets.all(24),
                       child: Text(
-                        'دریافت آدرس‌ها انجام نشد.',
+                        'saved_address_load_failed'.tr(),
                         textAlign: TextAlign.center,
-                        style: TextStyle(
+                        style: const TextStyle(
                           color: savedSecondaryTextColor,
                           fontSize: 14,
                         ),
@@ -763,14 +872,21 @@ class _SavedAddressesScreenState
                     BuildContext context,
                     int index,
                   ) {
-                    final document = addresses[index];
+                    final DocumentSnapshot<
+                            Map<String, dynamic>>
+                        document = addresses[index];
+
                     final Map<String, dynamic> data =
-                          document.data() ?? <String, dynamic>{};
+                        document.data() ??
+                            <String, dynamic>{};
+
                     final String type =
                         data['type']?.toString() ?? 'other';
+
                     final String title =
                         data['title']?.toString() ??
                             _addressTypeText(type);
+
                     final String address =
                         data['address']?.toString() ?? '';
 
@@ -803,7 +919,9 @@ class _SavedAddressesScreenState
   Widget _buildEmptyState() {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 34),
+        padding: const EdgeInsets.symmetric(
+          horizontal: 34,
+        ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -821,20 +939,20 @@ class _SavedAddressesScreenState
               ),
             ),
             const SizedBox(height: 18),
-            const Text(
-              'هنوز آدرسی ذخیره نکرده‌اید',
+            Text(
+              'saved_address_empty_title'.tr(),
               textAlign: TextAlign.center,
-              style: TextStyle(
+              style: const TextStyle(
                 color: savedDarkTextColor,
                 fontSize: 16,
                 fontWeight: FontWeight.w800,
               ),
             ),
             const SizedBox(height: 7),
-            const Text(
-              'خانه، محل کار یا مکان‌های پرکاربرد خود را ذخیره کنید تا بعداً سریع‌تر مقصد انتخاب کنید.',
+            Text(
+              'saved_address_empty_description'.tr(),
               textAlign: TextAlign.center,
-              style: TextStyle(
+              style: const TextStyle(
                 color: savedSecondaryTextColor,
                 fontSize: 13,
                 height: 1.5,
@@ -882,7 +1000,8 @@ class _SavedAddressesScreenState
                   height: 45,
                   decoration: BoxDecoration(
                     color: iconColor.withOpacity(0.10),
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius:
+                        BorderRadius.circular(14),
                   ),
                   child: Icon(
                     _addressIcon(type),
@@ -909,7 +1028,7 @@ class _SavedAddressesScreenState
                       const SizedBox(height: 4),
                       Text(
                         subtitle.isEmpty
-                            ? 'بدون جزئیات آدرس'
+                            ? 'saved_address_no_details'.tr()
                             : subtitle,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
@@ -939,17 +1058,19 @@ class _SavedAddressesScreenState
                     }
                   },
                   itemBuilder: (BuildContext context) {
-                    return const [
+                    return <PopupMenuEntry<String>>[
                       PopupMenuItem<String>(
                         value: 'edit',
                         child: Row(
                           children: [
-                            Icon(
+                            const Icon(
                               Icons.edit_outlined,
                               size: 19,
                             ),
-                            SizedBox(width: 10),
-                            Text('ویرایش'),
+                            const SizedBox(width: 10),
+                            Text(
+                              'saved_address_edit'.tr(),
+                            ),
                           ],
                         ),
                       ),
@@ -957,15 +1078,15 @@ class _SavedAddressesScreenState
                         value: 'delete',
                         child: Row(
                           children: [
-                            Icon(
+                            const Icon(
                               Icons.delete_outline_rounded,
                               color: Colors.red,
                               size: 19,
                             ),
-                            SizedBox(width: 10),
+                            const SizedBox(width: 10),
                             Text(
-                              'حذف',
-                              style: TextStyle(
+                              'saved_address_delete'.tr(),
+                              style: const TextStyle(
                                 color: Colors.red,
                               ),
                             ),
