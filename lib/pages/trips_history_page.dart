@@ -553,6 +553,20 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
 
                   return Column(
                     children: <Widget>[
+                      Container(
+                      width: double.infinity,
+                      margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                      padding: const EdgeInsets.all(8),
+                      color: Colors.yellow.shade100,
+                      child: Text(
+                        'DEBUG\n'
+                        'uid=${FirebaseAuth.instance.currentUser?.uid}\n'
+                        'docs=${snapshot.data!.docs.length}  fromCache=${snapshot.data!.metadata.isFromCache}\n'
+                        '${snapshot.data!.docs.take(3).map((d) => '${d.id}: status=${d.data()['status']} pid=${d.data()['passenger_id']}').join('\n')}',
+                        style: const TextStyle(fontSize: 11),
+                        textDirection: TextDirection.ltr,
+                      ),
+                    ),
                       _buildStatsHeader(
                         km: totalKm,
                         total: completed.length,
