@@ -712,7 +712,26 @@
   "saved_addresses_sub": "خانه، محل کار و مکان‌های پرکاربرد",
   {
   "messages_empty": "هیچ پیامی دریافت نشده است",
-  "messages_default_title": "اطلاعیه سفیر"
+  "messages_default_title": "اطلاعیه سفیر",
+  {
+  "about_safir_header": "درباره سفیر",
+  "services_safir_sub": "امکانات و خدمات مسافر و راننده",
+  "terms_conditions_sub": "حقوق، مسئولیت‌ها و قوانین سفر",
+  "privacy_policy_sub": "نحوهٔ دریافت، استفاده و نگهداری اطلاعات",
+  "delete_account_sub": "راهنمای ثبت درخواست حذف حساب",
+  "about_app_sub": "معرفی سفیر و نسخهٔ برنامه",
+  "services_safir_title": "خدمات سفیر",
+  "services_safir_content": "سفیر یک پلتفرم حمل‌ونقل شهری است...",
+  "terms_conditions_title": "شرایط و قوانین استفاده",
+  "terms_conditions_content": "با ایجاد حساب، ورود یا استفاده...",
+  "privacy_policy_title": "حریم خصوصی و داده‌ها",
+  "privacy_policy_content": "حریم خصوصی کاربران برای سفیر مهم است...",
+  "about_app_title": "دربارهٔ اپلیکیشن",
+  "about_app_content": "سفیر یک اپلیکیشن حمل‌ونقل شهری است...",
+  "delete_account_title": "حذف حساب و داده‌ها",
+  "delete_account_content": "شما حق دارید درخواست حذف حساب سفیر..."
+}
+
 }
 }
 
