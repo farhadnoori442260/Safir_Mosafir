@@ -116,12 +116,23 @@ class SafirMapScreen extends StatefulWidget {
   final LatLng? targetLocation;
   final bool isPickerOnly;
 
+  /// برای «تکرار / برگشت سفر» از تاریخچه: مبدأ و مقصد از قبل مشخص است و
+  /// صفحه مستقیم به مرحلهٔ انتخاب سرویس و قیمت می‌رود.
+  final LatLng? presetOrigin;
+  final LatLng? presetDestination;
+  final String? presetOriginName;
+  final String? presetDestinationName;
+
   const SafirMapScreen({
     super.key,
     required this.serviceType,
     this.pickerMode,
     this.targetLocation,
     this.isPickerOnly = false,
+    this.presetOrigin,
+    this.presetDestination,
+    this.presetOriginName,
+    this.presetDestinationName,
   });
 
   @override
@@ -228,6 +239,10 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
   int _selectedVehicleType = 0;
   int _currentStep = 0;
 
+  bool get _hasPreset =>
+      widget.presetOrigin != null && widget.presetDestination != null;
+  bool _presetApplied = false;
+
   String? _intercityTravelDate;
   int _intercityPassengers = 1;
 
@@ -289,6 +304,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
 
   // جلوگیری از درخواست دوباره با دو بار کلیک، و از رفتن دوباره به صفحهٔ امتیاز
   bool _isRequestingTrip = false;
+  bool _isCancellingTrip = false;
   bool _isTripFinished = false;
 
   // اگر تا ۵ دقیقه راننده‌ای پیدا نشد، درخواست خودکار لغو می‌شود
@@ -330,6 +346,11 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
     } else {
       _selectedCategory = 0;
       _selectedVehicleType = 0;
+    }
+
+    // سفر آماده (تکرار/برگشت): مستقیم به مرحلهٔ قیمت می‌رویم
+    if (_hasPreset) {
+      _currentStep = 2;
     }
 
     _startLiveLocationUpdates();
@@ -1109,11 +1130,16 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
   /// برمی‌گردد و مسیر پیش‌نمایش را دوباره می‌کشد.
   Future<void> _resetToRequestStep() async {
     _searchTimeoutTimer?.cancel();
+
+    // ✅ پنل سفر همان لحظه بسته می‌شود؛ پاک‌سازی نقشه بعدش انجام می‌شود
+    if (mounted) {
+      setState(() => _currentStep = 2);
+    }
+
     await _stopListeningToDriverLocation();
     _lastTripStatus = null;
 
     if (!mounted) return;
-    setState(() => _currentStep = 2);
 
     _fetchRoute();
   }
@@ -1170,10 +1196,14 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
           });
 
           _evaluateGpsAccuracy(initialPosition.accuracy);
-          _animatedMapMove(target, 15.0);
 
-          if (_currentStep < 2) {
-            _updateAddressFromCamera(target);
+          // در سفر آماده، دوربین نباید به موقعیت کاربر برگردد
+          if (!_hasPreset) {
+            _animatedMapMove(target, 15.0);
+
+            if (_currentStep < 2) {
+              _updateAddressFromCamera(target);
+            }
           }
         }
       } catch (e) {
@@ -1408,6 +1438,94 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
         debugPrint("Error reverse geocoding: $e");
       }
     });
+  }
+
+  /// مبدأ و مقصد آمادهٔ «تکرار/برگشت سفر» را روی نقشه می‌گذارد
+  Future<void> _applyPresetTrip() async {
+    if (_presetApplied || !_hasPreset || _mapController == null || !mounted) {
+      return;
+    }
+    _presetApplied = true;
+
+    final LatLng origin = widget.presetOrigin!;
+    final LatLng destination = widget.presetDestination!;
+
+    final String originName = (widget.presetOriginName ?? '').trim().isNotEmpty
+        ? widget.presetOriginName!.trim()
+        : 'مبدأ';
+    final String destinationName =
+        (widget.presetDestinationName ?? '').trim().isNotEmpty
+            ? widget.presetDestinationName!.trim()
+            : 'مقصد';
+
+    final AppInfo appInfo = Provider.of<AppInfo>(context, listen: false);
+
+    appInfo.updatePickUpLocation(
+      AddressModel(
+        placeName: originName,
+        humanReadableAddress: originName,
+        latitudePosition: origin.latitude,
+        longitudePosition: origin.longitude,
+      ),
+    );
+
+    appInfo.updateDropOffLocation(
+      AddressModel(
+        placeName: destinationName,
+        humanReadableAddress: destinationName,
+        latitudePosition: destination.latitude,
+        longitudePosition: destination.longitude,
+      ),
+    );
+
+    try {
+      final Uint8List originBytes =
+          await widgetToImageBytes(const MapOriginLabel(labelText: 'مبدأ'));
+      await _mapController!.addImage('origin-marker-icon', originBytes);
+
+      if (_originSymbol != null) {
+        await _mapController!.removeSymbol(_originSymbol!);
+      }
+      _originSymbol = await _mapController!.addSymbol(
+        SymbolOptions(
+          geometry: origin,
+          iconImage: 'origin-marker-icon',
+          iconAnchor: 'bottom',
+        ),
+      );
+
+      final Uint8List destinationBytes = await widgetToImageBytes(
+        MapDestinationLabel(
+          labelText: 'مقصد',
+          arrivalTime: _estimatedArrivalTime,
+        ),
+      );
+      await _mapController!.addImage('dest-marker-icon', destinationBytes);
+
+      if (_destinationSymbol != null) {
+        await _mapController!.removeSymbol(_destinationSymbol!);
+      }
+      _destinationSymbol = await _mapController!.addSymbol(
+        SymbolOptions(
+          geometry: destination,
+          iconImage: 'dest-marker-icon',
+          iconAnchor: 'bottom',
+        ),
+      );
+    } catch (e) {
+      debugPrint('Error adding preset markers: $e');
+    }
+
+    if (!mounted) return;
+
+    setState(() {
+      _originLatLng = origin;
+      _destinationLatLng = destination;
+      _currentStep = 2;
+      _isSheetExpanded = true;
+    });
+
+    _fetchRoute();
   }
 
   Future<void> _confirmOrigin() async {
@@ -2048,57 +2166,50 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
   Future<void> _cancelTripInternal() async {
     HapticFeedback.lightImpact();
 
+    if (_isCancellingTrip) return;
+
+    // سفری که از قبل تمام یا لغو شده دوباره لغو نمی‌شود
+    final String last = (_lastTripStatus ?? '').trim().toLowerCase();
+    final bool alreadyFinished = last == TripStatus.completed.toLowerCase() ||
+        last == TripStatus.ended.toLowerCase() ||
+        last == TripStatus.cancelledByDriver.toLowerCase() ||
+        last == TripStatus.cancelledByPassenger.toLowerCase();
+
+    if (alreadyFinished) return;
+
+    _isCancellingTrip = true;
     _searchTimeoutTimer?.cancel();
 
-    final DocumentReference? ref = tripRequestRef;
+    try {
+      final DocumentReference? ref = tripRequestRef;
 
-    if (ref != null) {
-      try {
-        // لغو با تراکنش: سفر تمام‌شده یا قبلاً لغوشده دوباره لغو نمی‌شود
-        final bool alreadyFinished =
-            await FirebaseFirestore.instance.runTransaction<bool>((Transaction tx) async {
-          final DocumentSnapshot snap = await tx.get(ref);
-          if (!snap.exists) return false;
+      // استریم سفر را قبل از هر کاری ببند تا وضعیت قبلی صفحه را برنگرداند
+      final StreamSubscription<DocumentSnapshot>? oldSubscription =
+          tripStreamSubscription;
+      tripStreamSubscription = null;
+      unawaited(oldSubscription?.cancel());
 
-          final Map<String, dynamic> data =
-              (snap.data() as Map<String, dynamic>?) ?? <String, dynamic>{};
-
-          final String status =
-              data['status']?.toString().trim().toLowerCase() ?? '';
-
-          final bool finished = status == TripStatus.completed.toString().toLowerCase() ||
-              status == TripStatus.ended.toString().toLowerCase() ||
-              status == TripStatus.cancelledByDriver.toString().toLowerCase() ||
-              status == TripStatus.cancelledByPassenger.toString().toLowerCase();
-
-          if (finished) return true;
-
-          tx.update(ref, {
+      // ✅ لغو بدون منتظر ماندن برای سرور:
+      // نوشتن روی Firestore به‌صورت محلی همان لحظه اعمال می‌شود و
+      // وقتی اینترنت وصل بود خودکار به سرور می‌رسد.
+      if (ref != null) {
+        unawaited(
+          ref.update(<String, dynamic>{
             'status': TripStatus.cancelledByPassenger,
             'cancelled_by': 'passenger',
             'cancelled_at': FieldValue.serverTimestamp(),
             'updated_at': FieldValue.serverTimestamp(),
-          });
-
-          return false;
-        }).timeout(const Duration(seconds: 15));
-
-        if (alreadyFinished) {
-          // سفر قبلاً پایان یافته یا لغو شده؛ listener وضعیت را مدیریت می‌کند
-          _showSnack("این سفر قبلاً پایان یافته یا لغو شده است.");
-          return;
-        }
-      } catch (e) {
-        debugPrint('Cancel trip error: $e');
-        _showSnack("لغو سفر انجام نشد. دوباره تلاش کنید.", color: Colors.red);
-        return;
+          }).catchError((Object e) {
+            debugPrint('Cancel trip server error: $e');
+          }),
+        );
       }
+
+      // ✅ پنل سفر همان لحظه بسته می‌شود
+      await _resetToRequestStep();
+    } finally {
+      _isCancellingTrip = false;
     }
-
-    await tripStreamSubscription?.cancel();
-    tripStreamSubscription = null;
-
-    await _resetToRequestStep();
   }
 
   void _handleBackAction() {
@@ -2216,12 +2327,16 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
                 onPointerCancel: (_) => _onMapPointerReleased(),
                 child: MapLibreMap(
                   initialCameraPosition: CameraPosition(
-                    target: widget.targetLocation ?? _currentUserLatLng,
+                    target: widget.targetLocation ??
+                        widget.presetOrigin ??
+                        _currentUserLatLng,
                     zoom: 15.0,
                   ),
                   styleString: 'assets/map/style.json',
                   myLocationEnabled: _currentStep < 3,
-                  myLocationTrackingMode: MyLocationTrackingMode.tracking,
+                  myLocationTrackingMode: _hasPreset
+                      ? MyLocationTrackingMode.none
+                      : MyLocationTrackingMode.tracking,
                   myLocationRenderMode: MyLocationRenderMode.normal,
                   trackCameraPosition: true,
                   rotateGesturesEnabled: false,
@@ -2259,6 +2374,9 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
                         unawaited(_processPendingDriverUpdate());
                       }
                     }
+
+                    // سفر آماده (تکرار/برگشت) را فقط یک بار اعمال کن
+                    unawaited(_applyPresetTrip());
                   },
                   onCameraMove: (CameraPosition position) {
                     _onMapCameraMove();
