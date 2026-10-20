@@ -769,7 +769,26 @@
   "trip_cargo_repeat_error": "درخواست دوباره سفر باربری را از بخش باربری صفحهٔ اصلی انجام دهید.",
   "trip_coords_missing_error": "مختصات این سفر ثبت نشده است و امکان تکرار آن وجود ندارد.",
   "trip_label_origin": "مبدأ",
-  "trip_label_destination": "مقصد"
+  "trip_label_destination": "مقصد",
+  {
+  "driver_default_name": "نام راننده",
+  "driver_default_car_model": "تویوتا کرولا",
+  "driver_default_car_color": "سفید",
+  "plate_default_province": "کابل",
+  "plate_default_category": "ش",
+  "driver_send_message_hint": "ارسال پیام به راننده...",
+  "driver_pay_button": "پرداخت",
+  "driver_trip_cost_label": "هزینهٔ سفر: {} {}",
+  {
+  "cash_payment_to_driver": "پرداخت نقدی به راننده",
+  "currency_afghani": "افغانی",
+  "cash_payment_instruction": "لطفاً مبلغ فوق ({}) افغانی را در پایان سفر به صورت نقدی به راننده پرداخت نمایید.",
+  "confirm_and_end_trip": "تایید و پایان سفر"
+}
+
+  
+}
+
 }
 
 }
