@@ -659,5 +659,44 @@
   "chat_type_message_hint": "پیام خود را بنویسید...",
   "gps_disruption": "اختلال در موقعیت مکانی",
   "msg_driver_hint": "ارسال پیام به راننده...",
-  "payment_btn_label": "پرداخت"
+  "payment_btn_label": "پرداخت",
+  {
+  "saved_addresses_title": "آدرس‌های ذخیره‌شده",
+  "saved_address_add": "افزودن آدرس",
+  "saved_address_edit": "ویرایش آدرس",
+  "saved_address_save": "ذخیرهٔ آدرس",
+
+  "saved_address_home": "خانه",
+  "saved_address_work": "محل کار",
+  "saved_address_other": "دلخواه",
+  "saved_address_default_title": "آدرس ذخیره‌شده",
+
+  "saved_address_name_label": "نام آدرس",
+  "saved_address_name_hint": "مثلاً خانه، محل کار یا دانشگاه",
+  "saved_address_location": "موقعیت آدرس",
+  "saved_address_select_location": "آدرس را انتخاب کنید",
+
+  "saved_address_name_required": "لطفاً نام آدرس را وارد کنید.",
+  "saved_address_location_required": "لطفاً موقعیت آدرس را انتخاب کنید.",
+  "saved_address_login_required": "ابتدا وارد حساب کاربری شوید.",
+
+  "saved_address_saved": "آدرس ذخیره شد.",
+  "saved_address_updated": "آدرس ویرایش شد.",
+  "saved_address_deleted": "آدرس حذف شد.",
+
+  "saved_address_save_failed": "ذخیره‌کردن آدرس انجام نشد.",
+  "saved_address_save_failed_detail": "ذخیره‌کردن آدرس انجام نشد: {error}",
+  "saved_address_load_failed": "دریافت آدرس‌ها انجام نشد.",
+  "saved_address_delete_failed": "حذف‌کردن آدرس انجام نشد.",
+  "saved_address_delete_failed_detail": "حذف‌کردن آدرس انجام نشد: {error}",
+
+  "saved_address_delete_title": "حذف آدرس",
+  "saved_address_delete_message": "آیا مطمئن هستید که می‌خواهید این آدرس را حذف کنید؟",
+  "saved_address_cancel": "انصراف",
+  "saved_address_delete": "حذف",
+
+  "saved_address_empty_title": "هنوز آدرسی ذخیره نکرده‌اید",
+  "saved_address_empty_description": "خانه، محل کار یا مکان‌های پرکاربرد خود را ذخیره کنید تا بعداً سریع‌تر مقصد انتخاب کنید.",
+  "saved_address_no_details": "بدون جزئیات آدرس"
+}
 }
