@@ -1,7 +1,7 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
-// ایمپورت ثوابت، ترجمه و پالت رنگی اختصاصی سفیر
-import 'package:safir_passengers/global/global_var.dart';
+// ایمپورت ثوابت و پالت رنگی اختصاصی سفیر
 import 'package:safir_passengers/theme/app_colors.dart'; // آدرس فایل رنگ‌ها را در صورت نیاز اصلاح کنید
 
 class PaymentDialog extends StatefulWidget {
@@ -47,7 +47,7 @@ class _PaymentDialogState extends State<PaymentDialog> {
               const SizedBox(height: 16),
               
               Text(
-                getTranslation(context, 'cash_payment_to_driver') ?? "پرداخت نقدی به راننده",
+                'cash_payment_to_driver'.tr(),
                 style: const TextStyle(
                   color: Colors.black87,
                   fontSize: 16,
@@ -75,7 +75,7 @@ class _PaymentDialogState extends State<PaymentDialog> {
                   ),
                   const SizedBox(width: 6),
                   Text(
-                    getTranslation(context, 'currency_afghani') ?? "افغانی",
+                    'currency_afghani'.tr(),
                     style: const TextStyle(
                       color: Colors.black54,
                       fontSize: 16,
@@ -88,9 +88,7 @@ class _PaymentDialogState extends State<PaymentDialog> {
               
               // متن راهنما برای مسافر
               Text(
-                getTranslation(context, 'cash_payment_instruction')
-                        ?.replaceAll('{amount}', widget.fareAmount) ??
-                    "لطفاً مبلغ فوق (${widget.fareAmount} افغانی) را در پایان سفر به صورت نقدی به راننده پرداخت نمایید.",
+                'cash_payment_instruction'.tr(args: [widget.fareAmount]),
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   color: Colors.black54,
@@ -117,7 +115,7 @@ class _PaymentDialogState extends State<PaymentDialog> {
                     elevation: 0,
                   ),
                   child: Text(
-                    getTranslation(context, 'confirm_and_end_trip') ?? "تایید و پایان سفر",
+                    'confirm_and_end_trip'.tr(),
                     style: const TextStyle(
                       color: AppColors.buttonText, // #FFFFFF
                       fontSize: 15,
