@@ -299,7 +299,7 @@
   "car_default_model": "موتر",
   "car_default_color": "ناڅکلی",
   "plate_default_province": "کابل",
-  "driver_arrival_time_msg": "چلوونکی تر {} دقیقو پورې رسېږي",
+  "driver_arrival_time_msg": "چلوونکی تر {} پورې رسېږي",
   "cancel_current_trip_btn": "دا سفر لغوه کول",
   "new_bid_offer": "د نوې بیې وړاندیز",
   "enter_desired_price": "خپله غوښتل شوې بیه دننه کړئ:",
