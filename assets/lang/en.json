@@ -299,7 +299,7 @@
   "car_default_model": "Vehicle",
   "car_default_color": "Unknown",
   "plate_default_province": "Kabul",
-  "driver_arrival_time_msg": "Driver will arrive in {} minutes",
+  "driver_arrival_time_msg": "Driver will arrive in {} ",
   "cancel_current_trip_btn": "Cancel This Trip",
   "new_bid_offer": "New Price Offer",
   "enter_desired_price": "Enter your desired price:",
