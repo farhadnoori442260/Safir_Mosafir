@@ -735,7 +735,7 @@ class _CargoPartyScreenState extends State<_CargoPartyScreen> {
     bool readOnly = false,
     TextInputType keyboardType = TextInputType.text,
     TextInputAction textInputAction = TextInputAction.next,
-    TextDirection? textDirection,
+    ui.TextDirection? textDirection,
     Widget? suffixIcon,
     String? errorText,
     ValueChanged<String>? onChanged,
