@@ -1,5 +1,5 @@
 import 'dart:math';
-
+import 'dart:ui' as ui;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -589,7 +589,7 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
     _prepareStream();
 
     return Directionality(
-      textDirection: TextDirection.rtl,
+      textDirection: ui.TextDirection.ltr,
       child: _buildScaffold(
         body: _ridesStream == null
             ? _buildMessageState(
