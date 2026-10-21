@@ -298,7 +298,7 @@
   "driver_default_name": "راننده سفیر",
   "car_default_model": "موتر",
   "car_default_color": "نامشخص",
-  "driver_arrival_time_msg": "راننده تا {} دقیقه دیگر می‌رسد",
+  "driver_arrival_time_msg": "راننده تا {} دیگر می‌رسد",
   "cancel_current_trip_btn": "لغو این سفر",
   "new_bid_offer": "پیشنهاد قیمت جدید",
   "enter_desired_price": "قیمت پیشنهادی خود را وارد کنید:",
