@@ -632,7 +632,7 @@ class _CargoPartyScreenState extends State<_CargoPartyScreen> {
                     ? 'cargo.phone'.tr()
                     : 'cargo.receiver_phone'.tr(),
                 keyboardType: TextInputType.phone,
-                textDirection: TextDirection.ltr,
+                textDirection: ui.TextDirection.ltr,
                 errorText: _phoneError,
                 onChanged: (String v) {
                   if (_phoneError != null && _isValidPhone(v)) {
