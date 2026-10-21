@@ -15,6 +15,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:audioplayers/audioplayers.dart';
 
 import 'package:safir_passengers/appInfo/app_info.dart';
+import 'package:safir_passengers/services/app_config_service.dart';
 import 'package:safir_passengers/constants/trip_status.dart';
 import 'package:safir_passengers/models/address_models.dart';
 import 'package:safir_passengers/global/global_var.dart';
@@ -354,6 +355,10 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
     }
 
     _startLiveLocationUpdates();
+
+    // تنظیمات کرایه از پنل ادمین (زنده)
+    AppConfigService.instance.start();
+    AppConfigService.instance.notifier.addListener(_onConfigChanged);
   }
 
   @override
@@ -378,6 +383,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
     _receiverFloorController.dispose();
     _receiverNoteController.dispose();
     _tripAudioPlayer.dispose();
+    AppConfigService.instance.notifier.removeListener(_onConfigChanged);
     _driverAnimationController.dispose();
     super.dispose();
   }
@@ -1682,6 +1688,36 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
     }
   }
 
+  // ════════════════════════════════════════════════════════════
+  //  💰 کرایه بر اساس تنظیمات پنل ادمین
+  // ════════════════════════════════════════════════════════════
+
+  /// کرایهٔ سفر فعلی بر اساس مسافت و تنظیمات ادمین
+  double _computeFare(double km) {
+    final AppConfig cfg = AppConfigService.instance.config;
+
+    if (widget.serviceType == 'cargo') {
+      return CargoSheets.calculateFareForVehicle(_cargoSelectedVehicle, km);
+    }
+
+    if (widget.serviceType == 'intercity') {
+      return cfg.intercityFare(km);
+    }
+
+    return cfg.fareForVehicle(selectedVehicle, km);
+  }
+
+  /// وقتی ادمین قیمت‌ها را عوض کرد، قیمت روی صفحه همان لحظه به‌روز می‌شود
+  void _onConfigChanged() {
+    if (!mounted) return;
+
+    setState(() {
+      if (_currentStep == 2 && _tripDistanceInKm > 0) {
+        actualFareAmount = _computeFare(_tripDistanceInKm);
+      }
+    });
+  }
+
   void _fetchRoute() {
     var appInfo = Provider.of<AppInfo>(context, listen: false);
     if (appInfo.pickUpLocation == null || _mapController == null) return;
@@ -1707,11 +1743,9 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
             // مسافت دقیقاً همان عددی است که OSRM از روی مسیر واقعی جاده حساب
             // کرده و برای کرایه هم استفاده می‌شود.
             _tripDistanceInKm = distanceKm;
-            // برای باربری، قیمت از فرمول مخصوص CargoSheets می‌آید.
-            actualFareAmount = widget.serviceType == 'cargo'
-                ? CargoSheets.calculateFareForVehicle(
-                    _cargoSelectedVehicle, _tripDistanceInKm)
-                : fare;
+            // ✅ کرایه از تنظیمات پنل ادمین حساب می‌شود
+            // (پارامتر fare قدیمی دیگر استفاده نمی‌شود)
+            actualFareAmount = _computeFare(distanceKm);
             _tripDurationText = durationText;
             _estimatedArrivalTime = arrivalTime;
           });
@@ -1855,6 +1889,28 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
     _isRequestingTrip = true;
 
     try {
+      // ✅ آخرین تنظیمات (قیمت و فعال‌بودن سرویس) را مستقیم از سرور بگیر
+      final AppConfig latestConfig = await AppConfigService.instance.refresh();
+      if (!mounted) return;
+
+      if (!latestConfig.isServiceActive) {
+        _showSnack(
+          'سرویس موقتاً غیرفعال است. لطفاً بعداً دوباره تلاش کنید.',
+          color: Colors.orange.shade800,
+        );
+        return;
+      }
+
+      // اگر در این فاصله قیمت‌ها عوض شده، قیمت جدید را نشان بده
+      final double freshFare = _computeFare(_tripDistanceInKm);
+      if ((freshFare - actualFareAmount).abs() >= 1) {
+        setState(() => actualFareAmount = freshFare);
+        _showSnack(
+          'کرایه به‌روزرسانی شد. قیمت جدید را ببینید و دوباره درخواست دهید.',
+        );
+        return;
+      }
+
       await _clearPreviewRoute();
       if (!mounted) return;
 
@@ -2653,6 +2709,12 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
                           selectedVehicleType: _selectedVehicleType,
                           actualFareAmount: actualFareAmount,
                           distanceInKm: _tripDistanceInKm,
+                          ecoFare: AppConfigService.instance.config
+                              .taxiFare(_tripDistanceInKm),
+                          vipFare: AppConfigService.instance.config
+                              .vipFare(_tripDistanceInKm),
+                          bikeFare: AppConfigService.instance.config
+                              .bikeFare(_tripDistanceInKm),
                           safirColor: AppColors.primaryBrand,
                           hasActiveTripOptions: _hasActiveTripOptions,
                           isScheduled: _isScheduled,
