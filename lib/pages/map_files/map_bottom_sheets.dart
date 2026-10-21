@@ -72,6 +72,10 @@ class MapBottomSheets {
     bool isScheduled = false,
     bool hasPromoCode = false,
     double? distanceInKm,
+    // قیمت هر نوع سرویس (از تنظیمات پنل ادمین)؛ اگر داده نشود از ضریب قدیمی حساب می‌شود
+    double? ecoFare,
+    double? vipFare,
+    double? bikeFare,
   }) {
     return Positioned.fill(
       child: LayoutBuilder(
@@ -141,7 +145,7 @@ class MapBottomSheets {
                                 title: 'vehicle_eco_title'.tr(),
                                 subtitle: 'vehicle_eco_sub'.tr(),
                                 price:
-                                    '${actualFareAmount.toStringAsFixed(0)} $currency',
+                                    '${(ecoFare ?? actualFareAmount).toStringAsFixed(0)} $currency',
                                 imagePath: 'assets/images/safir_normal.png',
                                 isSelected: selectedVehicleType == 0,
                                 safirColor: safirColor,
@@ -156,7 +160,7 @@ class MapBottomSheets {
                                 title: 'vehicle_vip_title'.tr(),
                                 subtitle: 'vehicle_vip_sub'.tr(),
                                 price:
-                                    '${(actualFareAmount * 1.35).toStringAsFixed(0)} $currency',
+                                    '${(vipFare ?? actualFareAmount * 1.35).toStringAsFixed(0)} $currency',
                                 imagePath: 'assets/images/uberexec.png',
                                 isSelected: selectedVehicleType == 1,
                                 safirColor: safirColor,
@@ -178,7 +182,7 @@ class MapBottomSheets {
                                 title: 'vehicle_bike_title'.tr(),
                                 subtitle: 'vehicle_bike_sub'.tr(),
                                 price:
-                                    '${(actualFareAmount * 0.55).toStringAsFixed(0)} $currency',
+                                    '${(bikeFare ?? actualFareAmount * 0.55).toStringAsFixed(0)} $currency',
                                 imagePath: 'assets/images/safir_bike.png',
                                 isSelected: selectedVehicleType == 0,
                                 safirColor: safirColor,
