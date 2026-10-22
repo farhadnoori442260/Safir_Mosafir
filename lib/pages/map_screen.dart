@@ -1486,7 +1486,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
 
     try {
       final Uint8List originBytes =
-          await widgetToImageBytes(const MapOriginLabel(labelText: 'مبدأ'));
+          await widgetToImageBytes(MapOriginLabel());
       await _mapController!.addImage('origin-marker-icon', originBytes);
 
       if (_originSymbol != null) {
@@ -1502,7 +1502,6 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
 
       final Uint8List destinationBytes = await widgetToImageBytes(
         MapDestinationLabel(
-          labelText: 'مقصد',
           arrivalTime: _estimatedArrivalTime,
         ),
       );
