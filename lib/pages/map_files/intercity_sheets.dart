@@ -6,7 +6,112 @@ class IntercitySheets {
   static const Color safirBrandColor = Color(0xFF145A41);
   static const Color originBlueColor = Color(0xFF2563EB);
 
-  /// 🏙️ ۱. نمایش شیت انتخاب شهر مقصد با جستجو و کلیک روی نقشه
+  // ════════════════════════════════════════════════════════════
+  //  ابزارها
+  // ════════════════════════════════════════════════════════════
+
+  /// ترجمه با متن جایگزین.
+  /// (در easy_localization اگر کلید پیدا نشود خود کلید برمی‌گردد، نه متن خالی؛
+  /// پس باید با خود کلید مقایسه کرد تا متن جایگزین واقعاً استفاده شود.)
+  static String _tr(String key, String fallback, {List<String>? args}) {
+    final String value = args == null ? key.tr() : key.tr(args: args);
+    return (value.isEmpty || value == key) ? fallback : value;
+  }
+
+  /// یکسان‌سازی متن برای جستجو: «ي» و «ك» عربی، ارقام و حروف بزرگ
+  static String _normalize(String input) {
+    String s = input.trim().toLowerCase();
+
+    s = s
+        .replaceAll('ي', 'ی')
+        .replaceAll('ى', 'ی')
+        .replaceAll('ك', 'ک')
+        .replaceAll('ۀ', 'ه')
+        .replaceAll('\u200c', ' ');
+
+    const String fa = '۰۱۲۳۴۵۶۷۸۹';
+    const String ar = '٠١٢٣٤٥٦٧٨٩';
+    for (int i = 0; i < 10; i++) {
+      s = s.replaceAll(fa[i], '$i').replaceAll(ar[i], '$i');
+    }
+
+    return s;
+  }
+
+  static const List<String> _afghanMonths = <String>[
+    'حمل',
+    'ثور',
+    'جوزا',
+    'سرطان',
+    'اسد',
+    'سنبله',
+    'میزان',
+    'عقرب',
+    'قوس',
+    'جدی',
+    'دلو',
+    'حوت',
+  ];
+
+  static String _toFaDigits(Object value) {
+    const String en = '0123456789';
+    const String fa = '۰۱۲۳۴۵۶۷۸۹';
+
+    String s = value.toString();
+    for (int i = 0; i < 10; i++) {
+      s = s.replaceAll(en[i], fa[i]);
+    }
+    return s;
+  }
+
+  /// تبدیل میلادی به شمسی؛ خروجی: [سال، ماه، روز]
+  static List<int> _gregorianToJalali(int gy, int gm, int gd) {
+    const List<int> gDaysBefore = <int>[
+      0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334,
+    ];
+
+    int jy = gy <= 1600 ? 0 : 979;
+    final int y = gy <= 1600 ? gy - 621 : gy - 1600;
+    final int y2 = gm > 2 ? y + 1 : y;
+
+    int days = (365 * y) +
+        ((y2 + 3) ~/ 4) -
+        ((y2 + 99) ~/ 100) +
+        ((y2 + 399) ~/ 400) -
+        80 +
+        gd +
+        gDaysBefore[gm - 1];
+
+    jy += 33 * (days ~/ 12053);
+    days %= 12053;
+
+    jy += 4 * (days ~/ 1461);
+    days %= 1461;
+
+    if (days > 365) {
+      jy += (days - 1) ~/ 365;
+      days = (days - 1) % 365;
+    }
+
+    final int jm = days < 186 ? 1 + days ~/ 31 : 7 + (days - 186) ~/ 30;
+    final int jd = 1 + (days < 186 ? days % 31 : (days - 186) % 30);
+
+    return <int>[jy, jm, jd];
+  }
+
+  /// مثلاً «۲۸ میزان ۱۴۰۵»
+  static String _formatJalali(DateTime date) {
+    final DateTime local = date.toLocal();
+    final List<int> j = _gregorianToJalali(local.year, local.month, local.day);
+
+    return '${_toFaDigits(j[2])} ${_afghanMonths[j[1] - 1]} ${_toFaDigits(j[0])}';
+  }
+
+  // ════════════════════════════════════════════════════════════
+  //  ۱. شیت انتخاب شهر مقصد
+  // ════════════════════════════════════════════════════════════
+
+  /// 🏙️ نمایش شیت انتخاب شهر مقصد با جستجو و کلیک روی نقشه
   static void showCityPicker({
     required BuildContext context,
     required List<Map<String, dynamic>> targetCities,
@@ -23,7 +128,7 @@ class IntercitySheets {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
-      builder: (context) {
+      builder: (sheetContext) {
         return StatefulBuilder(
           builder: (context, setSheetState) {
             return Padding(
@@ -52,39 +157,49 @@ class IntercitySheets {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        'intercity.select_destination_city'.tr().isEmpty 
-                            ? 'انتخاب شهر مقصد' 
-                            : 'intercity.select_destination_city'.tr(),
+                        _tr('intercity.select_destination_city', 'انتخاب شهر مقصد'),
                         style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 17,
-                            color: AppColors.textPrimary),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 17,
+                          color: AppColors.textPrimary,
+                        ),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.close_rounded, color: AppColors.textSecondary),
+                        icon: const Icon(
+                          Icons.close_rounded,
+                          color: AppColors.textSecondary,
+                        ),
                         onPressed: () => Navigator.pop(context),
                       ),
                     ],
                   ),
                   const SizedBox(height: 10),
-                  
-                  // کادر جستجوی مدرن
+
+                  // کادر جستجو
                   TextField(
                     onChanged: (query) {
+                      final String q = _normalize(query);
+
                       setSheetState(() {
                         filteredCities = targetCities.where((city) {
-                          final name = city['name']?.toString().toLowerCase() ?? '';
-                          final province = city['province']?.toString().toLowerCase() ?? '';
-                          final q = query.toLowerCase();
+                          final String name =
+                              _normalize(city['name']?.toString() ?? '');
+                          final String province =
+                              _normalize(city['province']?.toString() ?? '');
+
                           return name.contains(q) || province.contains(q);
                         }).toList();
                       });
                     },
                     decoration: InputDecoration(
-                      hintText: 'intercity.search_city_hint'.tr().isEmpty 
-                          ? 'جستجوی نام شهر یا ولایت...' 
-                          : 'intercity.search_city_hint'.tr(),
-                      prefixIcon: const Icon(Icons.search_rounded, color: safirBrandColor),
+                      hintText: _tr(
+                        'intercity.search_city_hint',
+                        'جستجوی نام شهر یا ولایت...',
+                      ),
+                      prefixIcon: const Icon(
+                        Icons.search_rounded,
+                        color: safirBrandColor,
+                      ),
                       filled: true,
                       fillColor: Colors.grey[100],
                       contentPadding: const EdgeInsets.symmetric(vertical: 14),
@@ -95,8 +210,8 @@ class IntercitySheets {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  
-                  // دکمه انتخاب روی نقشه
+
+                  // دکمهٔ انتخاب روی نقشه
                   InkWell(
                     onTap: () {
                       Navigator.pop(context);
@@ -104,29 +219,38 @@ class IntercitySheets {
                     },
                     borderRadius: BorderRadius.circular(16),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 12,
+                        horizontal: 14,
+                      ),
                       decoration: BoxDecoration(
                         color: safirBrandColor.withOpacity(0.08),
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: safirBrandColor.withOpacity(0.2)),
+                        border: Border.all(
+                          color: safirBrandColor.withOpacity(0.2),
+                        ),
                       ),
                       child: Row(
                         children: [
                           const Icon(Icons.map_rounded, color: safirBrandColor),
                           const SizedBox(width: 10),
                           Text(
-                            'intercity.select_on_map'.tr().isEmpty 
-                                ? 'انتخاب مستقیم از روی نقشه' 
-                                : 'intercity.select_on_map'.tr(),
+                            _tr(
+                              'intercity.select_on_map',
+                              'انتخاب مستقیم از روی نقشه',
+                            ),
                             style: const TextStyle(
-                                color: safirBrandColor,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13.5),
+                              color: safirBrandColor,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13.5,
+                            ),
                           ),
                           const Spacer(),
                           Icon(
-                            isRTL ? Icons.arrow_back_ios_new_rounded : Icons.arrow_forward_ios_rounded, 
-                            size: 14, 
+                            isRTL
+                                ? Icons.arrow_back_ios_new_rounded
+                                : Icons.arrow_forward_ios_rounded,
+                            size: 14,
                             color: safirBrandColor,
                           ),
                         ],
@@ -134,18 +258,17 @@ class IntercitySheets {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  
+
                   Text(
-                    'intercity.popular_cities'.tr().isEmpty 
-                        ? 'شهرهای پرتردد' 
-                        : 'intercity.popular_cities'.tr(),
+                    _tr('intercity.popular_cities', 'شهرهای پرتردد'),
                     style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textSecondary,
-                        fontSize: 12),
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textSecondary,
+                      fontSize: 12,
+                    ),
                   ),
                   const SizedBox(height: 8),
-                  
+
                   ConstrainedBox(
                     constraints: BoxConstraints(
                       maxHeight: MediaQuery.of(context).size.height * 0.38,
@@ -155,42 +278,73 @@ class IntercitySheets {
                             child: Padding(
                               padding: const EdgeInsets.all(20.0),
                               child: Text(
-                                'intercity.no_city_found'.tr().isEmpty 
-                                    ? 'شهری با این مشخصات یافت نشد' 
-                                    : 'intercity.no_city_found'.tr(),
-                                style: const TextStyle(color: AppColors.textSecondary),
+                                _tr(
+                                  'intercity.no_city_found',
+                                  'شهری با این مشخصات یافت نشد',
+                                ),
+                                style: const TextStyle(
+                                  color: AppColors.textSecondary,
+                                ),
                               ),
                             ),
                           )
                         : ListView.separated(
                             shrinkWrap: true,
                             itemCount: filteredCities.length,
-                            separatorBuilder: (c, i) => const Divider(height: 1, color: Color(0xFFEEEEEE)),
+                            separatorBuilder: (c, i) => const Divider(
+                              height: 1,
+                              color: Color(0xFFEEEEEE),
+                            ),
                             itemBuilder: (context, index) {
-                              var city = filteredCities[index];
+                              final Map<String, dynamic> city =
+                                  filteredCities[index];
+                              final String cityName =
+                                  city['name']?.toString() ?? '';
+                              final String? province =
+                                  city['province']?.toString();
+
                               return ListTile(
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 4,
+                                  vertical: 2,
+                                ),
                                 leading: Container(
                                   padding: const EdgeInsets.all(8),
                                   decoration: BoxDecoration(
                                     color: Colors.grey[100],
                                     shape: BoxShape.circle,
                                   ),
-                                  child: const Icon(Icons.location_city_rounded, color: safirBrandColor, size: 20),
+                                  child: const Icon(
+                                    Icons.location_city_rounded,
+                                    color: safirBrandColor,
+                                    size: 20,
+                                  ),
                                 ),
-                                title: Text(city['name'] ?? '',
-                                    style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        color: AppColors.textPrimary,
-                                        fontSize: 14)),
+                                title: Text(
+                                  cityName,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.textPrimary,
+                                    fontSize: 14,
+                                  ),
+                                ),
                                 subtitle: Text(
-                                    city['province'] != null 
-                                        ? 'ولایت ${city['province']}' 
-                                        : 'intercity.province_label'.tr(args: [city['name'] ?? '']),
-                                    style: const TextStyle(
-                                        fontSize: 11.5, color: AppColors.textSecondary)),
+                                  province != null && province.isNotEmpty
+                                      ? 'ولایت $province'
+                                      : _tr(
+                                          'intercity.province_label',
+                                          '',
+                                          args: [cityName],
+                                        ),
+                                  style: const TextStyle(
+                                    fontSize: 11.5,
+                                    color: AppColors.textSecondary,
+                                  ),
+                                ),
                                 trailing: Icon(
-                                  isRTL ? Icons.chevron_left_rounded : Icons.chevron_right_rounded, 
+                                  isRTL
+                                      ? Icons.chevron_left_rounded
+                                      : Icons.chevron_right_rounded,
                                   color: Colors.grey,
                                 ),
                                 onTap: () {
@@ -210,7 +364,11 @@ class IntercitySheets {
     );
   }
 
-  /// 💳 ۲. شیت فاکتور، تنظیم زمان، تعداد مسافر و ثبت نهایی سفر بین‌شهری
+  // ════════════════════════════════════════════════════════════
+  //  ۲. شیت فاکتور و ثبت سفر بین‌شهری
+  // ════════════════════════════════════════════════════════════
+
+  /// 💳 شیت فاکتور، تنظیم زمان، تعداد مسافر و ثبت نهایی سفر بین‌شهری
   static Widget buildStep2IntercitySheet({
     required BuildContext context,
     String originAddress = '',
@@ -230,13 +388,26 @@ class IntercitySheets {
     Function(int)? onPassengersChanged,
   }) {
     final VoidCallback? submitAction = onRequestTrip ?? onSubmitTrip;
+    final double safeBottom = MediaQuery.of(context).padding.bottom;
+
+    // متن تاریخ: شمسی (ماه‌های افغانی)
+    final String dateText;
+    if (travelDate is DateTime) {
+      dateText = _formatJalali(travelDate);
+    } else if (travelDate != null && travelDate.toString().isNotEmpty) {
+      dateText = travelDate.toString();
+    } else {
+      dateText = _tr('intercity.today', 'امروز');
+    }
+
+    final String personLabel = _tr('person', 'نفر');
 
     return Positioned(
       bottom: 0,
       left: 0,
       right: 0,
       child: Container(
-        margin: const EdgeInsets.all(12),
+        margin: EdgeInsets.fromLTRB(12, 12, 12, 12 + safeBottom),
         padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
           color: Colors.white,
@@ -246,7 +417,7 @@ class IntercitySheets {
               color: Colors.black.withOpacity(0.12),
               blurRadius: 20,
               offset: const Offset(0, -4),
-            )
+            ),
           ],
         ),
         child: Column(
@@ -278,28 +449,46 @@ class IntercitySheets {
                     onTap: onEditOrigin,
                     child: Row(
                       children: [
-                        const Icon(Icons.circle, color: originBlueColor, size: 12),
+                        const Icon(
+                          Icons.circle,
+                          color: originBlueColor,
+                          size: 12,
+                        ),
                         const SizedBox(width: 10),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'intercity.origin'.tr().isEmpty ? 'مبدأ' : 'intercity.origin'.tr(),
-                                style: const TextStyle(fontSize: 10, color: AppColors.textSecondary),
+                                _tr('intercity.origin', 'مبدأ'),
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  color: AppColors.textSecondary,
+                                ),
                               ),
                               Text(
-                                originAddress.isEmpty 
-                                    ? ('intercity.selected_origin_default'.tr().isEmpty ? 'موقعیت فعلی' : 'intercity.selected_origin_default'.tr()) 
+                                originAddress.isEmpty
+                                    ? _tr(
+                                        'intercity.selected_origin_default',
+                                        'موقعیت فعلی',
+                                      )
                                     : originAddress,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.textPrimary),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                  color: AppColors.textPrimary,
+                                ),
                               ),
                             ],
                           ),
                         ),
-                        const Icon(Icons.edit_outlined, size: 16, color: safirBrandColor),
+                        const Icon(
+                          Icons.edit_outlined,
+                          size: 16,
+                          color: safirBrandColor,
+                        ),
                       ],
                     ),
                   ),
@@ -311,28 +500,46 @@ class IntercitySheets {
                     onTap: onEditDestination,
                     child: Row(
                       children: [
-                        const Icon(Icons.location_on, color: Colors.redAccent, size: 16),
+                        const Icon(
+                          Icons.location_on,
+                          color: Colors.redAccent,
+                          size: 16,
+                        ),
                         const SizedBox(width: 10),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'intercity.destination'.tr().isEmpty ? 'مقصد' : 'intercity.destination'.tr(),
-                                style: const TextStyle(fontSize: 10, color: AppColors.textSecondary),
+                                _tr('intercity.destination', 'مقصد'),
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  color: AppColors.textSecondary,
+                                ),
                               ),
                               Text(
-                                destinationAddress.isEmpty 
-                                    ? ('intercity.selected_destination_default'.tr().isEmpty ? 'انتخاب شهر مقصد' : 'intercity.selected_destination_default'.tr()) 
+                                destinationAddress.isEmpty
+                                    ? _tr(
+                                        'intercity.selected_destination_default',
+                                        'انتخاب شهر مقصد',
+                                      )
                                     : destinationAddress,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.textPrimary),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                  color: AppColors.textPrimary,
+                                ),
                               ),
                             ],
                           ),
                         ),
-                        const Icon(Icons.edit_outlined, size: 16, color: safirBrandColor),
+                        const Icon(
+                          Icons.edit_outlined,
+                          size: 16,
+                          color: safirBrandColor,
+                        ),
                       ],
                     ),
                   ),
@@ -341,50 +548,74 @@ class IntercitySheets {
             ),
             const SizedBox(height: 14),
 
-            // انتخاب تاریخ و انتخاب تعداد مسافران
+            // تاریخ و تعداد مسافر
             Row(
               children: [
                 // انتخاب تاریخ
                 Expanded(
                   child: InkWell(
-                    onTap: onSelectTimingPressed ?? () async {
-                      final DateTime? picked = await showDatePicker(
-                        context: context,
-                        initialDate: travelDate is DateTime ? travelDate : DateTime.now(),
-                        firstDate: DateTime.now(),
-                        lastDate: DateTime.now().add(const Duration(days: 60)),
-                      );
-                      if (picked != null) {
-                        onDateSelected?.call(picked);
-                      }
-                    },
+                    onTap: onSelectTimingPressed ??
+                        () async {
+                          final DateTime today =
+                              DateUtils.dateOnly(DateTime.now());
+
+                          // ✅ اگر تاریخِ قبلاً انتخاب‌شده گذشته باشد، دیالوگ کرش نمی‌کند
+                          final DateTime initial = travelDate is DateTime &&
+                                  !DateUtils.dateOnly(travelDate)
+                                      .isBefore(today)
+                              ? DateUtils.dateOnly(travelDate)
+                              : today;
+
+                          final DateTime? picked = await showDatePicker(
+                            context: context,
+                            initialDate: initial,
+                            firstDate: today,
+                            lastDate: today.add(const Duration(days: 60)),
+                          );
+
+                          if (picked != null) {
+                            onDateSelected?.call(picked);
+                          }
+                        },
                     borderRadius: BorderRadius.circular(16),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 10,
+                        horizontal: 12,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.indigo.withOpacity(0.06),
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: Colors.indigo.withOpacity(0.15)),
+                        border: Border.all(
+                          color: Colors.indigo.withOpacity(0.15),
+                        ),
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.calendar_month_rounded, color: Colors.indigo, size: 20),
+                          const Icon(
+                            Icons.calendar_month_rounded,
+                            color: Colors.indigo,
+                            size: 20,
+                          ),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'intercity.travel_time'.tr().isEmpty ? 'زمان حرکت' : 'intercity.travel_time'.tr(),
-                                  style: const TextStyle(fontSize: 10, color: AppColors.textSecondary),
+                                  _tr('intercity.travel_time', 'زمان حرکت'),
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    color: AppColors.textSecondary,
+                                  ),
                                 ),
                                 Text(
-                                  travelDate is DateTime
-                                      ? DateFormat('yyyy/MM/dd').format(travelDate)
-                                      : (travelDate?.toString().isNotEmpty == true 
-                                          ? travelDate.toString() 
-                                          : ('intercity.today'.tr().isEmpty ? 'امروز' : 'intercity.today'.tr())),
-                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.indigo),
+                                  dateText,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.indigo,
+                                  ),
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ],
@@ -397,14 +628,19 @@ class IntercitySheets {
                 ),
                 const SizedBox(width: 10),
 
-                // انتخاب تعداد مسافران با کنترل سریع + / -
+                // تعداد مسافران با کنترل + / -
                 Expanded(
                   child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 6,
+                      horizontal: 8,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.orange.withOpacity(0.06),
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.orange.withOpacity(0.2)),
+                      border: Border.all(
+                        color: Colors.orange.withOpacity(0.2),
+                      ),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -417,19 +653,33 @@ class IntercitySheets {
                           },
                           child: Container(
                             padding: const EdgeInsets.all(4),
-                            decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-                            child: const Icon(Icons.remove, size: 16, color: Colors.orange),
+                            decoration: const BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.remove,
+                              size: 16,
+                              color: Colors.orange,
+                            ),
                           ),
                         ),
                         Column(
                           children: [
                             Text(
-                              'intercity.passengers_count'.tr().isEmpty ? 'تعداد مسافر' : 'intercity.passengers_count'.tr(),
-                              style: const TextStyle(fontSize: 9, color: AppColors.textSecondary),
+                              _tr('intercity.passengers_count', 'تعداد مسافر'),
+                              style: const TextStyle(
+                                fontSize: 9,
+                                color: AppColors.textSecondary,
+                              ),
                             ),
                             Text(
-                              '$passengerCount ${'person'.tr().isEmpty ? 'نفر' : 'person'.tr()}',
-                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.orange),
+                              '$passengerCount $personLabel',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.orange,
+                              ),
                             ),
                           ],
                         ),
@@ -441,8 +691,15 @@ class IntercitySheets {
                           },
                           child: Container(
                             padding: const EdgeInsets.all(4),
-                            decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-                            child: const Icon(Icons.add, size: 16, color: Colors.orange),
+                            decoration: const BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.add,
+                              size: 16,
+                              color: Colors.orange,
+                            ),
                           ),
                         ),
                       ],
@@ -453,7 +710,7 @@ class IntercitySheets {
             ),
             const SizedBox(height: 16),
 
-            // محاسبه و نمایش کرایه
+            // کرایه
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -461,33 +718,46 @@ class IntercitySheets {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'intercity.fare_cost'.tr().isEmpty ? 'هزینه تخمینی' : 'intercity.fare_cost'.tr(),
-                      style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                      _tr('intercity.fare_cost', 'هزینه تخمینی'),
+                      style: const TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 13,
+                      ),
                     ),
                     if (distanceInKm > 0)
                       Text(
                         'مسافت: ${distanceInKm.toStringAsFixed(1)} کیلومتر',
-                        style: const TextStyle(color: AppColors.textSecondary, fontSize: 11, fontWeight: FontWeight.bold),
+                        style: const TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                   ],
                 ),
                 Text(
-                  '${fareAmount.toStringAsFixed(0)} ${'intercity.currency'.tr().isEmpty ? 'افغانی' : 'intercity.currency'.tr()}',
-                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: safirBrandColor),
+                  '${fareAmount.toStringAsFixed(0)} ${_tr('intercity.currency', 'افغانی')}',
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: safirBrandColor,
+                  ),
                 ),
               ],
             ),
 
             const SizedBox(height: 14),
 
-            // دکمه ثبت درخواست
+            // دکمهٔ ثبت درخواست
             SizedBox(
               width: double.infinity,
               height: 52,
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: safirBrandColor,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
                   elevation: 2,
                 ),
                 onPressed: isLoading ? null : submitAction,
@@ -495,11 +765,21 @@ class IntercitySheets {
                     ? const SizedBox(
                         height: 22,
                         width: 22,
-                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
                       )
                     : Text(
-                        'intercity.request_trip'.tr().isEmpty ? 'ثبت درخواست سفر بین شهری' : 'intercity.request_trip'.tr(),
-                        style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
+                        _tr(
+                          'intercity.request_trip',
+                          'ثبت درخواست سفر بین شهری',
+                        ),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
               ),
             ),
