@@ -763,5 +763,8 @@
   "chat_error_loading_messages": "Error loading messages",
   "chat_empty_subtitle": "Send your message to the driver",
   "trip_status_completed": "Completed",
-  "trip_status_cancelled": "Cancelled"
+  "trip_status_cancelled": "Cancelled",
+  "time_hour": "hours",
+  "time_and": "and",
+  "time_minute": "minutes"
 }
