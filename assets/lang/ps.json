@@ -759,5 +759,10 @@
   "hours_and_minutes_format": "{} ساعتونه او {} دقیقې",
   "switch_active": "فعال",
   "switch_inactive": "غیرفعال",
-  "cache_cleared_msg": "لنډمهاله حافظه په بریا سره پاکه شوه"
+  "cache_cleared_msg": "لنډمهاله حافظه په بریا سره پاکه شوه",
+  "chat_time_now": "اوس",
+  "close_tooltip": "تړل",
+  "chat_error_no_trip_id": "د چت لپاره د سفر شمېره نشته",
+  "chat_error_loading_messages": "د پیغامونو په ترلاسه کولو کې تېروتنه",
+  "chat_empty_subtitle": "خپل پیغام چلوونکي ته ولېږئ"
 }
