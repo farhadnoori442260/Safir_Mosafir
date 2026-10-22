@@ -765,5 +765,8 @@
   "close_tooltip": "بستن",
   "chat_error_no_trip_id": "شناسه سفر برای چت موجود نیست",
   "chat_error_loading_messages": "خطا در دریافت پیام‌ها",
-  "chat_empty_subtitle": "پیام خود را برای راننده ارسال کنید"
+  "chat_empty_subtitle": "پیام خود را برای راننده ارسال کنید",
+  "time_hour": "ساعت",
+  "time_and": "و",
+  "time_minute": "دقیقه" 
 }
