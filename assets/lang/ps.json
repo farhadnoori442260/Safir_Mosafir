@@ -765,5 +765,8 @@
   "chat_error_no_trip_id": "د چت لپاره د سفر شمېره نشته",
   "chat_error_loading_messages": "د پیغامونو په ترلاسه کولو کې تېروتنه",
   "chat_empty_subtitle": "خپل پیغام چلوونکي ته ولېږئ",
-  "vehicle_bike_title": "سفیر موټرسایکل"
+  "vehicle_bike_title": "سفیر موټرسایکل",
+  "time_hour": "ساعتونه",
+  "time_and": "او",
+  "time_minute": "دقیقې"
 }
