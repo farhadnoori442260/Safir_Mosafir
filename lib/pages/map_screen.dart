@@ -895,8 +895,9 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
       final int hours = totalMinutes ~/ 60;
       final int minutes = totalMinutes % 60;
 
-      final String durationText =
-          hours > 0 ? '$hours ساعت و $minutes دقیقه' : '$minutes دقیقه';
+      final String durationText = hours > 0
+    ? '$hours ${'time_hour'.tr()} ${'time_and'.tr()} $minutes ${'time_minute'.tr()}'
+    : '$minutes ${'time_minute'.tr()}';
 
       final DateTime arrival =
           DateTime.now().add(Duration(seconds: durationSeconds.round()));
