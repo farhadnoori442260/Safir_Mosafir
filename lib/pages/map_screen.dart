@@ -2103,7 +2103,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
             }
 
             if (tripStatus == TripStatus.arrived) {
-              _showSnack("راننده به مبدأ شما رسید.");
+              _showSnack('status_driver_arrived'.tr());
             }
 
             if (tripStatus == TripStatus.cancelledByDriver) {
@@ -2113,7 +2113,10 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
               // برگشت به مرحلهٔ انتخاب سرویس و کشیدن دوبارهٔ مسیر پیش‌نمایش
               unawaited(_resetToRequestStep());
 
-              _showSnack("سفر توسط سفیر لغو گردید.", color: Colors.red);
+              _showSnack(
+               'trip_status_cancelled_by_driver'.tr(),
+                color: Colors.red,
+              );
             }
           }
 
