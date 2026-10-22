@@ -384,7 +384,7 @@ class _ProfileAnimatedMenuState
     }
 
     if (currentUser == null) {
-      return 'user_default'.tr();
+      return _localizedKey('user_default', 'کاربر سفیر');
     }
 
     try {
@@ -412,7 +412,7 @@ class _ProfileAnimatedMenuState
       debugPrint('خطا در دریافت نام مسافر: $e');
     }
 
-    return 'user_default'.tr();
+    return _localizedKey('user_default', 'کاربر سفیر');
   }
 
   Future<String> _displayPhone() async {
@@ -464,6 +464,11 @@ class _ProfileAnimatedMenuState
     return '---';
   }
 
+  String _localizedKey(String key, String fallback) {
+    final String value = key.tr();
+    return value.isEmpty || value == key ? fallback : value;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -475,7 +480,7 @@ class _ProfileAnimatedMenuState
         scrolledUnderElevation: 0,
         automaticallyImplyLeading: false,
         leading: IconButton(
-          tooltip: 'back'.tr(),
+          tooltip: _localizedKey('back', 'بازگشت'),
           onPressed: () {
             Navigator.pop(context);
           },
@@ -486,7 +491,7 @@ class _ProfileAnimatedMenuState
           ),
         ),
         title: Text(
-          'profile'.tr(),
+          _localizedKey('profile', 'پروفایل'),
           style: const TextStyle(
             color: darkTextColor,
             fontSize: 18,
@@ -505,88 +510,85 @@ class _ProfileAnimatedMenuState
             28,
           ),
           children: [
-  _buildProfileHeader(),
-  const SizedBox(height: 24),
-  _buildSectionTitle(
-    'user_account_section'.tr(),
-  ),
-  _buildMenuGroup([
-    _buildMenuItem(
-      icon: Icons.route_rounded,
-      title: 'trips_history'.tr(),
-      subtitle: 'trips_history_sub'.tr(),
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => const TripsHistoryPage(),
-          ),
-        );
-      },
-    ),
-
-    // این بخش جدید را اضافه کن
-    _buildMenuItem(
-      icon: Icons.bookmark_border_rounded,
-      title: 'آدرس‌های ذخیره‌شده',
-      subtitle: 'خانه، محل کار و مکان‌های پرکاربرد',
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => const SavedAddressesScreen(),
-          ),
-        );
-      },
-    ),
-
-    _buildMenuItem(
-      icon: Icons.person_add_alt_1_rounded,
-      title: 'invite_friends'.tr(),
-      subtitle: 'invite_friends_sub'.tr(),
-      onTap: () {
-        _shareInviteCode(context);
-      },
-    ),
-    _buildMenuItem(
-      icon: Icons.chat_bubble_outline_rounded,
-      title: 'messages'.tr(),
-      subtitle: 'messages_sub'.tr(),
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => const MessagesScreen(),
-          ),
-        );
-      },
-    ),
-  ]),
+            _buildProfileHeader(),
+            const SizedBox(height: 24),
+            _buildSectionTitle(
+              _localizedKey('user_account_section', 'حساب کاربری'),
+            ),
+            _buildMenuGroup([
+              _buildMenuItem(
+                icon: Icons.route_rounded,
+                title: _localizedKey('trips_history', 'سفرها'),
+                subtitle: _localizedKey('trips_history_sub', 'مشاهده سفرهای قبلی'),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const TripsHistoryPage(),
+                    ),
+                  );
+                },
+              ),
+              _buildMenuItem(
+                icon: Icons.bookmark_border_rounded,
+                title: _localizedKey('saved_addresses_title', 'آدرس‌های ذخیره‌شده'),
+                subtitle: _localizedKey('saved_addresses_sub', 'خانه، محل کار و مکان‌های پرکاربرد'),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const SavedAddressesScreen(),
+                    ),
+                  );
+                },
+              ),
+              _buildMenuItem(
+                icon: Icons.person_add_alt_1_rounded,
+                title: _localizedKey('invite_friends', 'دعوت از دوستان'),
+                subtitle: _localizedKey('invite_friends_sub', 'دوستان خود را به سفیر دعوت کنید'),
+                onTap: () {
+                  _shareInviteCode(context);
+                },
+              ),
+              _buildMenuItem(
+                icon: Icons.chat_bubble_outline_rounded,
+                title: _localizedKey('messages', 'پیام‌ها'),
+                subtitle: _localizedKey('messages_sub', 'پیام‌ها و اطلاعیه‌ها'),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const MessagesScreen(),
+                    ),
+                  );
+                },
+              ),
+            ]),
             const SizedBox(height: 22),
             _buildSectionTitle(
-              'services_and_support_section'.tr(),
+              _localizedKey('services_and_support_section', 'خدمات و پشتیبانی'),
             ),
             _buildMenuGroup([
               _buildMenuItem(
                 icon: Icons.local_offer_outlined,
-                title: 'discount_code'.tr(),
-                subtitle: 'discount_code_sub'.tr(),
+                title: _localizedKey('discount_code', 'کد تخفیف'),
+                subtitle: _localizedKey('discount_code_sub', 'ثبت و استفاده از کد تخفیف'),
                 onTap: () {
                   _showDiscountModal(context);
                 },
               ),
               _buildMenuItem(
                 icon: Icons.support_agent_rounded,
-                title: 'support_contact'.tr(),
-                subtitle: 'support_contact_sub'.tr(),
+                title: _localizedKey('support_contact', 'پشتیبانی و ارتباط با ما'),
+                subtitle: _localizedKey('support_contact_sub', 'ما همیشه آماده کمک هستیم'),
                 onTap: () {
                   _makeSupportCall(context);
                 },
               ),
               _buildMenuItem(
                 icon: Icons.settings_outlined,
-                title: 'settings'.tr(),
-                subtitle: 'settings_sub'.tr(),
+                title: _localizedKey('settings', 'تنظیمات'),
+                subtitle: _localizedKey('settings_sub', 'زبان و تنظیمات برنامه'),
                 onTap: () {
                   Navigator.push(
                     context,
@@ -670,7 +672,7 @@ class _ProfileAnimatedMenuState
                       ) {
                         final String name =
                             snapshot.data ??
-                                'user_default'.tr();
+                                _localizedKey('user_default', 'کاربر سفیر');
 
                         return Text(
                           name,
