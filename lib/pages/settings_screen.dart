@@ -1040,7 +1040,7 @@ class _ModernSwitch extends StatelessWidget {
     return Semantics(
       button: true,
       toggled: value,
-      label: value ? 'فعال' : 'غیرفعال',
+      label: value ? _localizedKey('switch_active', 'فعال') : _localizedKey('switch_inactive', 'غیرفعال'),
       child: GestureDetector(
         onTap: () {
           onChanged(!value);
@@ -1088,5 +1088,10 @@ class _ModernSwitch extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  String _localizedKey(String key, String fallback) {
+    final String value = key.tr();
+    return value.isEmpty || value == key ? fallback : value;
   }
 }
