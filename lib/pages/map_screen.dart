@@ -244,7 +244,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
       widget.presetOrigin != null && widget.presetDestination != null;
   bool _presetApplied = false;
 
-  String? _intercityTravelDate;
+  DateTime? _intercityTravelDate;
   int _intercityPassengers = 1;
 
   String? _secondDestinationAddress;
@@ -1701,7 +1701,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
     }
 
     if (widget.serviceType == 'intercity') {
-      return cfg.intercityFare(km);
+      return cfg.intercityFare(km, passengers: _intercityPassengers);
     }
 
     return cfg.fareForVehicle(selectedVehicle, km);
@@ -2040,7 +2040,9 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
 
           // ───── بین‌شهری ─────
           if (widget.serviceType == 'intercity') ...<String, dynamic>{
-            'intercity_date': _intercityTravelDate,
+            'intercity_date': _intercityTravelDate != null
+                ? Timestamp.fromDate(_intercityTravelDate!)
+                : null,
             'intercity_passengers': _intercityPassengers,
           },
         };
@@ -2698,10 +2700,26 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
                           context: context,
                           fareAmount: actualFareAmount,
                           distanceInKm: _tripDistanceInKm,
+                          originAddress: currentOrigin,
+                          destinationAddress: currentDestination,
                           travelDate: _intercityTravelDate,
                           passengerCount: _intercityPassengers,
-                          onDateSelected: (date) => setState(() => _intercityTravelDate = date),
-                          onPassengersChanged: (count) => setState(() => _intercityPassengers = count),
+                          // ✅ ویرایش مبدأ/مقصد: به مرحلهٔ قبل برمی‌گردد
+                          onEditOrigin: () {
+                            _handleBackAction();
+                            _handleBackAction();
+                          },
+                          onEditDestination: _handleBackAction,
+                          onDateSelected: (date) => setState(() {
+                            _intercityTravelDate = date is DateTime ? date : null;
+                          }),
+                          onPassengersChanged: (count) => setState(() {
+                            _intercityPassengers = count;
+                            // کرایه با تعداد مسافر دوباره حساب می‌شود
+                            if (_tripDistanceInKm > 0) {
+                              actualFareAmount = _computeFare(_tripDistanceInKm);
+                            }
+                          }),
                           onRequestTrip: () => startTrip(),
                         )
                       : MapBottomSheets.buildStep2(
