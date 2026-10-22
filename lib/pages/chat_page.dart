@@ -190,7 +190,7 @@ class _ChatPageState extends State<ChatPage> {
     }
 
     if (date == null) {
-      return 'اکنون';
+      return 'chat_time_now'.tr();
     }
 
     return DateFormat('HH:mm').format(date);
@@ -273,7 +273,7 @@ class _ChatPageState extends State<ChatPage> {
       ),
       actions: [
         IconButton(
-          tooltip: 'بستن',
+          tooltip: 'close_tooltip'.tr(),
           onPressed: () => Navigator.pop(context),
           icon: const Icon(
             Icons.close_rounded,
@@ -351,7 +351,7 @@ class _ChatPageState extends State<ChatPage> {
   Widget _buildMessages() {
     if (widget.tripId.trim().isEmpty) {
       return _buildErrorState(
-        'شناسه سفر برای چت موجود نیست',
+        'chat_error_no_trip_id'.tr(),
       );
     }
 
@@ -378,7 +378,7 @@ class _ChatPageState extends State<ChatPage> {
           );
 
           return _buildErrorState(
-            'خطا در دریافت پیام‌ها',
+            'chat_error_loading_messages'.tr(),
           );
         }
 
@@ -572,10 +572,10 @@ class _ChatPageState extends State<ChatPage> {
               ),
             ),
             const SizedBox(height: 7),
-            const Text(
-              'پیام خود را برای راننده ارسال کنید',
+            Text(
+              'chat_empty_subtitle'.tr(),
               textAlign: TextAlign.center,
-              style: TextStyle(
+              style: const TextStyle(
                 color: Color(0xFF9AA5B1),
                 fontSize: 12,
               ),
