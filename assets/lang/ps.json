@@ -764,5 +764,6 @@
   "close_tooltip": "تړل",
   "chat_error_no_trip_id": "د چت لپاره د سفر شمېره نشته",
   "chat_error_loading_messages": "د پیغامونو په ترلاسه کولو کې تېروتنه",
-  "chat_empty_subtitle": "خپل پیغام چلوونکي ته ولېږئ"
+  "chat_empty_subtitle": "خپل پیغام چلوونکي ته ولېږئ",
+  "vehicle_bike_title": "سفیر موټرسایکل"
 }
