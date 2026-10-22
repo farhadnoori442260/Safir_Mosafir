@@ -752,5 +752,9 @@
   "hours_and_minutes_format": "{} hours and {} minutes",
   "switch_active": "Active",
   "switch_inactive": "Inactive",
-  "cache_cleared_msg": "Temporary cache cleared successfully"
+  "cache_cleared_msg": "Temporary cache cleared successfully",
+  "trip_stat_km": "km",
+  "trip_stat_trips": "Trips",
+  "trip_stat_hours": "Hours",
+  "trip_currency_afghani": "AFN"
 }
