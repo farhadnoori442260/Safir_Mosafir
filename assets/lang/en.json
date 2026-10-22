@@ -756,5 +756,10 @@
   "trip_stat_km": "km",
   "trip_stat_trips": "Trips",
   "trip_stat_hours": "Hours",
-  "trip_currency_afghani": "AFN"
+  "trip_currency_afghani": "AFN",
+  "chat_time_now": "Now",
+  "close_tooltip": "Close",
+  "chat_error_no_trip_id": "Trip ID for chat is not available",
+  "chat_error_loading_messages": "Error loading messages",
+  "chat_empty_subtitle": "Send your message to the driver"
 }
