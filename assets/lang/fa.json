@@ -756,5 +756,9 @@
   "driver_pay_button": "پرداخت کرایه",
   "driver_trip_cost_label": "هزینهٔ سفر: {} {}",
   "cancel_current_trip_btn": "لغو این سفر",
-  "driver_arrival_time_msg": "راننده تا {} دیگر می‌رسد"
+  "driver_arrival_time_msg": "راننده تا {} دیگر می‌رسد",
+  "less_than_one_minute": "کمتر از ۱ دقیقه",
+  "minutes_format": "{} دقیقه",
+  "hours_format": "{} ساعت",
+  "hours_and_minutes_format": "{} ساعت و {} دقیقه"
 }
