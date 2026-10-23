@@ -1529,7 +1529,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           label: _tr('gender_label', 'جنسیت'),
                           hintText: _tr(
                             'gender_hint',
-                            'جنسیت خود را انتخاب کنید',
+                            'جنسیت',
                           ),
                           value: _selectedGender,
                           onTap: _showGenderPicker,
