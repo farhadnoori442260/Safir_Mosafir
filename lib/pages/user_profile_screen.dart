@@ -1528,7 +1528,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         _buildSelectionField(
                           label: _tr('gender_label', 'جنسیت'),
                           hintText: _tr(
-                            'gender_hint',
+                            'gender_label',
                             'جنسیت',
                           ),
                           value: _selectedGender,
