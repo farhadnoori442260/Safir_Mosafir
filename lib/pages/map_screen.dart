@@ -2783,7 +2783,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
                 plateNumDriver: _driverPlateNum,
                 isTempPlateDriver: _driverIsTempPlate,
                 tripFareAmount: actualFareAmount,
-                estimatedArrivalTime: _tripDurationText.isNotEmpty ? _tripDurationText : "۵ دقیقه",
+                estimatedArrivalTime: _tripDurationText.isNotEmpty ? _tripDurationText : "۵",
                 onCancelTrip: cancelTrip,
               ),
             ],
