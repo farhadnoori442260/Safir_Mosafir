@@ -895,9 +895,8 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
       final int hours = totalMinutes ~/ 60;
       final int minutes = totalMinutes % 60;
 
-      final String durationText = hours > 0
-    ? '$hours ${'time_hour'.tr()} ${'time_and'.tr()} $minutes ${'time_minute'.tr()}'
-    : '$minutes ${'time_minute'.tr()}';
+      final String durationText =
+          hours > 0 ? '$hours ساعت و $minutes دقیقه' : '$minutes دقیقه';
 
       final DateTime arrival =
           DateTime.now().add(Duration(seconds: durationSeconds.round()));
@@ -1487,7 +1486,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
 
     try {
       final Uint8List originBytes =
-          await widgetToImageBytes(MapOriginLabel());
+          await widgetToImageBytes(const MapOriginLabel(labelText: 'مبدأ'));
       await _mapController!.addImage('origin-marker-icon', originBytes);
 
       if (_originSymbol != null) {
@@ -1503,6 +1502,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
 
       final Uint8List destinationBytes = await widgetToImageBytes(
         MapDestinationLabel(
+          labelText: 'مقصد',
           arrivalTime: _estimatedArrivalTime,
         ),
       );
@@ -2001,7 +2001,8 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
           'fareAmount': actualFareAmount,
           'fare': actualFareAmount,
           'price': actualFareAmount,
-          'distance': _tripDistanceInKm,
+          // ✅ گرد‌شده تا اعداد اعشاری بی‌معنی (مثل 7.0463000000001) ذخیره نشود
+          'distance': double.parse(_tripDistanceInKm.toStringAsFixed(2)),
           'duration': _tripDurationText,
           'service_type': widget.serviceType,
           'vehicle_type': selectedVehicle,
@@ -2104,7 +2105,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
             }
 
             if (tripStatus == TripStatus.arrived) {
-              _showSnack('status_driver_arrived'.tr());
+              _showSnack("راننده به مبدأ شما رسید.");
             }
 
             if (tripStatus == TripStatus.cancelledByDriver) {
@@ -2114,10 +2115,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
               // برگشت به مرحلهٔ انتخاب سرویس و کشیدن دوبارهٔ مسیر پیش‌نمایش
               unawaited(_resetToRequestStep());
 
-              _showSnack(
-               'trip_status_cancelled_by_driver'.tr(),
-                color: Colors.red,
-              );
+              _showSnack("سفر توسط سفیر لغو گردید.", color: Colors.red);
             }
           }
 
