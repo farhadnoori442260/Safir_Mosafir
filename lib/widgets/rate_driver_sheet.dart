@@ -83,6 +83,14 @@ class _RateDriverScreenState extends State<RateDriverScreen>
       return;
     }
 
+    final String passengerId =
+        FirebaseAuth.instance.currentUser?.uid ?? '';
+
+    if (passengerId.isEmpty) {
+      _showError('error_occurred'.tr());
+      return;
+    }
+
     setState(() {
       _isSubmitting = true;
     });
@@ -92,9 +100,6 @@ class _RateDriverScreenState extends State<RateDriverScreen>
     try {
       final FirebaseFirestore firestore =
           FirebaseFirestore.instance;
-
-      final String passengerId =
-          FirebaseAuth.instance.currentUser?.uid ?? '';
 
       final DocumentReference<Map<String, dynamic>> tripRef =
           firestore.collection('rides').doc(widget.tripId);
@@ -132,28 +137,7 @@ class _RateDriverScreenState extends State<RateDriverScreen>
             throw Exception('already_rated');
           }
 
-          final DocumentSnapshot<Map<String, dynamic>>
-              driverSnapshot =
-              await transaction.get(driverRef);
-
-          final Map<String, dynamic> driverData =
-              driverSnapshot.data() ?? <String, dynamic>{};
-
-          final int oldRatingCount =
-              _toInt(driverData['ratingCount']);
-
-          final double oldRatingTotal =
-              _toDouble(driverData['ratingTotal']);
-
-          final int newRatingCount =
-              oldRatingCount + 1;
-
-          final double newRatingTotal =
-              oldRatingTotal + _rating;
-
-          final double newAverageRating =
-              newRatingTotal / newRatingCount;
-
+          // ۱) امتیاز در خود سفر
           transaction.set(
             tripRef,
             <String, dynamic>{
@@ -167,20 +151,25 @@ class _RateDriverScreenState extends State<RateDriverScreen>
             SetOptions(merge: true),
           );
 
+          // ۲) شمارندهٔ امتیاز راننده
+          //
+          // ✅ مسافر اجازهٔ «خواندن» سند راننده را ندارد (اطلاعات خصوصی
+          // راننده آنجاست)؛ پس به‌جای خواندن و محاسبهٔ میانگین، فقط
+          // شمارنده‌ها به‌صورت اتمی زیاد می‌شوند:
+          //   میانگین = ratingTotal ÷ ratingCount
           transaction.set(
             driverRef,
             <String, dynamic>{
-              'ratingCount': newRatingCount,
-              'ratingTotal': newRatingTotal,
-              'averageRating': double.parse(
-                newAverageRating.toStringAsFixed(2),
-              ),
-              'lastRatingAt':
-                  FieldValue.serverTimestamp(),
+              'ratingCount': FieldValue.increment(1),
+              'ratingTotal': FieldValue.increment(_rating),
+              'lastRatingAt': FieldValue.serverTimestamp(),
+              'lastRatingTripId': widget.tripId,
             },
             SetOptions(merge: true),
           );
 
+          // ۳) سند امتیاز (شناسهٔ آن همان شناسهٔ سفر است؛ پس هر سفر
+          // فقط یک بار امتیاز می‌گیرد)
           transaction.set(
             ratingRef,
             <String, dynamic>{
@@ -265,22 +254,6 @@ class _RateDriverScreenState extends State<RateDriverScreen>
         backgroundColor: Colors.red.shade700,
       ),
     );
-  }
-
-  int _toInt(dynamic value) {
-    if (value is num) {
-      return value.toInt();
-    }
-
-    return int.tryParse(value?.toString() ?? '') ?? 0;
-  }
-
-  double _toDouble(dynamic value) {
-    if (value is num) {
-      return value.toDouble();
-    }
-
-    return double.tryParse(value?.toString() ?? '') ?? 0;
   }
 
   @override
@@ -380,8 +353,9 @@ class _RateDriverScreenState extends State<RateDriverScreen>
                     ],
                   ),
                   const SizedBox(height: 16),
+                  // ✅ ارتفاع کمی بیشتر شد تا ردیف سوم برچسب‌ها بریده نشود
                   SizedBox(
-                    height: 180,
+                    height: 205,
                     child: TabBarView(
                       controller: _tabController,
                       children: <Widget>[
@@ -395,7 +369,7 @@ class _RateDriverScreenState extends State<RateDriverScreen>
             ),
             const SizedBox(height: 16),
             Align(
-              alignment: Alignment.centerRight,
+              alignment: AlignmentDirectional.centerStart,
               child: Text(
                 'comments_label'.tr(),
                 style: const TextStyle(
