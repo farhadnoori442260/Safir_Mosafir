@@ -1140,8 +1140,11 @@ class _SavedAddressTile extends StatelessWidget {
                     const SizedBox(height: 3),
                     Text(
                       subtitle.isEmpty
-                          ? 'موقعیت ذخیره‌شده'
-                          : subtitle,
+                          ? _translatedOrFallback(
+                          'saved_location',
+                          'موقعیت ذخیره‌شده',
+                          )
+                        : subtitle,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
