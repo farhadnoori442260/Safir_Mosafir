@@ -631,6 +631,7 @@
   "saved_address_delete": "حذف",
   "saved_address_empty_title": "هنوز آدرسی ذخیره نکرده‌اید",
   "saved_address_empty_description": "خانه، محل کار یا مکان‌های پرکاربرد خود را ذخیره کنید تا بعداً سریع‌تر مقصد انتخاب کنید.",
+  "saved_location": "موقعیت ذخیره‌شده",
   "saved_address_no_details": "بدون جزئیات آدرس",
   "rate_driver_missing_data": "اطلاعات سفر یا راننده کامل نیست.",
   "rate_driver_submit_success": "امتیاز شما با موفقیت ثبت شد. سپاس از بازخورد شما.",
