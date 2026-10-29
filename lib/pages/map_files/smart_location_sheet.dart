@@ -123,6 +123,35 @@ class _SmartLocationSheetState
     });
   }
 
+  void _startAddingFavoritePlace() {
+    HapticFeedback.lightImpact();
+
+    // مقصد جدید روی نقشه انتخاب می‌شود.
+    // مبدأ فعلی دست‌نخورده می‌ماند.
+    widget.onSearchDestinationTap();
+  }
+
+  void _openSavedAddressesManager() {
+    HapticFeedback.selectionClick();
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const SavedAddressesScreen(),
+      ),
+    );
+  }
+
+  void _selectSavedAddress(AddressModel address) {
+    if (address.latitudePosition == null ||
+        address.longitudePosition == null) {
+      return;
+    }
+
+    HapticFeedback.mediumImpact();
+    widget.onSavedAddressSelected?.call(address);
+  }
+
   double? _toDouble(dynamic value) {
     if (value is num) {
       return value.toDouble();
@@ -178,10 +207,7 @@ class _SmartLocationSheetState
     if (parts.length > 1) {
       return <String, String>{
         'title': parts.first.trim(),
-        'subtitle': parts
-            .skip(1)
-            .join('، ')
-            .trim(),
+        'subtitle': parts.skip(1).join('، ').trim(),
       };
     }
 
@@ -189,25 +215,6 @@ class _SmartLocationSheetState
       'title': cleanAddress,
       'subtitle': locationOnMap,
     };
-  }
-
-  void _openSavedAddressesManager() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => const SavedAddressesScreen(),
-      ),
-    );
-  }
-
-  void _selectSavedAddress(AddressModel address) {
-    if (address.latitudePosition == null ||
-        address.longitudePosition == null) {
-      return;
-    }
-
-    HapticFeedback.mediumImpact();
-    widget.onSavedAddressSelected?.call(address);
   }
 
   @override
@@ -634,19 +641,22 @@ class _SmartLocationSheetState
         collection = _savedAddressesCollection;
 
     if (collection == null) {
-      return _AddFavoriteTile(
-        title: _translatedOrFallback(
-          'add_favorite_place',
-          'افزودن مکان منتخب',
+      return SizedBox(
+        height: 58,
+        child: _AddFavoriteChip(
+          title: _translatedOrFallback(
+            'add_favorite_place',
+            'افزودن مکان منتخب',
+          ),
+          onTap: _startAddingFavoritePlace,
         ),
-        onTap: _openSavedAddressesManager,
       );
     }
 
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
       stream: collection
           .orderBy('updatedAt', descending: true)
-          .limit(5)
+          .limit(12)
           .snapshots(),
       builder: (
         BuildContext context,
@@ -654,18 +664,21 @@ class _SmartLocationSheetState
             snapshot,
       ) {
         if (snapshot.hasError) {
-          return _AddFavoriteTile(
-            title: _translatedOrFallback(
-              'add_favorite_place',
-              'افزودن مکان منتخب',
+          return SizedBox(
+            height: 58,
+            child: _AddFavoriteChip(
+              title: _translatedOrFallback(
+                'add_favorite_place',
+                'افزودن مکان منتخب',
+              ),
+              onTap: _startAddingFavoritePlace,
             ),
-            onTap: _openSavedAddressesManager,
           );
         }
 
         if (!snapshot.hasData) {
-          return const Padding(
-            padding: EdgeInsets.symmetric(vertical: 14),
+          return const SizedBox(
+            height: 58,
             child: Center(
               child: SizedBox(
                 width: 22,
@@ -681,16 +694,6 @@ class _SmartLocationSheetState
 
         final List<QueryDocumentSnapshot<Map<String, dynamic>>>
             documents = snapshot.data!.docs;
-
-        if (documents.isEmpty) {
-          return _AddFavoriteTile(
-            title: _translatedOrFallback(
-              'add_favorite_place',
-              'افزودن مکان منتخب',
-            ),
-            onTap: _openSavedAddressesManager,
-          );
-        }
 
         final List<QueryDocumentSnapshot<Map<String, dynamic>>>
             homeAndWork = documents.where(
@@ -713,32 +716,44 @@ class _SmartLocationSheetState
         ).toList();
 
         final List<QueryDocumentSnapshot<Map<String, dynamic>>>
-            priorityAddresses = <QueryDocumentSnapshot<
+            favoriteAddresses = <QueryDocumentSnapshot<
                 Map<String, dynamic>>>[
           ...homeAndWork,
           ...otherAddresses,
-        ].take(4).toList();
+        ];
 
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (priorityAddresses.isNotEmpty)
-              _buildQuickAddressChips(priorityAddresses),
-            if (priorityAddresses.isNotEmpty)
-              const SizedBox(height: 10),
-            ...priorityAddresses.map(
-              (
-                QueryDocumentSnapshot<Map<String, dynamic>>
-                    document,
+        return SizedBox(
+          height: 58,
+          child: Directionality(
+            textDirection: ui.TextDirection.rtl,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              padding: EdgeInsets.zero,
+              itemCount: favoriteAddresses.length + 1,
+              separatorBuilder: (
+                BuildContext context,
+                int index,
               ) {
+                return const SizedBox(width: 8);
+              },
+              itemBuilder: (
+                BuildContext context,
+                int index,
+              ) {
+                // اولین آیتم در سمت راست: افزودن مکان منتخب
+                if (index == 0) {
+                  return _AddFavoriteChip(
+                    title: _translatedOrFallback(
+                      'add_favorite_place',
+                      'افزودن مکان منتخب',
+                    ),
+                    onTap: _startAddingFavoritePlace,
+                  );
+                }
+
                 final Map<String, dynamic> data =
-                    document.data();
-
-                final double? latitude =
-                    _toDouble(data['latitude']);
-
-                final double? longitude =
-                    _toDouble(data['longitude']);
+                    favoriteAddresses[index - 1].data();
 
                 final String type =
                     data['type']?.toString() ?? 'other';
@@ -754,125 +769,36 @@ class _SmartLocationSheetState
                         data['placeName']?.toString() ??
                         '';
 
-                final AddressModel savedAddress =
-                    AddressModel(
-                  placeName:
-                      data['placeName']?.toString() ??
-                          address,
-                  humanReadableAddress: address,
-                  latitudePosition: latitude,
-                  longitudePosition: longitude,
-                );
+                final double? latitude =
+                    _toDouble(data['latitude']);
 
-                return Padding(
-                  padding: const EdgeInsets.only(
-                    bottom: 5,
-                  ),
-                  child: _SavedAddressTile(
-                    title: title,
-                    subtitle: address,
-                    type: type,
-                    onTap: () {
-                      _selectSavedAddress(savedAddress);
-                    },
-                  ),
+                final double? longitude =
+                    _toDouble(data['longitude']);
+
+                return _FavoriteAddressChip(
+                  title: title,
+                  type: type,
+                  onTap: () {
+                    _selectSavedAddress(
+                      AddressModel(
+                        placeName:
+                            data['placeName']?.toString() ??
+                                address,
+                        humanReadableAddress: address,
+                        latitudePosition: latitude,
+                        longitudePosition: longitude,
+                      ),
+                    );
+                  },
+                  onManageTap: type == 'home'
+                      ? _openSavedAddressesManager
+                      : null,
                 );
               },
             ),
-            const SizedBox(height: 3),
-            _AddFavoriteTile(
-              title: _translatedOrFallback(
-                'add_favorite_place',
-                'افزودن مکان منتخب',
-              ),
-              onTap: _openSavedAddressesManager,
-            ),
-          ],
+          ),
         );
       },
-    );
-  }
-
-  Widget _buildQuickAddressChips(
-    List<QueryDocumentSnapshot<Map<String, dynamic>>> items,
-  ) {
-    final List<QueryDocumentSnapshot<Map<String, dynamic>>>
-        quickItems = items
-            .where(
-              (
-                QueryDocumentSnapshot<Map<String, dynamic>>
-                    item,
-              ) {
-                final String type =
-                    item.data()['type']?.toString() ?? '';
-
-                return type == 'home' || type == 'work';
-              },
-            )
-            .take(2)
-            .toList();
-
-    if (quickItems.isEmpty) {
-      return const SizedBox.shrink();
-    }
-
-    return SizedBox(
-      height: 56,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        physics: const BouncingScrollPhysics(),
-        itemCount: quickItems.length,
-        separatorBuilder: (
-          BuildContext context,
-          int index,
-        ) {
-          return const SizedBox(width: 8);
-        },
-        itemBuilder: (
-          BuildContext context,
-          int index,
-        ) {
-          final Map<String, dynamic> data =
-              quickItems[index].data();
-
-          final String type =
-              data['type']?.toString() ?? 'other';
-
-          final String title =
-              data['title']?.toString().trim().isNotEmpty ==
-                      true
-                  ? data['title'].toString()
-                  : _savedAddressTypeTitle(type);
-
-          final double? latitude =
-              _toDouble(data['latitude']);
-
-          final double? longitude =
-              _toDouble(data['longitude']);
-
-          final String address =
-              data['address']?.toString() ??
-                  data['placeName']?.toString() ??
-                  '';
-
-          return _QuickAddressChip(
-            title: title,
-            type: type,
-            onTap: () {
-              _selectSavedAddress(
-                AddressModel(
-                  placeName:
-                      data['placeName']?.toString() ??
-                          address,
-                  humanReadableAddress: address,
-                  latitudePosition: latitude,
-                  longitudePosition: longitude,
-                ),
-              );
-            },
-          );
-        },
-      ),
     );
   }
 
@@ -1046,18 +972,71 @@ class _SearchResultTile extends StatelessWidget {
   }
 }
 
-class _SavedAddressTile extends StatelessWidget {
-  const _SavedAddressTile({
+class _AddFavoriteChip extends StatelessWidget {
+  const _AddFavoriteChip({
     required this.title,
-    required this.subtitle,
-    required this.type,
     required this.onTap,
   });
 
   final String title;
-  final String subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          height: 56,
+          padding: const EdgeInsets.symmetric(
+            horizontal: 13,
+          ),
+          decoration: BoxDecoration(
+            color: AppColors.primaryBrand.withOpacity(0.09),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: AppColors.primaryBrand.withOpacity(0.20),
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.add_rounded,
+                color: AppColors.primaryBrand,
+                size: 21,
+              ),
+              const SizedBox(width: 7),
+              Text(
+                title,
+                style: const TextStyle(
+                  color: AppColors.primaryBrand,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _FavoriteAddressChip extends StatelessWidget {
+  const _FavoriteAddressChip({
+    required this.title,
+    required this.type,
+    required this.onTap,
+    this.onManageTap,
+  });
+
+  final String title;
   final String type;
   final VoidCallback onTap;
+  final VoidCallback? onManageTap;
 
   IconData get _icon {
     switch (type) {
@@ -1087,121 +1066,11 @@ class _SavedAddressTile extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(15),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            vertical: 6,
-            horizontal: 4,
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 39,
-                height: 39,
-                decoration: BoxDecoration(
-                  color: _color.withOpacity(0.10),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  _icon,
-                  color: _color,
-                  size: 21,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: AppColors.textPrimary,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      subtitle.isEmpty
-                          ? _translatedOrFallback(
-                              'saved_location',
-                              'موقعیت ذخیره‌شده',
-                            )
-                          : subtitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const Icon(
-                Icons.chevron_left_rounded,
-                color: AppColors.iconSecondary,
-                size: 21,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _QuickAddressChip extends StatelessWidget {
-  const _QuickAddressChip({
-    required this.title,
-    required this.type,
-    required this.onTap,
-  });
-
-  final String title;
-  final String type;
-  final VoidCallback onTap;
-
-  IconData get _icon {
-    if (type == 'home') {
-      return Icons.home_outlined;
-    }
-
-    if (type == 'work') {
-      return Icons.business_outlined;
-    }
-
-    return Icons.star_outline_rounded;
-  }
-
-  Color get _color {
-    if (type == 'home') {
-      return const Color(0xFF2563EB);
-    }
-
-    if (type == 'work') {
-      return const Color(0xFFF59E0B);
-    }
-
-    return AppColors.primaryBrand;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
         borderRadius: BorderRadius.circular(16),
         child: Container(
+          height: 56,
           padding: const EdgeInsets.symmetric(
-            horizontal: 13,
-            vertical: 9,
+            horizontal: 11,
           ),
           decoration: BoxDecoration(
             color: _color.withOpacity(0.10),
@@ -1227,66 +1096,27 @@ class _QuickAddressChip extends StatelessWidget {
                   fontWeight: FontWeight.w800,
                 ),
               ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _AddFavoriteTile extends StatelessWidget {
-  const _AddFavoriteTile({
-    required this.title,
-    required this.onTap,
-  });
-
-  final String title;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(15),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            vertical: 5,
-            horizontal: 4,
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 38,
-                height: 38,
-                decoration: const BoxDecoration(
-                  color: AppColors.cardBackground,
-                  shape: BoxShape.circle,
+              if (onManageTap != null) ...[
+                const SizedBox(width: 7),
+                Container(
+                  width: 1,
+                  height: 22,
+                  color: _color.withOpacity(0.20),
                 ),
-                child: const Icon(
-                  Icons.add_rounded,
-                  color: AppColors.primaryBrand,
-                  size: 22,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  title,
-                  style: const TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
+                const SizedBox(width: 4),
+                InkWell(
+                  onTap: onManageTap,
+                  borderRadius: BorderRadius.circular(18),
+                  child: Padding(
+                    padding: const EdgeInsets.all(4),
+                    child: Icon(
+                      Icons.edit_location_alt_outlined,
+                      color: _color,
+                      size: 18,
+                    ),
                   ),
                 ),
-              ),
-              const Icon(
-                Icons.chevron_left_rounded,
-                color: AppColors.iconSecondary,
-                size: 21,
-              ),
+              ],
             ],
           ),
         ),
