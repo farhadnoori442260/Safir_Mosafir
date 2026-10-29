@@ -584,13 +584,25 @@ void initState() {
 
       if (!mounted) return;
 
-      Navigator.pop(sheetContext);
+Navigator.pop(sheetContext);
 
-      _showMessage(
-        addressDocument == null
-            ? 'saved_address_saved'.tr()
-            : 'saved_address_updated'.tr(),
-      );
+if (addressDocument == null) {
+  Navigator.pop(
+    context,
+    AddressModel(
+      placeName: selectedAddress.placeName ?? address,
+      humanReadableAddress: address,
+      latitudePosition: latitude,
+      longitudePosition: longitude,
+    ),
+  );
+
+  return;
+}
+
+_showMessage(
+  'saved_address_updated'.tr(),
+);
     } on FirebaseException catch (e) {
       debugPrint(
         'Saved address Firestore error: '
