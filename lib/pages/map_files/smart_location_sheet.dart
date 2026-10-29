@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'package:safir_passengers/models/address_models.dart';
+import 'package:safir_passengers/pages/search_destination_place.dart';
 import 'package:safir_passengers/pages/saved_addresses_screen.dart';
 import 'package:safir_passengers/theme/app_colors.dart';
 
@@ -117,6 +118,42 @@ class _SmartLocationSheetState
     if (!widget.hasGpsDisruption) {
       return;
     }
+      Future<void> _startAddingFavoritePlace() async {
+  HapticFeedback.lightImpact();
+
+  final dynamic searchResult = await Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (_) => const SearchDestinationPlace(),
+    ),
+  );
+
+  if (!mounted ||
+      searchResult is! Map ||
+      searchResult['address'] is! AddressModel) {
+    return;
+  }
+
+  final AddressModel selectedAddress =
+      searchResult['address'] as AddressModel;
+
+  final AddressModel? savedAddress =
+      await Navigator.push<AddressModel>(
+    context,
+    MaterialPageRoute(
+      builder: (_) => SavedAddressesScreen(
+        initialAddress: selectedAddress,
+        openAddSheetOnStart: true,
+      ),
+    ),
+  );
+
+  if (!mounted || savedAddress == null) {
+    return;
+  }
+
+  widget.onSavedAddressSelected?.call(savedAddress);
+      }
 
     setState(() {
       _showGpsWarningText = !_showGpsWarningText;
