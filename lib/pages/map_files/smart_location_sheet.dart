@@ -112,13 +112,19 @@ class _SmartLocationSheetState
   }
 
   void _handleGpsTap() {
-    HapticFeedback.lightImpact();
-    widget.onGpsTap();
+  HapticFeedback.lightImpact();
+  widget.onGpsTap();
 
-    if (!widget.hasGpsDisruption) {
-      return;
-    }
-      Future<void> _startAddingFavoritePlace() async {
+  if (!widget.hasGpsDisruption) {
+    return;
+  }
+
+  setState(() {
+    _showGpsWarningText = !_showGpsWarningText;
+  });
+}
+
+Future<void> _startAddingFavoritePlace() async {
   HapticFeedback.lightImpact();
 
   final dynamic searchResult = await Navigator.push(
@@ -153,20 +159,7 @@ class _SmartLocationSheetState
   }
 
   widget.onSavedAddressSelected?.call(savedAddress);
-      }
-
-    setState(() {
-      _showGpsWarningText = !_showGpsWarningText;
-    });
-  }
-
-  void _startAddingFavoritePlace() {
-    HapticFeedback.lightImpact();
-
-    // مقصد جدید روی نقشه انتخاب می‌شود.
-    // مبدأ فعلی دست‌نخورده می‌ماند.
-    widget.onSearchDestinationTap();
-  }
+}
 
   void _openSavedAddressesManager() {
     HapticFeedback.selectionClick();
