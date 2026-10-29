@@ -75,14 +75,15 @@ void initState() {
   }
 
   Future<void> _openAddAddressSheet({
-    DocumentSnapshot<Map<String, dynamic>>? addressDocument,
-  }) async {
+  DocumentSnapshot<Map<String, dynamic>>? addressDocument,
+  AddressModel? initialAddress,
+}) async {
     final Map<String, dynamic>? oldData = addressDocument?.data();
 
     String selectedType =
         oldData?['type']?.toString() ?? 'other';
 
-    AddressModel? selectedAddress;
+    AddressModel? selectedAddress = initialAddress;
 
     _titleController.text =
         oldData?['title']?.toString() ?? '';
