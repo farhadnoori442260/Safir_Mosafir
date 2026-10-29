@@ -11,6 +11,19 @@ import 'package:safir_passengers/models/address_models.dart';
 import 'package:safir_passengers/pages/saved_addresses_screen.dart';
 import 'package:safir_passengers/theme/app_colors.dart';
 
+String _translatedOrFallback(
+  String key,
+  String fallback,
+) {
+  final String value = key.tr();
+
+  if (value.trim().isEmpty || value == key) {
+    return fallback;
+  }
+
+  return value;
+}
+
 class SmartLocationSheet extends StatefulWidget {
   final int currentStep;
   final String currentAddress;
@@ -23,7 +36,6 @@ class SmartLocationSheet extends StatefulWidget {
   final bool isExpanded;
   final ValueChanged<bool>? onExpandChanged;
   final bool hasGpsDisruption;
-
   final ValueChanged<AddressModel>? onSavedAddressSelected;
 
   const SmartLocationSheet({
@@ -74,8 +86,6 @@ class _SmartLocationSheetState
   @override
   void initState() {
     super.initState();
-
-    // هشدار GPS فقط در خطای قطعی نمایش داده می‌شود.
     _showGpsWarningText = widget.hasGpsDisruption;
   }
 
@@ -104,8 +114,6 @@ class _SmartLocationSheetState
     HapticFeedback.lightImpact();
     widget.onGpsTap();
 
-    // با GPS ضعیف هیچ هشدار یا بازشدنی اتفاق نمی‌افتد.
-    // فقط وقتی خطای قطعی وجود داشته باشد، هشدار باز/بسته می‌شود.
     if (!widget.hasGpsDisruption) {
       return;
     }
@@ -113,19 +121,6 @@ class _SmartLocationSheetState
     setState(() {
       _showGpsWarningText = !_showGpsWarningText;
     });
-  }
-
-  String _translatedOrFallback(
-    String key,
-    String fallback,
-  ) {
-    final String value = key.tr();
-
-    if (value.trim().isEmpty || value == key) {
-      return fallback;
-    }
-
-    return value;
   }
 
   double? _toDouble(dynamic value) {
@@ -139,32 +134,27 @@ class _SmartLocationSheetState
   Map<String, String> _splitAddress(
     String fullAddress,
   ) {
-    final String originFallback =
-        _translatedOrFallback(
+    final String originFallback = _translatedOrFallback(
       'origin',
       'انتخاب مبدأ',
     );
 
-    final String destinationFallback =
-        _translatedOrFallback(
+    final String destinationFallback = _translatedOrFallback(
       'where_to_go',
       'مقصد شما کجاست؟',
     );
 
-    final String fetchingAddress =
-        _translatedOrFallback(
+    final String fetchingAddress = _translatedOrFallback(
       'fetching_address',
       'در حال دریافت آدرس...',
     );
 
-    final String exactLocation =
-        _translatedOrFallback(
+    final String exactLocation = _translatedOrFallback(
       'exact_location_on_map',
       'موقعیت دقیق روی نقشه',
     );
 
-    final String locationOnMap =
-        _translatedOrFallback(
+    final String locationOnMap = _translatedOrFallback(
       'location_on_map',
       'موقعیت روی نقشه',
     );
@@ -217,7 +207,6 @@ class _SmartLocationSheetState
     }
 
     HapticFeedback.mediumImpact();
-
     widget.onSavedAddressSelected?.call(address);
   }
 
@@ -232,14 +221,12 @@ class _SmartLocationSheetState
     final Map<String, String> activeAddressData =
         _splitAddress(activeAddress);
 
-    final String originPlaceholder =
-        _translatedOrFallback(
+    final String originPlaceholder = _translatedOrFallback(
       'origin',
       'انتخاب مبدأ',
     );
 
-    final String destinationPlaceholder =
-        _translatedOrFallback(
+    final String destinationPlaceholder = _translatedOrFallback(
       'where_to_go',
       'مقصد شما کجاست؟',
     );
@@ -1141,10 +1128,10 @@ class _SavedAddressTile extends StatelessWidget {
                     Text(
                       subtitle.isEmpty
                           ? _translatedOrFallback(
-                          'saved_location',
-                          'موقعیت ذخیره‌شده',
-                          )
-                        : subtitle,
+                              'saved_location',
+                              'موقعیت ذخیره‌شده',
+                            )
+                          : subtitle,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
