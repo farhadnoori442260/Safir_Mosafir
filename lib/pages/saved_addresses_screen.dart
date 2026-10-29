@@ -16,7 +16,14 @@ const Color savedPageBackground = Color(0xFFF7F9F8);
 const Color savedIconBackground = Color(0xFFEFF5F1);
 
 class SavedAddressesScreen extends StatefulWidget {
-  const SavedAddressesScreen({super.key});
+  final AddressModel? initialAddress;
+  final bool openAddSheetOnStart;
+
+  const SavedAddressesScreen({
+    super.key,
+    this.initialAddress,
+    this.openAddSheetOnStart = false,
+  });
 
   @override
   State<SavedAddressesScreen> createState() =>
@@ -29,6 +36,23 @@ class _SavedAddressesScreenState
       TextEditingController();
 
   bool _isSaving = false;
+    @override
+void initState() {
+  super.initState();
+
+  if (widget.openAddSheetOnStart &&
+      widget.initialAddress != null) {
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) {
+        if (mounted) {
+          _openAddAddressSheet(
+            initialAddress: widget.initialAddress,
+          );
+        }
+      },
+    );
+  }
+}
 
   @override
   void dispose() {
