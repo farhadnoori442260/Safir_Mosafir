@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui' as ui;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -71,6 +72,18 @@ class _SmartLocationSheetState
 
   bool _showGpsWarningText = false;
 
+  // ───────── آدرس‌های ذخیره‌شده ─────────
+  // اشتراک (subscription) یک‌بار در initState ساخته می‌شود و آخرین نتیجه در
+  // state نگه داشته می‌شود. قبلاً StreamBuilder با هر rebuild (باز و بسته
+  // شدن کشو، حرکت نقشه) استریم جدید می‌ساخت و لحظه‌ای اسپینر نشان می‌داد؛
+  // همین باعث لرزش کشو می‌شد.
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>?
+      _savedSubscription;
+  List<QueryDocumentSnapshot<Map<String, dynamic>>> _savedDocs =
+      <QueryDocumentSnapshot<Map<String, dynamic>>>[];
+  bool _savedLoaded = false;
+  bool _savedError = false;
+
   bool get _expanded => widget.isExpanded;
 
   CollectionReference<Map<String, dynamic>>?
@@ -91,6 +104,48 @@ class _SmartLocationSheetState
   void initState() {
     super.initState();
     _showGpsWarningText = widget.hasGpsDisruption;
+    _listenToSavedAddresses();
+  }
+
+  void _listenToSavedAddresses() {
+    final CollectionReference<Map<String, dynamic>>? collection =
+        _savedAddressesCollection;
+
+    if (collection == null) {
+      return;
+    }
+
+    _savedSubscription = collection
+        .orderBy('updatedAt', descending: true)
+        .limit(12)
+        .snapshots()
+        .listen(
+      (QuerySnapshot<Map<String, dynamic>> snapshot) {
+        if (!mounted) return;
+
+        setState(() {
+          _savedDocs = snapshot.docs;
+          _savedLoaded = true;
+          _savedError = false;
+        });
+      },
+      onError: (Object e) {
+        debugPrint('Saved addresses shortcut stream error: $e');
+
+        if (!mounted) return;
+
+        setState(() {
+          _savedError = true;
+          _savedLoaded = true;
+        });
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    _savedSubscription?.cancel();
+    super.dispose();
   }
 
   @override
@@ -115,130 +170,145 @@ class _SmartLocationSheetState
   }
 
   void _handleGpsTap() {
-  HapticFeedback.lightImpact();
-  widget.onGpsTap();
+    HapticFeedback.lightImpact();
+    widget.onGpsTap();
 
-  if (!widget.hasGpsDisruption) {
-    return;
-  }
+    if (!widget.hasGpsDisruption) {
+      return;
+    }
 
-  setState(() {
-    _showGpsWarningText = !_showGpsWarningText;
-  });
-}
-
-Future<void> _startAddingFavoritePlace() async {
-  HapticFeedback.lightImpact();
-
-  // مرحله ۱: انتخاب روی نقشه + دکمه‌ی تأیید
-  final AddressModel? selectedAddress =
-      await widget.onPickFavoriteOnMap?.call();
-
-  if (!mounted || selectedAddress == null) {
-    return;
-  }
-
-  final String addressText =
-      selectedAddress.humanReadableAddress?.trim().isNotEmpty == true
-          ? selectedAddress.humanReadableAddress!.trim()
-          : (selectedAddress.placeName ?? '').trim();
-
-  // مرحله ۲: انتخاب خانه / دفتر یا نام دلخواه
-  final Map<String, dynamic>? details =
-      await Navigator.push<Map<String, dynamic>>(
-    context,
-    MaterialPageRoute(
-      builder: (_) => _FavoriteDetailsPage(
-        address: addressText,
-      ),
-    ),
-  );
-
-  if (!mounted || details == null) {
-    return;
-  }
-
-  await _saveFavoritePlace(
-    address: selectedAddress,
-    addressText: addressText,
-    title: details['title'] as String,
-    type: details['type'] as String,
-    showAsShortcut: details['showAsShortcut'] as bool,
-  );
-}
-
-Future<void> _saveFavoritePlace({
-  required AddressModel address,
-  required String addressText,
-  required String title,
-  required String type,
-  required bool showAsShortcut,
-}) async {
-  final CollectionReference<Map<String, dynamic>>? collection =
-      _savedAddressesCollection;
-
-  final ScaffoldMessengerState messenger =
-      ScaffoldMessenger.of(context);
-
-  if (collection == null) {
-    messenger.showSnackBar(
-      SnackBar(
-        content: Text(
-          _translatedOrFallback(
-            'login_required_to_save',
-            'برای ذخیره آدرس ابتدا وارد حساب شوید',
-          ),
-        ),
-      ),
-    );
-    return;
-  }
-
-  try {
-    await collection.add(<String, dynamic>{
-      'title': title,
-      'type': type,
-      'address': addressText,
-      'placeName': address.placeName ?? addressText,
-      'latitude': address.latitudePosition,
-      'longitude': address.longitudePosition,
-      'showAsShortcut': showAsShortcut,
-      'createdAt': FieldValue.serverTimestamp(),
-      'updatedAt': FieldValue.serverTimestamp(),
+    setState(() {
+      _showGpsWarningText = !_showGpsWarningText;
     });
-
-    HapticFeedback.mediumImpact();
-
-    // بعد از ذخیره به صفحه‌ی انتخاب مقصد برمی‌گردیم؛
-    // آدرس جدید از طریق stream به‌صورت چیپ افقی ظاهر می‌شود.
-    messenger.showSnackBar(
-      SnackBar(
-        content: Text(
-          _translatedOrFallback(
-            'favorite_saved_success',
-            'آدرس منتخب با موفقیت ذخیره شد.',
-          ),
-        ),
-      ),
-    );
-  } catch (_) {
-    messenger.showSnackBar(
-      SnackBar(
-        content: Text(
-          _translatedOrFallback(
-            'favorite_save_failed',
-            'ذخیره آدرس انجام نشد، دوباره تلاش کنید.',
-          ),
-        ),
-      ),
-    );
   }
-}
+
+  Future<void> _startAddingFavoritePlace() async {
+    HapticFeedback.lightImpact();
+
+    // مرحله ۱: انتخاب روی نقشه + دکمه‌ی تأیید
+    final AddressModel? selectedAddress =
+        await widget.onPickFavoriteOnMap?.call();
+
+    if (!mounted || selectedAddress == null) {
+      return;
+    }
+
+    final String addressText =
+        selectedAddress.humanReadableAddress?.trim().isNotEmpty == true
+            ? selectedAddress.humanReadableAddress!.trim()
+            : (selectedAddress.placeName ?? '').trim();
+
+    // مرحله ۲: انتخاب خانه / دفتر یا نام دلخواه
+    final Map<String, dynamic>? details =
+        await Navigator.push<Map<String, dynamic>>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => _FavoriteDetailsPage(
+          address: addressText,
+        ),
+      ),
+    );
+
+    if (!mounted || details == null) {
+      return;
+    }
+
+    final bool saved = await _saveFavoritePlace(
+      address: selectedAddress,
+      addressText: addressText,
+      title: details['title'] as String,
+      type: details['type'] as String,
+      showAsShortcut: details['showAsShortcut'] as bool,
+    );
+
+    if (!mounted || !saved) {
+      return;
+    }
+
+    // ✅ در مرحلهٔ انتخاب مبدأ، آدرسِ تازه افزوده‌شده همان لحظه «مبدأ» سفر
+    // می‌شود (نقشه آن را تایید می‌کند و به مرحلهٔ مقصد می‌رود).
+    if (widget.currentStep == 0) {
+      _selectSavedAddress(selectedAddress);
+    }
+  }
+
+  /// true یعنی آدرس با موفقیت ذخیره شد.
+  Future<bool> _saveFavoritePlace({
+    required AddressModel address,
+    required String addressText,
+    required String title,
+    required String type,
+    required bool showAsShortcut,
+  }) async {
+    final CollectionReference<Map<String, dynamic>>? collection =
+        _savedAddressesCollection;
+
+    final ScaffoldMessengerState messenger =
+        ScaffoldMessenger.of(context);
+
+    if (collection == null) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            _translatedOrFallback(
+              'login_required_to_save',
+              'برای ذخیره آدرس ابتدا وارد حساب شوید',
+            ),
+          ),
+        ),
+      );
+      return false;
+    }
+
+    try {
+      await collection.add(<String, dynamic>{
+        'title': title,
+        'type': type,
+        'address': addressText,
+        'placeName': address.placeName ?? addressText,
+        'latitude': address.latitudePosition,
+        'longitude': address.longitudePosition,
+        'showAsShortcut': showAsShortcut,
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+
+      HapticFeedback.mediumImpact();
+
+      // آدرس جدید از طریق stream به‌صورت چیپ افقی ظاهر می‌شود.
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            _translatedOrFallback(
+              'favorite_saved_success',
+              'آدرس منتخب با موفقیت ذخیره شد.',
+            ),
+          ),
+        ),
+      );
+
+      return true;
+    } catch (_) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            _translatedOrFallback(
+              'favorite_save_failed',
+              'ذخیره آدرس انجام نشد، دوباره تلاش کنید.',
+            ),
+          ),
+        ),
+      );
+
+      return false;
+    }
+  }
 
   Future<void> _openSavedAddressesManager() async {
     HapticFeedback.selectionClick();
 
-    // کلیک روی هر آدرس همان رفتار چیپ‌ها را دارد: مقصد انتخاب می‌شود
+    // کلیک روی هر آدرس همان رفتار چیپ‌ها را دارد: در مرحلهٔ اول مبدأ و
+    // در مرحلهٔ دوم مقصد انتخاب می‌شود
     final AddressModel? selected = await Navigator.push<AddressModel>(
       context,
       MaterialPageRoute(
@@ -529,9 +599,9 @@ Future<void> _saveFavoritePlace({
           _setExpanded(false);
         }
       },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 280),
-        curve: Curves.easeOutCubic,
+      // کانتینر بیرونی ثابت است (قبلاً AnimatedContainer بود که هیچ چیزی
+      // را انیمیت نمی‌کرد و فقط با اندازه‌ی فرزند درگیر می‌شد).
+      child: Container(
         padding: const EdgeInsets.only(
           left: 16,
           right: 16,
@@ -564,29 +634,30 @@ Future<void> _saveFavoritePlace({
               hasSelectedAddress: hasSelectedAddress,
               currentMarkerColor: currentMarkerColor,
             ),
+            // ✅ فقط یک AnimatedSize؛ محتوای باز و دکمهٔ حالت بسته داخل
+            // همین یک انیمیشن جابه‌جا می‌شوند. قبلاً دو AnimatedSize مستقل
+            // هم‌زمان کوچک/بزرگ می‌شدند و ارتفاع کشو می‌لرزید.
             AnimatedSize(
-              duration: const Duration(milliseconds: 280),
+              duration: const Duration(milliseconds: 260),
               curve: Curves.easeOutCubic,
+              alignment: Alignment.topCenter,
               child: _expanded
-                  ? _buildExpandedContent(
-                      context: context,
-                      isOriginStep: isOriginStep,
-                      activeAddressData:
-                          activeAddressData,
-                      currentMarkerColor:
-                          currentMarkerColor,
+                  ? KeyedSubtree(
+                      key: const ValueKey<String>('drawer-expanded'),
+                      child: _buildExpandedContent(
+                        context: context,
+                        isOriginStep: isOriginStep,
+                        activeAddressData: activeAddressData,
+                        currentMarkerColor: currentMarkerColor,
+                      ),
                     )
-                  : const SizedBox.shrink(),
-            ),
-            AnimatedSize(
-              duration: const Duration(milliseconds: 280),
-              curve: Curves.easeOutCubic,
-              child: !_expanded
-                  ? _buildConfirmButton(
-                      context,
-                      isOriginStep,
-                    )
-                  : const SizedBox.shrink(),
+                  : KeyedSubtree(
+                      key: const ValueKey<String>('drawer-collapsed'),
+                      child: _buildConfirmButton(
+                        context,
+                        isOriginStep,
+                      ),
+                    ),
             ),
           ],
         ),
@@ -754,7 +825,7 @@ Future<void> _saveFavoritePlace({
     final CollectionReference<Map<String, dynamic>>?
         collection = _savedAddressesCollection;
 
-    if (collection == null) {
+    if (collection == null || _savedError) {
       return SizedBox(
         height: 58,
         child: _AddFavoriteChip(
@@ -767,163 +838,138 @@ Future<void> _saveFavoritePlace({
       );
     }
 
-    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-      stream: collection
-          .orderBy('updatedAt', descending: true)
-          .limit(12)
-          .snapshots(),
-      builder: (
-        BuildContext context,
-        AsyncSnapshot<QuerySnapshot<Map<String, dynamic>>>
-            snapshot,
-      ) {
-        if (snapshot.hasError) {
-          return SizedBox(
-            height: 58,
-            child: _AddFavoriteChip(
-              title: _translatedOrFallback(
-                'add_favorite_place',
-                'افزودن مکان منتخب',
-              ),
-              onTap: _startAddingFavoritePlace,
-            ),
-          );
-        }
-
-        if (!snapshot.hasData) {
-          return const SizedBox(
-            height: 58,
-            child: Center(
-              child: SizedBox(
-                width: 22,
-                height: 22,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2.2,
-                  color: AppColors.primaryBrand,
-                ),
-              ),
-            ),
-          );
-        }
-
-        final List<QueryDocumentSnapshot<Map<String, dynamic>>>
-            documents = snapshot.data!.docs.where(
-          (QueryDocumentSnapshot<Map<String, dynamic>> item) {
-            return item.data()['showAsShortcut'] != false;
-          },
-        ).toList();
-
-        final List<QueryDocumentSnapshot<Map<String, dynamic>>>
-            homeAndWork = documents.where(
-          (QueryDocumentSnapshot<Map<String, dynamic>> item) {
-            final String type =
-                item.data()['type']?.toString() ?? '';
-
-            return type == 'home' || type == 'work';
-          },
-        ).toList();
-
-        final List<QueryDocumentSnapshot<Map<String, dynamic>>>
-            otherAddresses = documents.where(
-          (QueryDocumentSnapshot<Map<String, dynamic>> item) {
-            final String type =
-                item.data()['type']?.toString() ?? '';
-
-            return type != 'home' && type != 'work';
-          },
-        ).toList();
-
-        final List<QueryDocumentSnapshot<Map<String, dynamic>>>
-            favoriteAddresses = <QueryDocumentSnapshot<
-                Map<String, dynamic>>>[
-          ...homeAndWork,
-          ...otherAddresses,
-        ];
-
-        return SizedBox(
-          height: 58,
-          child: Directionality(
-            textDirection: ui.TextDirection.rtl,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              physics: const BouncingScrollPhysics(),
-              padding: EdgeInsets.zero,
-              itemCount: favoriteAddresses.length + 1,
-              separatorBuilder: (
-                BuildContext context,
-                int index,
-              ) {
-                return const SizedBox(width: 8);
-              },
-              itemBuilder: (
-                BuildContext context,
-                int index,
-              ) {
-                // اولین آیتم در سمت راست: افزودن مکان منتخب
-                // وقتی آدرس ذخیره‌شده وجود دارد، متن کوتاه می‌شود
-                // تا چیپ‌های بیشتری در دید باشند.
-                if (index == 0) {
-                  return _AddFavoriteChip(
-                    title: favoriteAddresses.isEmpty
-                        ? _translatedOrFallback(
-                            'add_favorite_place',
-                            'افزودن مکان منتخب',
-                          )
-                        : _translatedOrFallback(
-                            'add_favorite_place_short',
-                            'افزودن',
-                          ),
-                    onTap: _startAddingFavoritePlace,
-                  );
-                }
-
-                final Map<String, dynamic> data =
-                    favoriteAddresses[index - 1].data();
-
-                final String type =
-                    data['type']?.toString() ?? 'other';
-
-                final String title =
-                    data['title']?.toString().trim().isNotEmpty ==
-                            true
-                        ? data['title'].toString()
-                        : _savedAddressTypeTitle(type);
-
-                final String address =
-                    data['address']?.toString() ??
-                        data['placeName']?.toString() ??
-                        '';
-
-                final double? latitude =
-                    _toDouble(data['latitude']);
-
-                final double? longitude =
-                    _toDouble(data['longitude']);
-
-                return _FavoriteAddressChip(
-                  title: title,
-                  type: type,
-                  onTap: () {
-                    _selectSavedAddress(
-                      AddressModel(
-                        placeName:
-                            data['placeName']?.toString() ??
-                                address,
-                        humanReadableAddress: address,
-                        latitudePosition: latitude,
-                        longitudePosition: longitude,
-                      ),
-                    );
-                  },
-                  onManageTap: type == 'home'
-                      ? _openSavedAddressesManager
-                      : null,
-                );
-              },
+    if (!_savedLoaded) {
+      return const SizedBox(
+        height: 58,
+        child: Center(
+          child: SizedBox(
+            width: 22,
+            height: 22,
+            child: CircularProgressIndicator(
+              strokeWidth: 2.2,
+              color: AppColors.primaryBrand,
             ),
           ),
-        );
+        ),
+      );
+    }
+
+    final List<QueryDocumentSnapshot<Map<String, dynamic>>>
+        documents = _savedDocs.where(
+      (QueryDocumentSnapshot<Map<String, dynamic>> item) {
+        return item.data()['showAsShortcut'] != false;
       },
+    ).toList();
+
+    final List<QueryDocumentSnapshot<Map<String, dynamic>>>
+        homeAndWork = documents.where(
+      (QueryDocumentSnapshot<Map<String, dynamic>> item) {
+        final String type =
+            item.data()['type']?.toString() ?? '';
+
+        return type == 'home' || type == 'work';
+      },
+    ).toList();
+
+    final List<QueryDocumentSnapshot<Map<String, dynamic>>>
+        otherAddresses = documents.where(
+      (QueryDocumentSnapshot<Map<String, dynamic>> item) {
+        final String type =
+            item.data()['type']?.toString() ?? '';
+
+        return type != 'home' && type != 'work';
+      },
+    ).toList();
+
+    final List<QueryDocumentSnapshot<Map<String, dynamic>>>
+        favoriteAddresses = <QueryDocumentSnapshot<
+            Map<String, dynamic>>>[
+      ...homeAndWork,
+      ...otherAddresses,
+    ];
+
+    return SizedBox(
+      height: 58,
+      child: Directionality(
+        textDirection: ui.TextDirection.rtl,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          physics: const BouncingScrollPhysics(),
+          padding: EdgeInsets.zero,
+          itemCount: favoriteAddresses.length + 1,
+          separatorBuilder: (
+            BuildContext context,
+            int index,
+          ) {
+            return const SizedBox(width: 8);
+          },
+          itemBuilder: (
+            BuildContext context,
+            int index,
+          ) {
+            // اولین آیتم در سمت راست: افزودن مکان منتخب
+            // وقتی آدرس ذخیره‌شده وجود دارد، متن کوتاه می‌شود
+            // تا چیپ‌های بیشتری در دید باشند.
+            if (index == 0) {
+              return _AddFavoriteChip(
+                title: favoriteAddresses.isEmpty
+                    ? _translatedOrFallback(
+                        'add_favorite_place',
+                        'افزودن مکان منتخب',
+                      )
+                    : _translatedOrFallback(
+                        'add_favorite_place_short',
+                        'افزودن',
+                      ),
+                onTap: _startAddingFavoritePlace,
+              );
+            }
+
+            final Map<String, dynamic> data =
+                favoriteAddresses[index - 1].data();
+
+            final String type =
+                data['type']?.toString() ?? 'other';
+
+            final String title =
+                data['title']?.toString().trim().isNotEmpty ==
+                        true
+                    ? data['title'].toString()
+                    : _savedAddressTypeTitle(type);
+
+            final String address =
+                data['address']?.toString() ??
+                    data['placeName']?.toString() ??
+                    '';
+
+            final double? latitude =
+                _toDouble(data['latitude']);
+
+            final double? longitude =
+                _toDouble(data['longitude']);
+
+            return _FavoriteAddressChip(
+              title: title,
+              type: type,
+              onTap: () {
+                _selectSavedAddress(
+                  AddressModel(
+                    placeName:
+                        data['placeName']?.toString() ??
+                            address,
+                    humanReadableAddress: address,
+                    latitudePosition: latitude,
+                    longitudePosition: longitude,
+                  ),
+                );
+              },
+              onManageTap: type == 'home'
+                  ? _openSavedAddressesManager
+                  : null,
+            );
+          },
+        ),
+      ),
     );
   }
 
@@ -1249,6 +1295,7 @@ class _FavoriteAddressChip extends StatelessWidget {
     );
   }
 }
+
 /// صفحه‌ی «جزئیات مکان منتخب»: نام‌گذاری آدرس + سوییچ میان‌بر.
 class _FavoriteDetailsPage extends StatefulWidget {
   const _FavoriteDetailsPage({required this.address});
