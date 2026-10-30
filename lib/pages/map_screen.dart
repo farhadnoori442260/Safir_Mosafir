@@ -2358,6 +2358,34 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
     }
   }
 
+  /// کلیک روی چیپ «خانه / محل کار / ...»: آدرس ذخیره‌شده مقصد سفر می‌شود.
+  /// مبدأ همان نقطه‌ای است که کاربر روی نقشه گذاشته (یا قبلاً تایید کرده).
+  Future<void> _handleSavedAddressTap(AddressModel address) async {
+    final double? lat = address.latitudePosition;
+    final double? lng = address.longitudePosition;
+    if (lat == null || lng == null || _isConfirming) return;
+
+    final LatLng target = LatLng(lat, lng);
+    final String? name = address.placeName ?? address.humanReadableAddress;
+
+    if (_currentStep == 0) {
+      // باربری و بین‌شهری مرحله‌های اضافه دارند (فرم فرستنده / انتخاب شهر)؛
+      // اول باید مبدأ را عادی تایید کند.
+      if (widget.serviceType == 'cargo' || widget.serviceType == 'intercity') {
+        _showSnack('ابتدا مبدأ را تایید کنید، سپس مقصد را انتخاب کنید.');
+        return;
+      }
+
+      // مبدأ = نقطه‌ی فعلی نقشه
+      await _confirmOrigin();
+      if (!mounted || _originLatLng == null || _currentStep != 1) return;
+    }
+
+    if (_currentStep == 1) {
+      await _confirmDestination(at: target, name: name);
+    }
+  }
+
   /// نتیجه‌ی صفحه‌ی جستجو یک Map است (نه رشته)؛ آدرس معتبر را برمی‌گرداند.
   AddressModel? _pickedAddress(dynamic response) {
     if (response is! Map) return null;
@@ -2870,6 +2898,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
                   }
                 },
                 onGpsTap: _handleGpsTap,
+                onSavedAddressSelected: _handleSavedAddressTap,
                 onPickFavoriteOnMap: () => Navigator.push<AddressModel>(
                   context,
                   MaterialPageRoute(
