@@ -367,7 +367,8 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
 
     _startLiveLocationUpdates();
 
-    // کلیک روی آدرس ذخیره‌شده (از هر صفحه‌ای) مقصد را همین‌جا تعیین می‌کند
+    // کلیک روی آدرس ذخیره‌شده (از هر صفحه‌ای): در مرحلهٔ اول «مبدأ» همین‌جا
+    // تعیین می‌شود و بعد کاربر مقصد را خودش انتخاب می‌کند
     if (!widget.isPickerOnly) {
       SavedDestinationBus.receivers++;
       SavedDestinationBus.notifier.addListener(_onSavedDestinationPicked);
@@ -2389,8 +2390,12 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
     });
   }
 
-  /// کلیک روی چیپ «خانه / محل کار / ...»: آدرس ذخیره‌شده مقصد سفر می‌شود.
-  /// مبدأ همان نقطه‌ای است که کاربر روی نقشه گذاشته (یا قبلاً تایید کرده).
+  /// کلیک روی آدرس ذخیره‌شده («خانه / محل کار / ...»):
+  ///  • مرحلهٔ ۰ (انتخاب مبدأ): آدرس ذخیره‌شده «مبدأ» سفر می‌شود، نقشه روی آن
+  ///    می‌رود و صفحه به مرحلهٔ انتخاب مقصد می‌رود؛ مقصد را کاربر خودش
+  ///    انتخاب می‌کند.
+  ///  • مرحلهٔ ۱ (انتخاب مقصد): مبدأ از قبل تعیین شده؛ آدرس ذخیره‌شده
+  ///    «مقصد» می‌شود.
   Future<void> _handleSavedAddressTap(AddressModel address) async {
     final double? lat = address.latitudePosition;
     final double? lng = address.longitudePosition;
@@ -2400,16 +2405,10 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
     final String? name = address.placeName ?? address.humanReadableAddress;
 
     if (_currentStep == 0) {
-      // باربری و بین‌شهری مرحله‌های اضافه دارند (فرم فرستنده / انتخاب شهر)؛
-      // اول باید مبدأ را عادی تایید کند.
-      if (widget.serviceType == 'cargo' || widget.serviceType == 'intercity') {
-        _showSnack('ابتدا مبدأ را تایید کنید، سپس مقصد را انتخاب کنید.');
-        return;
-      }
-
-      // مبدأ = نقطه‌ی فعلی نقشه
-      await _confirmOrigin();
-      if (!mounted || _originLatLng == null || _currentStep != 1) return;
+      // مبدأ = آدرس ذخیره‌شده. برای باربری و بین‌شهری هم همین تابع، مرحله‌های
+      // اضافه (فرم فرستنده / انتخاب شهر) را به‌صورت عادی نشان می‌دهد.
+      await _confirmOrigin(at: target, name: name);
+      return;
     }
 
     if (_currentStep == 1) {
