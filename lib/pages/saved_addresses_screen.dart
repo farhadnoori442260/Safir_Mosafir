@@ -3,11 +3,10 @@ import 'package:easy_localization/easy_localization.dart'
     hide TextDirection;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 
-import 'package:safir_passengers/appInfo/app_info.dart';
 import 'package:safir_passengers/models/address_models.dart';
-import 'package:safir_passengers/pages/search_destination_place.dart';
+// ⚠️ مسیر/نام فایل صفحه‌ی نقشه‌ی خودتان را اینجا بگذارید
+import 'package:safir_passengers/pages/safir_map_screen.dart';
 
 const Color savedPrimaryAccent = Color(0xFF1B7A57);
 const Color savedDarkTextColor = Color(0xFF0F172A);
@@ -72,6 +71,28 @@ void initState() {
         .collection('users')
         .doc(uid)
         .collection('saved_addresses');
+  }
+
+  /// نقشه‌ی خودمان در حالت فقط‌انتخاب؛ آدرس تأییدشده برمی‌گردد.
+  Future<AddressModel?> _pickLocationOnMap() {
+    return Navigator.push<AddressModel>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const SafirMapScreen(
+          serviceType: 'Car',
+          isPickerOnly: true,
+        ),
+      ),
+    );
+  }
+
+  /// دکمه‌ی افزودن: اول نقشه، بعد نام‌گذاری (خانه / دفتر / ...)
+  Future<void> _startAddFlow() async {
+    final AddressModel? picked = await _pickLocationOnMap();
+
+    if (!mounted || picked == null) return;
+
+    await _openAddAddressSheet(initialAddress: picked);
   }
 
   Future<void> _openAddAddressSheet({
@@ -317,49 +338,14 @@ void initState() {
                           borderRadius:
                               BorderRadius.circular(15),
                           onTap: () async {
-                            final dynamic result =
-                                await Navigator.push(
-                              sheetContext,
-                              MaterialPageRoute(
-                                builder: (_) =>
-                                    const SearchDestinationPlace(),
-                              ),
-                            );
+                            final AddressModel? picked =
+                                await _pickLocationOnMap();
 
-                            if (!mounted) return;
+                            if (!mounted || picked == null) return;
 
-                            if (result is Map &&
-                                result['address']
-                                    is AddressModel) {
-                              setSheetState(() {
-                                selectedAddress =
-                                    result['address']
-                                        as AddressModel;
-                              });
-                              return;
-                            }
-
-                            final AppInfo appInfo =
-                                Provider.of<AppInfo>(
-                              this.context,
-                              listen: false,
-                            );
-
-                            final AddressModel? fallbackAddress =
-                                appInfo.dropOffLocation;
-
-                            if (fallbackAddress != null &&
-                                fallbackAddress
-                                        .latitudePosition !=
-                                    null &&
-                                fallbackAddress
-                                        .longitudePosition !=
-                                    null) {
-                              setSheetState(() {
-                                selectedAddress =
-                                    fallbackAddress;
-                              });
-                            }
+                            setSheetState(() {
+                              selectedAddress = picked;
+                            });
                           },
                           child: Container(
                             width: double.infinity,
@@ -586,23 +572,11 @@ void initState() {
 
 Navigator.pop(sheetContext);
 
-if (addressDocument == null) {
-  Navigator.pop(
-    context,
-    AddressModel(
-      placeName: selectedAddress.placeName ?? address,
-      humanReadableAddress: address,
-      latitudePosition: latitude,
-      longitudePosition: longitude,
-    ),
-  );
-
-  return;
-}
-
-_showMessage(
-  'saved_address_updated'.tr(),
-);
+      _showMessage(
+        addressDocument == null
+            ? 'آدرس منتخب با موفقیت ذخیره شد.'
+            : 'saved_address_updated'.tr(),
+      );
     } on FirebaseException catch (e) {
       debugPrint(
         'Saved address Firestore error: '
@@ -822,9 +796,7 @@ _showMessage(
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          _openAddAddressSheet();
-        },
+        onPressed: _startAddFlow,
         backgroundColor: savedPrimaryAccent,
         foregroundColor: Colors.white,
         elevation: 2,
