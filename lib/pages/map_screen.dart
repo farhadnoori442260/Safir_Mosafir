@@ -1853,7 +1853,11 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
                   southwest: LatLng(minLat, minLng),
                   northeast: LatLng(maxLat, maxLng),
                 ),
-                left: 50, top: 120, right: 50, bottom: 100,
+                left: 50,
+                top: 120,
+                right: 50,
+                // پایین مسیر نباید زیر کشوی انتخاب سرویس (~۴۲٪ صفحه) بماند
+                bottom: MediaQuery.of(context).size.height * 0.44,
               ),
             );
           }
@@ -2970,7 +2974,6 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
                 destinationAddress: currentDestination,
                 fareAmount: actualFareAmount,
                 onCancel: cancelTrip,
-                onBidPricePressed: () {},
               ),
             ] else if (_currentStep == 4) ...[
               MapBottomSheets.buildStep4(
