@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 
 import 'package:safir_passengers/models/address_models.dart';
 // ⚠️ مسیر/نام فایل صفحه‌ی نقشه‌ی خودتان را اینجا بگذارید
-import 'package:safir_passengers/pages/safir_map_screen.dart';
+import 'package:safir_passengers/pages/map_screen.dart';
 
 const Color savedPrimaryAccent = Color(0xFF1B7A57);
 const Color savedDarkTextColor = Color(0xFF0F172A);
