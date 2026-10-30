@@ -235,15 +235,25 @@ Future<void> _saveFavoritePlace({
   }
 }
 
-  void _openSavedAddressesManager() {
+  Future<void> _openSavedAddressesManager() async {
     HapticFeedback.selectionClick();
 
-    Navigator.push(
+    // کلیک روی هر آدرس همان رفتار چیپ‌ها را دارد: مقصد انتخاب می‌شود
+    final AddressModel? selected = await Navigator.push<AddressModel>(
       context,
       MaterialPageRoute(
-        builder: (_) => const SavedAddressesScreen(),
+        builder: (_) => SavedAddressesScreen(
+          selectMode: true,
+          onPickLocation: widget.onPickFavoriteOnMap,
+        ),
       ),
     );
+
+    if (!mounted || selected == null) {
+      return;
+    }
+
+    _selectSavedAddress(selected);
   }
 
   void _selectSavedAddress(AddressModel address) {
