@@ -84,11 +84,11 @@ class MapBottomSheets {
           final double bottomSafeArea = MediaQuery.of(context).padding.bottom;
 
           return DraggableScrollableSheet(
-            initialChildSize: 0.33,
-            minChildSize: 0.33,
-            maxChildSize: 0.58,
+            initialChildSize: 0.42,
+            minChildSize: 0.42,
+            maxChildSize: 0.64,
             snap: true,
-            snapSizes: const [0.33, 0.58],
+            snapSizes: const [0.42, 0.64],
             expand: false,
             builder: (context, scrollController) {
               return Container(
@@ -123,22 +123,17 @@ class MapBottomSheets {
                       onCategoryChanged: onCategoryChanged,
                     ),
                     Expanded(
-                      child: PageView(
-                        key: ValueKey(selectedCategory),
-                        controller: PageController(
-                          initialPage: selectedCategory,
-                        ),
-                        onPageChanged: (index) {
-                          HapticFeedback.selectionClick();
-                          onCategoryChanged(index);
-                        },
-                        children: [
-                          // ✅ کنترلر کشو فقط به صفحهٔ فعال وصل می‌شود
-                          // (قبلاً به هر دو لیست همزمان وصل بود)
+                      // ✅ کنترلر ثابت (نه ساخت دوباره در هر build) تا کشیدنِ
+                      // بین دو تب بدون پرش و بدون ساخت دوباره‌ی صفحه انجام شود
+                      child: _VehiclePager(
+                        selectedCategory: selectedCategory,
+                        onCategoryChanged: onCategoryChanged,
+                        pages: [
                           ListView(
                             controller:
                                 selectedCategory == 0 ? scrollController : null,
                             primary: false,
+                            physics: const BouncingScrollPhysics(),
                             padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
                             children: [
                               _buildVehicleCard(
@@ -147,6 +142,7 @@ class MapBottomSheets {
                                 price:
                                     '${(ecoFare ?? actualFareAmount).toStringAsFixed(0)} $currency',
                                 imagePath: 'assets/images/safir_normal.png',
+                                isBike: false,
                                 isSelected: selectedVehicleType == 0,
                                 safirColor: safirColor,
                                 cardBgColor: AppColors.cardBgLight,
@@ -162,6 +158,7 @@ class MapBottomSheets {
                                 price:
                                     '${(vipFare ?? actualFareAmount * 1.35).toStringAsFixed(0)} $currency',
                                 imagePath: 'assets/images/uberexec.png',
+                                isBike: false,
                                 isSelected: selectedVehicleType == 1,
                                 safirColor: safirColor,
                                 cardBgColor: AppColors.cardBgLight,
@@ -176,6 +173,7 @@ class MapBottomSheets {
                             controller:
                                 selectedCategory == 1 ? scrollController : null,
                             primary: false,
+                            physics: const BouncingScrollPhysics(),
                             padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
                             children: [
                               _buildVehicleCard(
@@ -184,6 +182,7 @@ class MapBottomSheets {
                                 price:
                                     '${(bikeFare ?? actualFareAmount * 0.55).toStringAsFixed(0)} $currency',
                                 imagePath: 'assets/images/safir_bike.png',
+                                isBike: true,
                                 isSelected: selectedVehicleType == 0,
                                 safirColor: safirColor,
                                 cardBgColor: AppColors.cardBgLight,
@@ -206,16 +205,9 @@ class MapBottomSheets {
                       ),
                       decoration: const BoxDecoration(
                         color: Colors.white,
-                        borderRadius: BorderRadius.vertical(
-                          top: Radius.circular(18),
+                        border: Border(
+                          top: BorderSide(color: Color(0xFFF0F1F3)),
                         ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Color(0x12000000),
-                            blurRadius: 8,
-                            offset: Offset(0, -2),
-                          ),
-                        ],
                       ),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
@@ -224,6 +216,7 @@ class MapBottomSheets {
                             children: [
                               Expanded(
                                 child: _buildOptionButton(
+                                  icon: Icons.tune_rounded,
                                   title: 'opt_ride_options'.tr(),
                                   isActive: hasActiveTripOptions,
                                   onTap: () {
@@ -232,13 +225,10 @@ class MapBottomSheets {
                                   },
                                 ),
                               ),
-                              Container(
-                                width: 1,
-                                height: 18,
-                                color: Colors.grey.shade300,
-                              ),
+                              const SizedBox(width: 8),
                               Expanded(
                                 child: _buildOptionButton(
+                                  icon: Icons.schedule_rounded,
                                   title: 'opt_schedule'.tr(),
                                   isActive: isScheduled,
                                   onTap: () {
@@ -247,13 +237,10 @@ class MapBottomSheets {
                                   },
                                 ),
                               ),
-                              Container(
-                                width: 1,
-                                height: 18,
-                                color: Colors.grey.shade300,
-                              ),
+                              const SizedBox(width: 8),
                               Expanded(
                                 child: _buildOptionButton(
+                                  icon: Icons.local_offer_outlined,
                                   title: 'opt_promo_code'.tr(),
                                   isActive: hasPromoCode,
                                   onTap: () {
@@ -264,25 +251,26 @@ class MapBottomSheets {
                               ),
                             ],
                           ),
-                          const SizedBox(height: 10),
+                          const SizedBox(height: 12),
                           SizedBox(
                             width: double.infinity,
-                            height: 50,
+                            height: 52,
                             child: ElevatedButton(
                               onPressed: onRequestTrip,
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: AppColors.primaryBrand,
+                                foregroundColor: Colors.white,
                                 elevation: 0,
                                 shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
+                                  borderRadius: BorderRadius.circular(14),
                                 ),
                               ),
                               child: Text(
                                 'btn_request_safir'.tr(),
                                 style: const TextStyle(
                                   color: Colors.white,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
                                 ),
                               ),
                             ),
@@ -310,7 +298,9 @@ class MapBottomSheets {
     String? currentRideId,
     VoidCallback? onBidPricePressed,
   }) {
-    return DraggableScrollableSheet(
+    return Positioned.fill(
+      child: DraggableScrollableSheet(
+      expand: false,
       initialChildSize: 0.42,
       minChildSize: 0.28,
       maxChildSize: 0.72,
@@ -367,6 +357,8 @@ class MapBottomSheets {
                 ),
               ),
               const SizedBox(height: 16),
+              // دکمه‌ای که کاری نمی‌کرد فقط وقتی callback واقعی داده شود نمایش داده می‌شود
+              if (onBidPricePressed != null) ...[
               OutlinedButton.icon(
                 style: OutlinedButton.styleFrom(
                   side: const BorderSide(
@@ -397,6 +389,7 @@ class MapBottomSheets {
                 ),
               ),
               const SizedBox(height: 20),
+              ],
               Text(
                 'opt_ride_options'.tr(),
                 style: const TextStyle(
@@ -429,7 +422,7 @@ class MapBottomSheets {
                 ],
               ),
               Container(
-                margin: const EdgeInsets.only(right: 5, top: 2, bottom: 2),
+                margin: const EdgeInsetsDirectional.only(start: 5, top: 2, bottom: 2),
                 height: 14,
                 width: 2,
                 color: Colors.grey.shade300,
@@ -525,7 +518,7 @@ class MapBottomSheets {
           ),
         );
       },
-    );
+    ));
   }
 
   // 🔴 دیالوگ دلایل لغو
@@ -564,7 +557,8 @@ class MapBottomSheets {
       builder: (ctx) {
         return StatefulBuilder(
           builder: (context, setModalState) {
-            return Padding(
+            return SafeArea(
+              child: Padding(
               padding: const EdgeInsets.symmetric(
                 horizontal: 20,
                 vertical: 16,
@@ -654,13 +648,16 @@ class MapBottomSheets {
                   Row(
                     children: [
                       Expanded(
-                        child: OutlinedButton(
-                          style: OutlinedButton.styleFrom(
-                            side: const BorderSide(color: Colors.red),
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red.shade600,
+                            disabledBackgroundColor: Colors.red.shade100,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
+                              borderRadius: BorderRadius.circular(12),
                             ),
-                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            padding: const EdgeInsets.symmetric(vertical: 13),
                           ),
                           onPressed: selectedReasonKey == null
                               ? null
@@ -723,7 +720,7 @@ class MapBottomSheets {
                           child: Text(
                             'confirm_cancel_btn'.tr(),
                             style: const TextStyle(
-                              color: Colors.red,
+                              color: Colors.white,
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
                             ),
@@ -746,7 +743,7 @@ class MapBottomSheets {
                   ),
                 ],
               ),
-            );
+            ));
           },
         );
       },
@@ -767,7 +764,8 @@ class MapBottomSheets {
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (ctx) {
-        return Padding(
+        return SafeArea(
+          child: Padding(
           padding: const EdgeInsets.all(20),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -802,7 +800,7 @@ class MapBottomSheets {
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.info_outline, color: Colors.amber, size: 20),
+                    Icon(Icons.info_outline, color: Colors.amber.shade800, size: 20),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
@@ -867,7 +865,7 @@ class MapBottomSheets {
               ),
             ],
           ),
-        );
+        ));
       },
     );
   }
@@ -1141,117 +1139,212 @@ class MapBottomSheets {
     required String subtitle,
     required String price,
     required String imagePath,
+    required bool isBike,
     required bool isSelected,
     required Color safirColor,
     required Color cardBgColor,
     required VoidCallback onTap,
   }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: isSelected ? cardBgColor : Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: isSelected ? safirColor : Colors.grey.shade200,
-            width: isSelected ? 1.8 : 1,
-          ),
-        ),
-        child: Row(
-          children: [
-            Image.asset(
-              imagePath,
-              width: 75,
-              height: 45,
-              fit: BoxFit.contain,
-              errorBuilder: (context, error, stackTrace) {
-                final bool isBike = title.contains('موترسایکل') || title.contains('Motorbike');
-                return Icon(
-                  isBike ? Icons.motorcycle : Icons.directions_car,
-                  size: 38,
-                  color: isSelected ? safirColor : Colors.grey,
-                );
-              },
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: isSelected ? cardBgColor : Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isSelected ? safirColor : Colors.grey.shade200,
+              width: isSelected ? 1.8 : 1,
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+          ),
+          child: Row(
+            children: [
+              Image.asset(
+                imagePath,
+                width: 75,
+                height: 45,
+                fit: BoxFit.contain,
+                errorBuilder: (context, error, stackTrace) {
+                  return Icon(
+                    isBike ? Icons.motorcycle : Icons.directions_car,
+                    size: 38,
+                    color: isSelected ? safirColor : Colors.grey,
+                  );
+                },
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w400,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Row(
-                    children: [
-                      Flexible(
-                        child: Text(
-                          title,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 14,
-                            color: AppColors.textPrimary,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      Icon(
-                        Icons.info_outline,
-                        size: 15,
-                        color: Colors.grey.shade500,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 2),
                   Text(
-                    subtitle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                    price,
                     style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w400,
-                      color: Colors.grey.shade600,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 14,
+                      color: isSelected ? safirColor : AppColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  AnimatedOpacity(
+                    duration: const Duration(milliseconds: 180),
+                    opacity: isSelected ? 1 : 0,
+                    child: Icon(
+                      Icons.check_circle_rounded,
+                      size: 18,
+                      color: safirColor,
                     ),
                   ),
                 ],
               ),
-            ),
-            const SizedBox(width: 8),
-            Text(
-              price,
-              style: const TextStyle(
-                fontWeight: FontWeight.w600,
-                fontSize: 14,
-                color: AppColors.textPrimary,
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 
   static Widget _buildOptionButton({
+    required IconData icon,
     required String title,
     required bool isActive,
     required VoidCallback onTap,
   }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
-        child: Text(
-          title,
-          textAlign: TextAlign.center,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: isActive ? AppColors.primaryBrand : Colors.grey.shade700,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          height: 40,
+          padding: const EdgeInsets.symmetric(horizontal: 6),
+          decoration: BoxDecoration(
+            color: isActive
+                ? AppColors.primaryBrand.withOpacity(0.10)
+                : const Color(0xFFF5F6F8),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isActive ? AppColors.primaryBrand : Colors.transparent,
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 16,
+                color: isActive ? AppColors.primaryBrand : Colors.grey.shade700,
+              ),
+              const SizedBox(width: 5),
+              Flexible(
+                child: Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color:
+                        isActive ? AppColors.primaryBrand : Colors.grey.shade800,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
+    );
+  }
+}
+
+/// دو صفحه‌ی خودرو/موتور با PageController ثابت.
+/// تب‌ها با انیمیشن عوض می‌شوند و کشیدنِ انگشت، صفحه را از نو نمی‌سازد.
+class _VehiclePager extends StatefulWidget {
+  const _VehiclePager({
+    required this.selectedCategory,
+    required this.onCategoryChanged,
+    required this.pages,
+  });
+
+  final int selectedCategory;
+  final ValueChanged<int> onCategoryChanged;
+  final List<Widget> pages;
+
+  @override
+  State<_VehiclePager> createState() => _VehiclePagerState();
+}
+
+class _VehiclePagerState extends State<_VehiclePager> {
+  late final PageController _controller =
+      PageController(initialPage: widget.selectedCategory);
+
+  @override
+  void didUpdateWidget(covariant _VehiclePager oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    if (oldWidget.selectedCategory != widget.selectedCategory &&
+        _controller.hasClients &&
+        _controller.page?.round() != widget.selectedCategory) {
+      _controller.animateToPage(
+        widget.selectedCategory,
+        duration: const Duration(milliseconds: 260),
+        curve: Curves.easeOutCubic,
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return PageView(
+      controller: _controller,
+      onPageChanged: (int index) {
+        // تغییر ناشی از خود انیمیشن تب دوباره اعلام نمی‌شود
+        if (index == widget.selectedCategory) return;
+        HapticFeedback.selectionClick();
+        widget.onCategoryChanged(index);
+      },
+      children: widget.pages,
     );
   }
 }
