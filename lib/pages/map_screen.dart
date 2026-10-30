@@ -236,6 +236,16 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
 
   bool _hasNotification = false;
 
+  // جلوگیری از پاسخ‌های کهنه و دابل‌تپ
+  int _routeRequestId = 0;
+  int _geocodeRequestId = 0;
+  bool _isConfirming = false;
+  Uint8List? _originLabelBytes;
+
+  // ───────── حالت فقط‌انتخاب (افزودن مکان منتخب) ─────────
+  String _pickerAddress = '';
+  bool _pickerLoading = true;
+
   int _selectedCategory = 0;
   int _selectedVehicleType = 0;
   int _currentStep = 0;
@@ -1391,13 +1401,24 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
   }
 
   void _updateAddressFromCamera(LatLng center) {
+    if (widget.isPickerOnly && mounted && !_pickerLoading) {
+      setState(() => _pickerLoading = true);
+    }
+
     _debounceTimer?.cancel();
     _debounceTimer = Timer(const Duration(milliseconds: 300), () async {
+      final int requestId = ++_geocodeRequestId;
+
       try {
         final url = Uri.parse(
           'https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${center.latitude}&lon=${center.longitude}&accept-language=fa,ps,en',
         );
-        final response = await http.get(url, headers: {'User-Agent': 'safir_passengers'});
+        final response = await http
+            .get(url, headers: {'User-Agent': 'safir_passengers'})
+            .timeout(const Duration(seconds: 8));
+
+        // پاسخ کهنه (کاربر نقشه را دوباره جابه‌جا کرده) نادیده گرفته می‌شود
+        if (requestId != _geocodeRequestId) return;
 
         if (response.statusCode == 200 && mounted) {
           final data = json.decode(response.body);
@@ -1431,6 +1452,15 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
             longitudePosition: center.longitude,
           );
 
+          // حالت فقط‌انتخاب: به AppInfo (مبدأ/مقصد سفر) دست نمی‌زنیم
+          if (widget.isPickerOnly) {
+            setState(() {
+              _pickerAddress = formattedAddress;
+              _pickerLoading = false;
+            });
+            return;
+          }
+
           var appInfo = Provider.of<AppInfo>(context, listen: false);
           if (_currentStep == 0) {
             appInfo.updatePickUpLocation(userLocation);
@@ -1439,9 +1469,14 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
             appInfo.updateDropOffLocation(userLocation);
             _receiverAddressController.text = formattedAddress;
           }
+        } else if (widget.isPickerOnly && mounted) {
+          setState(() => _pickerLoading = false);
         }
       } catch (e) {
         debugPrint("Error reverse geocoding: $e");
+        if (widget.isPickerOnly && mounted) {
+          setState(() => _pickerLoading = false);
+        }
       }
     });
   }
@@ -1534,14 +1569,31 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
     _fetchRoute();
   }
 
-  Future<void> _confirmOrigin() async {
+  /// [at] و [name] وقتی کاربر از جستجو مکانی انتخاب کرده پر می‌شوند؛
+  /// وگرنه مرکز فعلی نقشه استفاده می‌شود.
+  Future<void> _confirmOrigin({LatLng? at, String? name}) async {
+    if (_isConfirming) return;
+    _isConfirming = true;
+    try {
+      await _confirmOriginImpl(at: at, name: name);
+    } finally {
+      _isConfirming = false;
+    }
+  }
+
+  Future<void> _confirmOriginImpl({LatLng? at, String? name}) async {
     HapticFeedback.mediumImpact();
 
     if (_mapController == null) return;
-    final camera = await _mapController!.queryCameraPosition();
-    if (camera == null) return;
 
-    final currentCenter = camera.target;
+    LatLng? center = at;
+    if (center == null) {
+      final camera = await _mapController!.queryCameraPosition();
+      center = camera?.target;
+    }
+    if (center == null) return;
+
+    final LatLng currentCenter = center;
     if (!mounted) return;
     final appInfo = Provider.of<AppInfo>(context, listen: false);
 
@@ -1549,13 +1601,16 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
       AddressModel(
         latitudePosition: currentCenter.latitude,
         longitudePosition: currentCenter.longitude,
-        placeName: appInfo.pickUpLocation?.placeName ?? 'مبدأ',
+        placeName: name ?? appInfo.pickUpLocation?.placeName ?? 'مبدأ',
+        humanReadableAddress:
+            name ?? appInfo.pickUpLocation?.humanReadableAddress,
       ),
     );
 
-    final bytes = await widgetToImageBytes(
-      const MapOriginLabel(labelText: 'مبدأ'),
-    );
+    // تصویر برچسب مبدأ ثابت است؛ فقط یک بار ساخته می‌شود
+    final Uint8List bytes = _originLabelBytes ??=
+        await widgetToImageBytes(const MapOriginLabel(labelText: 'مبدأ'));
+    if (_mapController == null) return;
     await _mapController!.addImage('origin-marker-icon', bytes);
 
     if (_originSymbol != null) await _mapController!.removeSymbol(_originSymbol!);
@@ -1612,14 +1667,29 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
     }
   }
 
-  Future<void> _confirmDestination() async {
+  Future<void> _confirmDestination({LatLng? at, String? name}) async {
+    if (_isConfirming) return;
+    _isConfirming = true;
+    try {
+      await _confirmDestinationImpl(at: at, name: name);
+    } finally {
+      _isConfirming = false;
+    }
+  }
+
+  Future<void> _confirmDestinationImpl({LatLng? at, String? name}) async {
     HapticFeedback.mediumImpact();
 
     if (_mapController == null) return;
-    final camera = await _mapController!.queryCameraPosition();
-    if (camera == null) return;
 
-    final currentCenter = camera.target;
+    LatLng? center = at;
+    if (center == null) {
+      final camera = await _mapController!.queryCameraPosition();
+      center = camera?.target;
+    }
+    if (center == null) return;
+
+    final LatLng currentCenter = center;
     if (!mounted) return;
     final appInfo = Provider.of<AppInfo>(context, listen: false);
 
@@ -1627,7 +1697,9 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
       AddressModel(
         latitudePosition: currentCenter.latitude,
         longitudePosition: currentCenter.longitude,
-        placeName: appInfo.dropOffLocation?.placeName ?? 'مقصد',
+        placeName: name ?? appInfo.dropOffLocation?.placeName ?? 'مقصد',
+        humanReadableAddress:
+            name ?? appInfo.dropOffLocation?.humanReadableAddress,
       ),
     );
 
@@ -1679,6 +1751,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
   }
 
   Future<void> _clearPreviewRoute() async {
+    _routeRequestId++; // هر درخواست مسیرِ در راه نادیده گرفته شود
     _routePolylinePoints.clear();
     _driverRouteLine = null;
     _driverTraveledLine = null;
@@ -1722,14 +1795,18 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
     var appInfo = Provider.of<AppInfo>(context, listen: false);
     if (appInfo.pickUpLocation == null || _mapController == null) return;
 
+    final int requestId = ++_routeRequestId;
+
     setState(() {
       _routePolylinePoints.clear();
-      _mapController!.clearLines();
     });
+    unawaited(_mapController!.clearLines());
 
     LatLng originLatLng = _originLatLng ??
         LatLng(appInfo.pickUpLocation!.latitudePosition!, appInfo.pickUpLocation!.longitudePosition!);
-    LatLng destLatLng = _destinationLatLng ?? _mapController!.cameraPosition!.target;
+    LatLng destLatLng = _destinationLatLng ??
+        _mapController!.cameraPosition?.target ??
+        _currentUserLatLng;
 
     MapControllerLogic.getOSRMRoute(
       context: context,
@@ -1737,7 +1814,8 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
       customOrigin: originLatLng,
       customDestination: destLatLng,
       onRouteFetched: (points, fare, durationText, arrivalTime, distanceKm) async {
-        if (mounted) {
+        // اگر در این فاصله درخواست جدیدتری ثبت شده، این پاسخ کهنه است
+        if (mounted && requestId == _routeRequestId) {
           setState(() {
             _routePolylinePoints = points;
             // مسافت دقیقاً همان عددی است که OSRM از روی مسیر واقعی جاده حساب
@@ -1751,6 +1829,10 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
           });
 
           if (_routePolylinePoints.isNotEmpty && _mapController != null) {
+            // مسیر قبلی کاملاً پاک شود تا دو خط روی هم نیفتد
+            await _mapController!.clearLines();
+            if (!mounted || requestId != _routeRequestId) return;
+
             await _mapController!.addLine(
               LineOptions(
                 geometry: _routePolylinePoints,
@@ -1790,18 +1872,19 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
         hasLuggage: _hasExtraLuggage,
         preferSilence: _preferSilence,
         onSelectSecondDestinationOnMap: () async {
-          var response = await Navigator.push(
+          final response = await Navigator.push(
             context,
-            MaterialPageRoute(builder: (c) => const SearchDestinationPlace()),
+            MaterialPageRoute(
+              builder: (c) => const SearchDestinationPlace(updateDropOff: false),
+            ),
           );
-          if (response == "placeSelected") {
-            if (!mounted) return;
-            var appInfo = Provider.of<AppInfo>(context, listen: false);
-            setState(() {
-              _secondDestinationAddress = appInfo.dropOffLocation?.placeName;
-            });
-            _fetchRoute();
-          }
+          final AddressModel? picked = _pickedAddress(response);
+          if (picked == null || !mounted) return;
+          // مقصد اصلی سفر دست‌نخورده می‌ماند؛ فقط مقصد دوم ثبت می‌شود
+          setState(() {
+            _secondDestinationAddress = picked.placeName;
+          });
+          _fetchRoute();
         },
         onSave: (secondDest, stop, round, luggage, silence) {
           setState(() {
@@ -2271,6 +2354,17 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
     }
   }
 
+  /// نتیجه‌ی صفحه‌ی جستجو یک Map است (نه رشته)؛ آدرس معتبر را برمی‌گرداند.
+  AddressModel? _pickedAddress(dynamic response) {
+    if (response is! Map) return null;
+    final dynamic address = response['address'];
+    if (address is! AddressModel) return null;
+    if (address.latitudePosition == null || address.longitudePosition == null) {
+      return null;
+    }
+    return address;
+  }
+
   void _handleBackAction() {
     HapticFeedback.lightImpact();
     if (_currentStep == 0) {
@@ -2355,6 +2449,95 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
     );
   }
 
+  /// پنل پایین حالت فقط‌انتخاب: آدرس نقطه‌ی وسط نقشه + دکمه‌ی تأیید
+  Widget _buildPickerPanel() {
+    final bool canConfirm = !_pickerLoading && _pickerAddress.isNotEmpty;
+
+    return Align(
+      alignment: Alignment.bottomCenter,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(26)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.08),
+              blurRadius: 16,
+              offset: const Offset(0, -4),
+            ),
+          ],
+        ),
+        child: SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.star_rounded,
+                      color: AppColors.primaryBrand, size: 22),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      _pickerLoading || _pickerAddress.isEmpty
+                          ? 'fetching_address'.tr()
+                          : _pickerAddress,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              SizedBox(
+                width: double.infinity,
+                height: 51,
+                child: ElevatedButton(
+                  onPressed: canConfirm ? _confirmPickerLocation : null,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primaryButton,
+                    foregroundColor: AppColors.buttonText,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  child: const Text(
+                    'تایید',
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _confirmPickerLocation() {
+    final LatLng? target = _mapController?.cameraPosition?.target;
+    if (target == null || _pickerAddress.isEmpty) return;
+
+    HapticFeedback.mediumImpact();
+
+    Navigator.pop<AddressModel>(
+      context,
+      AddressModel(
+        placeName: _pickerAddress,
+        humanReadableAddress: _pickerAddress,
+        latitudePosition: target.latitude,
+        longitudePosition: target.longitude,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     AppInfo? appInfo;
@@ -2393,9 +2576,9 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
                   ),
                   styleString: 'assets/map/style.json',
                   myLocationEnabled: _currentStep < 3,
-                  myLocationTrackingMode: _hasPreset
-                      ? MyLocationTrackingMode.none
-                      : MyLocationTrackingMode.tracking,
+                  // دنبال‌کردن خودکار GPS با درگ کاربر دعوا می‌کرد و نقشه می‌پرید؛
+                  // دوربین فقط با GPS اولیه و دکمه‌ی موقعیت جابه‌جا می‌شود.
+                  myLocationTrackingMode: MyLocationTrackingMode.none,
                   myLocationRenderMode: MyLocationRenderMode.normal,
                   trackCameraPosition: true,
                   rotateGesturesEnabled: false,
@@ -2553,12 +2736,15 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
                         ],
                       ),
                       child: Icon(
-                        _currentStep == 0 ? Icons.home_outlined : Icons.arrow_back,
+                        _currentStep == 0
+                            ? (widget.isPickerOnly ? Icons.close_rounded : Icons.home_outlined)
+                            : Icons.arrow_back,
                         color: Colors.grey[800],
                         size: 26,
                       ),
                     ),
                   ),
+                  if (!widget.isPickerOnly)
                   GestureDetector(
                     onTap: _showAdvancedProfile,
                     child: Container(
@@ -2618,7 +2804,10 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
               ),
 
             // 📄 ۵. باتم‌شیت‌ها بر اساس مراحل
-            if (_currentStep == 0 || _currentStep == 1)
+            if (widget.isPickerOnly)
+              _buildPickerPanel(),
+
+            if (!widget.isPickerOnly && (_currentStep == 0 || _currentStep == 1))
               SmartLocationSheet(
                 currentStep: _currentStep,
                 currentAddress: currentOrigin,
@@ -2637,13 +2826,18 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
                   }
                 },
                 onSearchOriginTap: (addr) async {
-                  var response = await Navigator.push(
+                  final response = await Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (c) => const SearchDestinationPlace()),
+                    MaterialPageRoute(
+                      builder: (c) => const SearchDestinationPlace(updateDropOff: false),
+                    ),
                   );
-                  if (response == "placeSelected") {
-                    _confirmOrigin();
-                  }
+                  final AddressModel? picked = _pickedAddress(response);
+                  if (picked == null || !mounted) return;
+                  await _confirmOrigin(
+                    at: LatLng(picked.latitudePosition!, picked.longitudePosition!),
+                    name: picked.placeName,
+                  );
                 },
                 onSearchDestinationTap: () async {
                   if (widget.serviceType == 'intercity') {
@@ -2656,21 +2850,31 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
                       },
                     );
                   } else {
-                    var response = await Navigator.push(
+                    final response = await Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (c) => const SearchDestinationPlace()),
+                      MaterialPageRoute(
+                        builder: (c) => const SearchDestinationPlace(updateDropOff: false),
+                      ),
                     );
-                    if (response == "placeSelected") {
-                      if (widget.serviceType == 'cargo') {
-                        _confirmDestination();
-                      } else {
-                        _fetchRoute();
-                        setState(() => _currentStep = 2);
-                      }
-                    }
+                    final AddressModel? picked = _pickedAddress(response);
+                    if (picked == null || !mounted) return;
+                    // مارکر مقصد، ذخیره در AppInfo و رسم مسیر همه اینجا انجام می‌شود
+                    await _confirmDestination(
+                      at: LatLng(picked.latitudePosition!, picked.longitudePosition!),
+                      name: picked.placeName,
+                    );
                   }
                 },
                 onGpsTap: _handleGpsTap,
+                onPickFavoriteOnMap: () => Navigator.push<AddressModel>(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => SafirMapScreen(
+                      serviceType: widget.serviceType,
+                      isPickerOnly: true,
+                    ),
+                  ),
+                ),
               ),
 
             if (_currentStep == 2)
@@ -2843,19 +3047,22 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
 
   // 🔹 تصویرسازی نقطه روی پاره‌خط
   LatLng _getClosestPointOnSegment(LatLng p, LatLng a, LatLng b) {
-    double x = p.longitude, y = p.latitude;
-    double x1 = a.longitude, y1 = a.latitude;
-    double x2 = b.longitude, y2 = b.latitude;
+    // طول جغرافیایی در عرض‌های بالا کوتاه‌تر است؛ برای فاصله‌ی درست مقیاس می‌شود
+    final double k = cos(p.latitude * pi / 180);
 
-    double dx = x2 - x1;
-    double dy = y2 - y1;
+    final double x = p.longitude * k, y = p.latitude;
+    final double x1 = a.longitude * k, y1 = a.latitude;
+    final double x2 = b.longitude * k, y2 = b.latitude;
+
+    final double dx = x2 - x1;
+    final double dy = y2 - y1;
 
     if (dx == 0 && dy == 0) return a;
 
     double t = ((x - x1) * dx + (y - y1) * dy) / (dx * dx + dy * dy);
     t = t.clamp(0.0, 1.0).toDouble();
 
-    return LatLng(y1 + t * dy, x1 + t * dx);
+    return LatLng(y1 + t * dy, (x1 + t * dx) / k);
   }
 
   // 🔹 محاسبه زاویه حرکت در امتداد مسیر خیابان
