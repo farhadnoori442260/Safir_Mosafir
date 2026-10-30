@@ -21,6 +21,7 @@ import 'package:safir_passengers/models/address_models.dart';
 import 'package:safir_passengers/global/global_var.dart';
 import 'package:safir_passengers/global/trip_var.dart';
 import 'package:safir_passengers/theme/app_colors.dart';
+import 'package:safir_passengers/pages/saved_addresses_screen.dart' show SavedDestinationBus;
 import 'package:safir_passengers/widgets/rate_driver_sheet.dart';
 import 'search_destination_place.dart';
 
@@ -366,6 +367,12 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
 
     _startLiveLocationUpdates();
 
+    // کلیک روی آدرس ذخیره‌شده (از هر صفحه‌ای) مقصد را همین‌جا تعیین می‌کند
+    if (!widget.isPickerOnly) {
+      SavedDestinationBus.receivers++;
+      SavedDestinationBus.notifier.addListener(_onSavedDestinationPicked);
+    }
+
     // تنظیمات کرایه از پنل ادمین (زنده)
     AppConfigService.instance.start();
     AppConfigService.instance.notifier.addListener(_onConfigChanged);
@@ -373,6 +380,11 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
 
   @override
   void dispose() {
+    if (!widget.isPickerOnly) {
+      SavedDestinationBus.notifier.removeListener(_onSavedDestinationPicked);
+      SavedDestinationBus.receivers =
+          max(0, SavedDestinationBus.receivers - 1);
+    }
     _debounceTimer?.cancel();
     _mapIdleFallbackTimer?.cancel();
     _searchTimeoutTimer?.cancel();
@@ -1857,7 +1869,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
                 top: 120,
                 right: 50,
                 // پایین مسیر نباید زیر کشوی انتخاب سرویس (~۴۲٪ صفحه) بماند
-                bottom: MediaQuery.of(context).size.height * 0.44,
+                bottom: MediaQuery.of(context).size.height * 0.5,
               ),
             );
           }
@@ -2356,6 +2368,25 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
     } finally {
       _isCancellingTrip = false;
     }
+  }
+
+  void _onSavedDestinationPicked() {
+    final AddressModel? address = SavedDestinationBus.notifier.value;
+    if (address == null || !mounted) return;
+
+    SavedDestinationBus.notifier.value = null;
+
+    // هر صفحه‌ای روی نقشه باز است (منوی پروفایل، آدرس‌ها) بسته شود
+    final ModalRoute<dynamic>? route = ModalRoute.of(context);
+    if (route != null) {
+      Navigator.of(context).popUntil((Route<dynamic> r) => r == route);
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _handleSavedAddressTap(address);
+      }
+    });
   }
 
   /// کلیک روی چیپ «خانه / محل کار / ...»: آدرس ذخیره‌شده مقصد سفر می‌شود.
