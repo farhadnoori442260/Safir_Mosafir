@@ -340,21 +340,21 @@ class MapBottomSheets {
   }) {
     String? selectedReasonKey;
 
-    final List> searchingReasons = [
+    final List<Map<String, String>> searchingReasons = [
       {'key': 'cancel_reason_hurry', 'fallback': 'cancel_reason_hurry'.tr()},
       {'key': 'cancel_reason_changed_mind', 'fallback': 'cancel_reason_changed_mind'.tr()},
       {'key': 'cancel_reason_modify_trip', 'fallback': 'cancel_reason_modify_trip'.tr()},
       {'key': 'cancel_reason_other', 'fallback': 'cancel_reason_other'.tr()},
     ];
 
-    final List> afterAcceptReasons = [
+    final List<Map<String, String>> afterAcceptReasons = [
       {'key': 'cancel_reason_driver_too_far', 'fallback': 'cancel_reason_driver_too_far'.tr()},
       {'key': 'cancel_reason_no_longer_needed', 'fallback': 'cancel_reason_no_longer_needed'.tr()},
       {'key': 'cancel_reason_wrong_address', 'fallback': 'cancel_reason_wrong_address'.tr()},
       {'key': 'cancel_reason_other', 'fallback': 'cancel_reason_other'.tr()},
     ];
 
-    final List> reasons =
+    final List<Map<String, String>> reasons =
         isDriverAssigned ? afterAcceptReasons : searchingReasons;
 
     showModalBottomSheet(
@@ -1350,7 +1350,7 @@ class _PaymentSheetState extends State<_PaymentSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final Stream<DocumentSnapshot>>? stream =
+    final Stream<DocumentSnapshot<Map<String, dynamic>>>? stream =
         widget.tripId.isEmpty
             ? null
             : FirebaseFirestore.instance
@@ -1359,7 +1359,7 @@ class _PaymentSheetState extends State<_PaymentSheet> {
                 .snapshots();
 
     return SafeArea(
-      child: StreamBuilder<DocumentSnapshot>>(
+      child: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
         stream: stream,
         builder: (context, snapshot) {
           final String status =
