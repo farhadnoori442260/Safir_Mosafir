@@ -8,7 +8,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'package:safir_passengers/models/address_models.dart';
-import 'package:safir_passengers/pages/search_destination_place.dart';
 import 'package:safir_passengers/pages/saved_addresses_screen.dart';
 import 'package:safir_passengers/theme/app_colors.dart';
 
@@ -39,6 +38,9 @@ class SmartLocationSheet extends StatefulWidget {
   final bool hasGpsDisruption;
   final ValueChanged<AddressModel>? onSavedAddressSelected;
 
+  /// صفحه‌ی نقشه (حالت فقط‌انتخاب) را باز می‌کند و آدرس تأییدشده را برمی‌گرداند.
+  final Future<AddressModel?> Function()? onPickFavoriteOnMap;
+
   const SmartLocationSheet({
     super.key,
     required this.currentStep,
@@ -53,6 +55,7 @@ class SmartLocationSheet extends StatefulWidget {
     this.onExpandChanged,
     this.hasGpsDisruption = false,
     this.onSavedAddressSelected,
+    this.onPickFavoriteOnMap,
   });
 
   @override
@@ -127,38 +130,109 @@ class _SmartLocationSheetState
 Future<void> _startAddingFavoritePlace() async {
   HapticFeedback.lightImpact();
 
-  final dynamic searchResult = await Navigator.push(
-    context,
-    MaterialPageRoute(
-      builder: (_) => const SearchDestinationPlace(),
-    ),
-  );
+  // مرحله ۱: انتخاب روی نقشه + دکمه‌ی تأیید
+  final AddressModel? selectedAddress =
+      await widget.onPickFavoriteOnMap?.call();
 
-  if (!mounted ||
-      searchResult is! Map ||
-      searchResult['address'] is! AddressModel) {
+  if (!mounted || selectedAddress == null) {
     return;
   }
 
-  final AddressModel selectedAddress =
-      searchResult['address'] as AddressModel;
+  final String addressText =
+      selectedAddress.humanReadableAddress?.trim().isNotEmpty == true
+          ? selectedAddress.humanReadableAddress!.trim()
+          : (selectedAddress.placeName ?? '').trim();
 
-  final AddressModel? savedAddress =
-      await Navigator.push<AddressModel>(
+  // مرحله ۲: انتخاب خانه / دفتر یا نام دلخواه
+  final Map<String, dynamic>? details =
+      await Navigator.push<Map<String, dynamic>>(
     context,
     MaterialPageRoute(
-      builder: (_) => SavedAddressesScreen(
-        initialAddress: selectedAddress,
-        openAddSheetOnStart: true,
+      builder: (_) => _FavoriteDetailsPage(
+        address: addressText,
       ),
     ),
   );
 
-  if (!mounted || savedAddress == null) {
+  if (!mounted || details == null) {
     return;
   }
 
-  widget.onSavedAddressSelected?.call(savedAddress);
+  await _saveFavoritePlace(
+    address: selectedAddress,
+    addressText: addressText,
+    title: details['title'] as String,
+    type: details['type'] as String,
+    showAsShortcut: details['showAsShortcut'] as bool,
+  );
+}
+
+Future<void> _saveFavoritePlace({
+  required AddressModel address,
+  required String addressText,
+  required String title,
+  required String type,
+  required bool showAsShortcut,
+}) async {
+  final CollectionReference<Map<String, dynamic>>? collection =
+      _savedAddressesCollection;
+
+  final ScaffoldMessengerState messenger =
+      ScaffoldMessenger.of(context);
+
+  if (collection == null) {
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          _translatedOrFallback(
+            'login_required_to_save',
+            'برای ذخیره آدرس ابتدا وارد حساب شوید',
+          ),
+        ),
+      ),
+    );
+    return;
+  }
+
+  try {
+    await collection.add(<String, dynamic>{
+      'title': title,
+      'type': type,
+      'address': addressText,
+      'placeName': address.placeName ?? addressText,
+      'latitude': address.latitudePosition,
+      'longitude': address.longitudePosition,
+      'showAsShortcut': showAsShortcut,
+      'createdAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+
+    HapticFeedback.mediumImpact();
+
+    // بعد از ذخیره به صفحه‌ی انتخاب مقصد برمی‌گردیم؛
+    // آدرس جدید از طریق stream به‌صورت چیپ افقی ظاهر می‌شود.
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          _translatedOrFallback(
+            'favorite_saved_success',
+            'آدرس منتخب با موفقیت ذخیره شد.',
+          ),
+        ),
+      ),
+    );
+  } catch (_) {
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          _translatedOrFallback(
+            'favorite_save_failed',
+            'ذخیره آدرس انجام نشد، دوباره تلاش کنید.',
+          ),
+        ),
+      ),
+    );
+  }
 }
 
   void _openSavedAddressesManager() {
@@ -723,7 +797,11 @@ Future<void> _startAddingFavoritePlace() async {
         }
 
         final List<QueryDocumentSnapshot<Map<String, dynamic>>>
-            documents = snapshot.data!.docs;
+            documents = snapshot.data!.docs.where(
+          (QueryDocumentSnapshot<Map<String, dynamic>> item) {
+            return item.data()['showAsShortcut'] != false;
+          },
+        ).toList();
 
         final List<QueryDocumentSnapshot<Map<String, dynamic>>>
             homeAndWork = documents.where(
@@ -772,12 +850,19 @@ Future<void> _startAddingFavoritePlace() async {
                 int index,
               ) {
                 // اولین آیتم در سمت راست: افزودن مکان منتخب
+                // وقتی آدرس ذخیره‌شده وجود دارد، متن کوتاه می‌شود
+                // تا چیپ‌های بیشتری در دید باشند.
                 if (index == 0) {
                   return _AddFavoriteChip(
-                    title: _translatedOrFallback(
-                      'add_favorite_place',
-                      'افزودن مکان منتخب',
-                    ),
+                    title: favoriteAddresses.isEmpty
+                        ? _translatedOrFallback(
+                            'add_favorite_place',
+                            'افزودن مکان منتخب',
+                          )
+                        : _translatedOrFallback(
+                            'add_favorite_place_short',
+                            'افزودن',
+                          ),
                     onTap: _startAddingFavoritePlace,
                   );
                 }
@@ -1149,6 +1234,258 @@ class _FavoriteAddressChip extends StatelessWidget {
               ],
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+/// صفحه‌ی «جزئیات مکان منتخب»: نام‌گذاری آدرس + سوییچ میان‌بر.
+class _FavoriteDetailsPage extends StatefulWidget {
+  const _FavoriteDetailsPage({required this.address});
+
+  final String address;
+
+  @override
+  State<_FavoriteDetailsPage> createState() =>
+      _FavoriteDetailsPageState();
+}
+
+class _FavoriteDetailsPageState
+    extends State<_FavoriteDetailsPage> {
+  static const int _maxNameLength = 30;
+
+  final TextEditingController _nameController =
+      TextEditingController();
+
+  bool _showAsShortcut = true;
+  String _type = 'other';
+
+  bool get _canSave => _nameController.text.trim().isNotEmpty;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController.addListener(() => setState(() {}));
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
+  }
+
+  void _save() {
+    if (!_canSave) {
+      return;
+    }
+
+    FocusScope.of(context).unfocus();
+
+    Navigator.pop<Map<String, dynamic>>(
+      context,
+      <String, dynamic>{
+        'title': _nameController.text.trim(),
+        'type': _type,
+        'showAsShortcut': _showAsShortcut,
+      },
+    );
+  }
+
+  Widget _typeChip({
+    required String type,
+    required String label,
+    required IconData icon,
+  }) {
+    final bool selected = _type == type;
+
+    return ChoiceChip(
+      avatar: Icon(
+        icon,
+        size: 18,
+        color: selected
+            ? AppColors.primaryBrand
+            : AppColors.iconSecondary,
+      ),
+      label: Text(label),
+      selected: selected,
+      selectedColor: AppColors.primaryBrand.withOpacity(0.12),
+      onSelected: (_) {
+        HapticFeedback.selectionClick();
+        setState(() {
+          _type = type;
+          _nameController.text = label;
+          _nameController.selection = TextSelection.collapsed(
+            offset: label.length,
+          );
+        });
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        foregroundColor: AppColors.textPrimary,
+        title: Text(
+          _translatedOrFallback(
+            'favorite_details_title',
+            'جزئیات مکان منتخب',
+          ),
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ),
+      body: SafeArea(
+        child: Column(
+          children: [
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  Wrap(
+                    spacing: 8,
+                    children: [
+                      _typeChip(
+                        type: 'home',
+                        label: _translatedOrFallback(
+                          'saved_address_home',
+                          'خانه',
+                        ),
+                        icon: Icons.home_outlined,
+                      ),
+                      _typeChip(
+                        type: 'work',
+                        label: _translatedOrFallback(
+                          'saved_address_work',
+                          'دفتر',
+                        ),
+                        icon: Icons.business_outlined,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: _nameController,
+                    onChanged: (_) {
+                      if (_type != 'other') {
+                        setState(() => _type = 'other');
+                      }
+                    },
+                    maxLength: _maxNameLength,
+                    inputFormatters: [
+                      LengthLimitingTextInputFormatter(
+                        _maxNameLength,
+                      ),
+                    ],
+                    textInputAction: TextInputAction.done,
+                    onSubmitted: (_) => _save(),
+                    decoration: InputDecoration(
+                      labelText: _translatedOrFallback(
+                        'favorite_name_label',
+                        'نام مکان منتخب',
+                      ),
+                      hintText: _translatedOrFallback(
+                        'favorite_name_hint',
+                        'مثلاً: خانه من، شرکت و ...',
+                      ),
+                      helperText: _translatedOrFallback(
+                        'favorite_name_helper',
+                        'نام انتخابی فقط به خودتان نشان داده می‌شود.',
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius:
+                            BorderRadius.circular(10),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius:
+                            BorderRadius.circular(10),
+                        borderSide: const BorderSide(
+                          color: AppColors.primaryBrand,
+                          width: 1.5,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  InputDecorator(
+                    decoration: InputDecoration(
+                      border: OutlineInputBorder(
+                        borderRadius:
+                            BorderRadius.circular(10),
+                      ),
+                      helperText: _translatedOrFallback(
+                        'favorite_address_helper',
+                        'این آدرس فقط به خودتان نشان داده می‌شود.',
+                      ),
+                    ),
+                    child: Text(
+                      widget.address,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    value: _showAsShortcut,
+                    activeColor: AppColors.primaryBrand,
+                    onChanged: (bool value) {
+                      setState(() => _showAsShortcut = value);
+                    },
+                    title: Text(
+                      _translatedOrFallback(
+                        'favorite_show_as_shortcut',
+                        'نمایش به صورت میان‌بر',
+                      ),
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: SizedBox(
+                width: double.infinity,
+                height: 51,
+                child: ElevatedButton(
+                  onPressed: _canSave ? _save : null,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primaryButton,
+                    foregroundColor: AppColors.buttonText,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  child: Text(
+                    _translatedOrFallback(
+                      'save',
+                      'ذخیره',
+                    ),
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
