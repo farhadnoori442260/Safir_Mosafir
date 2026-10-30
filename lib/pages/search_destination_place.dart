@@ -12,7 +12,14 @@ import 'package:safir_passengers/models/predicted_places.dart';
 import 'package:safir_passengers/widgets/place_prediction_tile.dart';
 
 class SearchDestinationPlace extends StatefulWidget {
-  const SearchDestinationPlace({super.key});
+  /// اگر false باشد، انتخاب کاربر در AppInfo (مقصد سفر) ذخیره نمی‌شود و فقط
+  /// به‌عنوان نتیجه برمی‌گردد؛ صفحه‌ی صدازننده خودش تصمیم می‌گیرد.
+  final bool updateDropOff;
+
+  const SearchDestinationPlace({
+    super.key,
+    this.updateDropOff = true,
+  });
 
   @override
   State<SearchDestinationPlace> createState() =>
@@ -181,8 +188,10 @@ class _SearchDestinationPlaceState
       longitudePosition: place.lng,
     );
 
-    Provider.of<AppInfo>(context, listen: false)
-        .updateDropOffLocation(selectedDestination);
+    if (widget.updateDropOff) {
+      Provider.of<AppInfo>(context, listen: false)
+          .updateDropOffLocation(selectedDestination);
+    }
 
     Navigator.pop(
       context,
