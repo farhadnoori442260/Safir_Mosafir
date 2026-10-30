@@ -57,6 +57,10 @@ class MapBottomSheets {
   }
 
   // 🎯 مرحله ۲: انتخاب نوع خودرو و موتورسایکل
+  //
+  // ارتفاع شیت به اندازه‌ی محتواست (دیگر فضای سفید اضافه ندارد).
+  //  • حالت عادی: همه‌ی سرویس‌های تب فعال (اقتصادی + VIP)
+  //  • حالت جمع‌شده (کشیدن به پایین / لمس دستگیره): فقط سرویس انتخاب‌شده
   static Widget buildStep2({
     required int selectedCategory,
     required int selectedVehicleType,
@@ -72,218 +76,29 @@ class MapBottomSheets {
     bool isScheduled = false,
     bool hasPromoCode = false,
     double? distanceInKm,
-    // قیمت هر نوع سرویس (از تنظیمات پنل ادمین)؛ اگر داده نشود از ضریب قدیمی حساب می‌شود
     double? ecoFare,
     double? vipFare,
     double? bikeFare,
   }) {
-    return Positioned.fill(
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final String currency = 'currency_afg'.tr();
-          final double bottomSafeArea = MediaQuery.of(context).padding.bottom;
-
-          return DraggableScrollableSheet(
-            initialChildSize: 0.42,
-            minChildSize: 0.42,
-            maxChildSize: 0.64,
-            snap: true,
-            snapSizes: const [0.42, 0.64],
-            expand: false,
-            builder: (context, scrollController) {
-              return Container(
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.vertical(
-                    top: Radius.circular(24),
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black12,
-                      blurRadius: 15,
-                      spreadRadius: 2,
-                      offset: Offset(0, -3),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  children: [
-                    const SizedBox(height: 10),
-                    Container(
-                      width: 42,
-                      height: 5,
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade300,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    _buildTabs(
-                      selectedCategory: selectedCategory,
-                      onCategoryChanged: onCategoryChanged,
-                    ),
-                    Expanded(
-                      // ✅ کنترلر ثابت (نه ساخت دوباره در هر build) تا کشیدنِ
-                      // بین دو تب بدون پرش و بدون ساخت دوباره‌ی صفحه انجام شود
-                      child: _VehiclePager(
-                        selectedCategory: selectedCategory,
-                        onCategoryChanged: onCategoryChanged,
-                        pages: [
-                          ListView(
-                            controller:
-                                selectedCategory == 0 ? scrollController : null,
-                            primary: false,
-                            physics: const BouncingScrollPhysics(),
-                            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-                            children: [
-                              _buildVehicleCard(
-                                title: 'vehicle_eco_title'.tr(),
-                                subtitle: 'vehicle_eco_sub'.tr(),
-                                price:
-                                    '${(ecoFare ?? actualFareAmount).toStringAsFixed(0)} $currency',
-                                imagePath: 'assets/images/safir_normal.png',
-                                isBike: false,
-                                isSelected: selectedVehicleType == 0,
-                                safirColor: safirColor,
-                                cardBgColor: AppColors.cardBgLight,
-                                onTap: () {
-                                  HapticFeedback.selectionClick();
-                                  onVehicleSelected(0, 'Car');
-                                },
-                              ),
-                              const SizedBox(height: 10),
-                              _buildVehicleCard(
-                                title: 'vehicle_vip_title'.tr(),
-                                subtitle: 'vehicle_vip_sub'.tr(),
-                                price:
-                                    '${(vipFare ?? actualFareAmount * 1.35).toStringAsFixed(0)} $currency',
-                                imagePath: 'assets/images/uberexec.png',
-                                isBike: false,
-                                isSelected: selectedVehicleType == 1,
-                                safirColor: safirColor,
-                                cardBgColor: AppColors.cardBgLight,
-                                onTap: () {
-                                  HapticFeedback.selectionClick();
-                                  onVehicleSelected(1, 'Auto');
-                                },
-                              ),
-                            ],
-                          ),
-                          ListView(
-                            controller:
-                                selectedCategory == 1 ? scrollController : null,
-                            primary: false,
-                            physics: const BouncingScrollPhysics(),
-                            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-                            children: [
-                              _buildVehicleCard(
-                                title: 'vehicle_bike_title'.tr(),
-                                subtitle: 'vehicle_bike_sub'.tr(),
-                                price:
-                                    '${(bikeFare ?? actualFareAmount * 0.55).toStringAsFixed(0)} $currency',
-                                imagePath: 'assets/images/safir_bike.png',
-                                isBike: true,
-                                isSelected: selectedVehicleType == 0,
-                                safirColor: safirColor,
-                                cardBgColor: AppColors.cardBgLight,
-                                onTap: () {
-                                  HapticFeedback.selectionClick();
-                                  onVehicleSelected(0, 'Bike');
-                                },
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    Container(
-                      padding: EdgeInsets.fromLTRB(
-                        16,
-                        10,
-                        16,
-                        bottomSafeArea + 12,
-                      ),
-                      decoration: const BoxDecoration(
-                        color: Colors.white,
-                        border: Border(
-                          top: BorderSide(color: Color(0xFFF0F1F3)),
-                        ),
-                      ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _buildOptionButton(
-                                  icon: Icons.tune_rounded,
-                                  title: 'opt_ride_options'.tr(),
-                                  isActive: hasActiveTripOptions,
-                                  onTap: () {
-                                    HapticFeedback.lightImpact();
-                                    onTripOptionsTap();
-                                  },
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: _buildOptionButton(
-                                  icon: Icons.schedule_rounded,
-                                  title: 'opt_schedule'.tr(),
-                                  isActive: isScheduled,
-                                  onTap: () {
-                                    HapticFeedback.lightImpact();
-                                    onScheduleTap();
-                                  },
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: _buildOptionButton(
-                                  icon: Icons.local_offer_outlined,
-                                  title: 'opt_promo_code'.tr(),
-                                  isActive: hasPromoCode,
-                                  onTap: () {
-                                    HapticFeedback.lightImpact();
-                                    onPromoCodeTap();
-                                  },
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          SizedBox(
-                            width: double.infinity,
-                            height: 52,
-                            child: ElevatedButton(
-                              onPressed: onRequestTrip,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppColors.primaryBrand,
-                                foregroundColor: Colors.white,
-                                elevation: 0,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
-                              ),
-                              child: Text(
-                                'btn_request_safir'.tr(),
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            },
-          );
-        },
+    return Align(
+      alignment: Alignment.bottomCenter,
+      child: _Step2Sheet(
+        selectedCategory: selectedCategory,
+        selectedVehicleType: selectedVehicleType,
+        actualFareAmount: actualFareAmount,
+        safirColor: safirColor,
+        onCategoryChanged: onCategoryChanged,
+        onVehicleSelected: onVehicleSelected,
+        onRequestTrip: onRequestTrip,
+        onTripOptionsTap: onTripOptionsTap,
+        onScheduleTap: onScheduleTap,
+        onPromoCodeTap: onPromoCodeTap,
+        hasActiveTripOptions: hasActiveTripOptions,
+        isScheduled: isScheduled,
+        hasPromoCode: hasPromoCode,
+        ecoFare: ecoFare,
+        vipFare: vipFare,
+        bikeFare: bikeFare,
       ),
     );
   }
@@ -1189,298 +1004,287 @@ class MapBottomSheets {
   }
 }
 
-/// دو صفحه‌ی خودرو/موتور با PageController ثابت.
-/// تب‌ها با انیمیشن عوض می‌شوند و کشیدنِ انگشت، صفحه را از نو نمی‌سازد.
-class _VehiclePager extends StatefulWidget {
-  const _VehiclePager({
+class _VehicleEntry {
+  const _VehicleEntry({
+    required this.index,
+    required this.vehicleType,
+    required this.title,
+    required this.subtitle,
+    required this.price,
+    required this.imagePath,
+    required this.isBike,
+  });
+
+  final int index;
+  final String vehicleType;
+  final String title;
+  final String subtitle;
+  final String price;
+  final String imagePath;
+  final bool isBike;
+}
+
+class _Step2Sheet extends StatefulWidget {
+  const _Step2Sheet({
     required this.selectedCategory,
+    required this.selectedVehicleType,
+    required this.actualFareAmount,
+    required this.safirColor,
     required this.onCategoryChanged,
-    required this.pages,
+    required this.onVehicleSelected,
+    required this.onRequestTrip,
+    required this.onTripOptionsTap,
+    required this.onScheduleTap,
+    required this.onPromoCodeTap,
+    required this.hasActiveTripOptions,
+    required this.isScheduled,
+    required this.hasPromoCode,
+    this.ecoFare,
+    this.vipFare,
+    this.bikeFare,
   });
 
   final int selectedCategory;
-  final ValueChanged<int> onCategoryChanged;
-  final List<Widget> pages;
+  final int selectedVehicleType;
+  final double actualFareAmount;
+  final Color safirColor;
+  final Function(int) onCategoryChanged;
+  final Function(int, String) onVehicleSelected;
+  final VoidCallback onRequestTrip;
+  final VoidCallback onTripOptionsTap;
+  final VoidCallback onScheduleTap;
+  final VoidCallback onPromoCodeTap;
+  final bool hasActiveTripOptions;
+  final bool isScheduled;
+  final bool hasPromoCode;
+  final double? ecoFare;
+  final double? vipFare;
+  final double? bikeFare;
 
   @override
-  State<_VehiclePager> createState() => _VehiclePagerState();
+  State<_Step2Sheet> createState() => _Step2SheetState();
 }
 
-class _VehiclePagerState extends State<_VehiclePager> {
-  late final PageController _controller =
-      PageController(initialPage: widget.selectedCategory);
+class _Step2SheetState extends State<_Step2Sheet> {
+  bool _expanded = true;
 
-  @override
-  void didUpdateWidget(covariant _VehiclePager oldWidget) {
-    super.didUpdateWidget(oldWidget);
-
-    if (oldWidget.selectedCategory != widget.selectedCategory &&
-        _controller.hasClients &&
-        _controller.page?.round() != widget.selectedCategory) {
-      _controller.animateToPage(
-        widget.selectedCategory,
-        duration: const Duration(milliseconds: 260),
-        curve: Curves.easeOutCubic,
-      );
-    }
+  void _setExpanded(bool value) {
+    if (_expanded == value) return;
+    HapticFeedback.selectionClick();
+    setState(() => _expanded = value);
   }
 
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
+  List<_VehicleEntry> _entries(String currency) {
+    final _Step2Sheet w = widget;
+
+    if (w.selectedCategory == 1) {
+      return <_VehicleEntry>[
+        _VehicleEntry(
+          index: 0,
+          vehicleType: 'Bike',
+          title: 'vehicle_bike_title'.tr(),
+          subtitle: 'vehicle_bike_sub'.tr(),
+          price:
+              '${(w.bikeFare ?? w.actualFareAmount * 0.55).toStringAsFixed(0)} $currency',
+          imagePath: 'assets/images/safir_bike.png',
+          isBike: true,
+        ),
+      ];
+    }
+
+    return <_VehicleEntry>[
+      _VehicleEntry(
+        index: 0,
+        vehicleType: 'Car',
+        title: 'vehicle_eco_title'.tr(),
+        subtitle: 'vehicle_eco_sub'.tr(),
+        price:
+            '${(w.ecoFare ?? w.actualFareAmount).toStringAsFixed(0)} $currency',
+        imagePath: 'assets/images/safir_normal.png',
+        isBike: false,
+      ),
+      _VehicleEntry(
+        index: 1,
+        vehicleType: 'Auto',
+        title: 'vehicle_vip_title'.tr(),
+        subtitle: 'vehicle_vip_sub'.tr(),
+        price:
+            '${(w.vipFare ?? w.actualFareAmount * 1.35).toStringAsFixed(0)} $currency',
+        imagePath: 'assets/images/uberexec.png',
+        isBike: false,
+      ),
+    ];
   }
 
   @override
   Widget build(BuildContext context) {
-    return PageView(
-      controller: _controller,
-      onPageChanged: (int index) {
-        // تغییر ناشی از خود انیمیشن تب دوباره اعلام نمی‌شود
-        if (index == widget.selectedCategory) return;
-        HapticFeedback.selectionClick();
-        widget.onCategoryChanged(index);
-      },
-      children: widget.pages,
-    );
-  }
-}
+    final _Step2Sheet w = widget;
+    final String currency = 'currency_afg'.tr();
+    final double bottomSafeArea = MediaQuery.of(context).padding.bottom;
 
-String _payTr(String key, String fallback) {
-  final String v = key.tr();
-  return (v.trim().isEmpty || v == key) ? fallback : v;
-}
+    final List<_VehicleEntry> all = _entries(currency);
 
-/// وضعیت‌های پرداخت روی سند rides:
-///  unpaid → awaiting_driver_confirmation (مسافر) → paid (راننده) → settled (ادمین)
-class _PaymentSheet extends StatefulWidget {
-  const _PaymentSheet({required this.tripId, required this.amount});
-
-  final String tripId;
-  final dynamic amount;
-
-  @override
-  State<_PaymentSheet> createState() => _PaymentSheetState();
-}
-
-class _PaymentSheetState extends State<_PaymentSheet> {
-  bool _sending = false;
-
-  Future<void> _sendRequest() async {
-    if (_sending || widget.tripId.isEmpty) return;
-
-    HapticFeedback.mediumImpact();
-    setState(() => _sending = true);
-
-    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
-
-    try {
-      await FirebaseFirestore.instance
-          .collection('rides')
-          .doc(widget.tripId)
-          .update(<String, dynamic>{
-        'payment_method': 'cash',
-        'payment_status': 'awaiting_driver_confirmation',
-        'payment_requested_amount': widget.amount,
-        'payment_requested_at': FieldValue.serverTimestamp(),
-      });
-
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(
-            _payTr(
-              'payment_request_sent',
-              'درخواست تایید پرداخت برای راننده ارسال شد.',
+    // جمع‌شده: فقط سرویس انتخاب‌شده (پیش‌فرض اقتصادی) → VIP پنهان می‌شود
+    final List<_VehicleEntry> visible = _expanded || all.length == 1
+        ? all
+        : <_VehicleEntry>[
+            all.firstWhere(
+              (e) => e.index == w.selectedVehicleType,
+              orElse: () => all.first,
             ),
-          ),
+          ];
+
+    return GestureDetector(
+      onVerticalDragEnd: (DragEndDetails d) {
+        final double v = d.primaryVelocity ?? 0;
+        if (v > 180) {
+          _setExpanded(false);
+        } else if (v < -180) {
+          _setExpanded(true);
+        }
+      },
+      child: Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black12,
+              blurRadius: 15,
+              spreadRadius: 2,
+              offset: Offset(0, -3),
+            ),
+          ],
         ),
-      );
-    } on FirebaseException catch (e) {
-      debugPrint('Payment request error: ${e.code} | ${e.message}');
-
-      messenger.showSnackBar(
-        SnackBar(
-          backgroundColor: Colors.red.shade700,
-          content: Text(
-            '${_payTr('payment_request_failed', 'ارسال درخواست انجام نشد')} (${e.code})',
-          ),
-        ),
-      );
-    } catch (e) {
-      debugPrint('Payment request error: $e');
-
-      messenger.showSnackBar(
-        SnackBar(
-          backgroundColor: Colors.red.shade700,
-          content: Text(
-            _payTr('payment_request_failed', 'ارسال درخواست انجام نشد'),
-          ),
-        ),
-      );
-    } finally {
-      if (mounted) setState(() => _sending = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final Stream<DocumentSnapshot<Map<String, dynamic>>>? stream =
-        widget.tripId.isEmpty
-            ? null
-            : FirebaseFirestore.instance
-                .collection('rides')
-                .doc(widget.tripId)
-                .snapshots();
-
-    return SafeArea(
-      child: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-        stream: stream,
-        builder: (context, snapshot) {
-          final String status =
-              snapshot.data?.data()?['payment_status']?.toString() ?? 'unpaid';
-
-          final bool isPaid = status == 'paid' || status == 'settled';
-          final bool isAwaiting = status == 'awaiting_driver_confirmation';
-
-          final Color bannerColor = isPaid
-              ? const Color(0xFF16A34A)
-              : isAwaiting
-                  ? const Color(0xFF2563EB)
-                  : Colors.amber.shade800;
-
-          final IconData bannerIcon = isPaid
-              ? Icons.check_circle_rounded
-              : isAwaiting
-                  ? Icons.hourglass_top_rounded
-                  : Icons.info_outline_rounded;
-
-          final String bannerText = isPaid
-              ? _payTr('payment_driver_confirmed',
-                  'راننده دریافت پرداخت را تایید کرد.')
-              : isAwaiting
-                  ? _payTr('payment_awaiting_driver',
-                      'درخواست شما برای راننده ارسال شد. تا زمانی که راننده تایید نکند، پرداخت انجام‌نشده محسوب می‌شود.')
-                  : _payTr('payment_unpaid_warning_msg',
-                      'پرداخت تا تایید راننده ثبت نمی‌شود. بعد از پرداخت نقدی به راننده، درخواست تایید را بفرستید.');
-
-          final String buttonText = isPaid
-              ? _payTr('close', 'بستن')
-              : isAwaiting
-                  ? _payTr('payment_waiting_btn', 'در انتظار تایید راننده')
-                  : _payTr('payment_send_request_btn', 'ارسال درخواست تایید پرداخت');
-
-          final VoidCallback? onPressed = isPaid
-              ? () => Navigator.pop(context)
-              : (isAwaiting || _sending)
-                  ? null
-                  : _sendRequest;
-
-          return Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 40,
-                  height: 4,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => _setExpanded(!_expanded),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(0, 10, 0, 8),
+                child: Container(
+                  width: 42,
+                  height: 5,
                   decoration: BoxDecoration(
-                    color: Colors.grey[300],
+                    color: Colors.grey.shade300,
                     borderRadius: BorderRadius.circular(10),
                   ),
                 ),
-                const SizedBox(height: 16),
-                Icon(
-                  isPaid
-                      ? Icons.verified_rounded
-                      : Icons.account_balance_wallet_rounded,
-                  size: 48,
-                  color: isPaid ? const Color(0xFF16A34A) : AppColors.primaryBrand,
+              ),
+            ),
+            MapBottomSheets._buildTabs(
+              selectedCategory: w.selectedCategory,
+              onCategoryChanged: w.onCategoryChanged,
+            ),
+            AnimatedSize(
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOutCubic,
+              alignment: Alignment.topCenter,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    for (int i = 0; i < visible.length; i++) ...[
+                      if (i > 0) const SizedBox(height: 10),
+                      MapBottomSheets._buildVehicleCard(
+                        title: visible[i].title,
+                        subtitle: visible[i].subtitle,
+                        price: visible[i].price,
+                        imagePath: visible[i].imagePath,
+                        isBike: visible[i].isBike,
+                        isSelected:
+                            w.selectedVehicleType == visible[i].index,
+                        safirColor: w.safirColor,
+                        cardBgColor: AppColors.cardBgLight,
+                        onTap: () {
+                          HapticFeedback.selectionClick();
+                          w.onVehicleSelected(
+                            visible[i].index,
+                            visible[i].vehicleType,
+                          );
+                        },
+                      ),
+                    ],
+                  ],
                 ),
-                const SizedBox(height: 12),
-                Text(
-                  _payTr('payment_settlement_title', 'پرداخت کرایه'),
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  '${_payTr('payable_amount_label', 'مبلغ قابل پرداخت')}: '
-                  '${widget.amount} ${'currency_afg'.tr()}',
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.primaryBrand,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: bannerColor.withOpacity(0.10),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: bannerColor.withOpacity(0.35)),
-                  ),
-                  child: Row(
+              ),
+            ),
+            Padding(
+              padding: EdgeInsets.fromLTRB(16, 10, 16, bottomSafeArea + 12),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
                     children: [
-                      Icon(bannerIcon, color: bannerColor, size: 20),
+                      Expanded(
+                        child: MapBottomSheets._buildOptionButton(
+                          icon: Icons.tune_rounded,
+                          title: 'opt_ride_options'.tr(),
+                          isActive: w.hasActiveTripOptions,
+                          onTap: () {
+                            HapticFeedback.lightImpact();
+                            w.onTripOptionsTap();
+                          },
+                        ),
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
-                        child: Text(
-                          bannerText,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            height: 1.5,
-                            color: Colors.black87,
-                          ),
+                        child: MapBottomSheets._buildOptionButton(
+                          icon: Icons.schedule_rounded,
+                          title: 'opt_schedule'.tr(),
+                          isActive: w.isScheduled,
+                          onTap: () {
+                            HapticFeedback.lightImpact();
+                            w.onScheduleTap();
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: MapBottomSheets._buildOptionButton(
+                          icon: Icons.local_offer_outlined,
+                          title: 'opt_promo_code'.tr(),
+                          isActive: w.hasPromoCode,
+                          onTap: () {
+                            HapticFeedback.lightImpact();
+                            w.onPromoCodeTap();
+                          },
                         ),
                       ),
                     ],
                   ),
-                ),
-                const SizedBox(height: 20),
-                SizedBox(
-                  width: double.infinity,
-                  height: 50,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: isPaid
-                          ? const Color(0xFF16A34A)
-                          : AppColors.primaryBrand,
-                      disabledBackgroundColor: Colors.grey.shade300,
-                      foregroundColor: Colors.white,
-                      disabledForegroundColor: Colors.grey.shade600,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 52,
+                    child: ElevatedButton(
+                      onPressed: w.onRequestTrip,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primaryBrand,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      child: Text(
+                        'btn_request_safir'.tr(),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
-                    onPressed: onPressed,
-                    child: _sending
-                        ? const SizedBox(
-                            width: 22,
-                            height: 22,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2.4,
-                              color: Colors.white,
-                            ),
-                          )
-                        : Text(
-                            buttonText,
-                            style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          );
-        },
+          ],
+        ),
       ),
     );
   }
