@@ -5,7 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import 'package:safir_passengers/models/address_models.dart';
-// ⚠️ مسیر/نام فایل صفحه‌ی نقشه‌ی خودتان را اینجا بگذارید
+import 'package:safir_passengers/pages/search_destination_place.dart';
 import 'package:safir_passengers/pages/map_screen.dart';
 
 const Color savedPrimaryAccent = Color(0xFF1B7A57);
@@ -18,10 +18,20 @@ class SavedAddressesScreen extends StatefulWidget {
   final AddressModel? initialAddress;
   final bool openAddSheetOnStart;
 
+  /// انتخاب مکان روی نقشه (از صفحه‌ی نقشه داده می‌شود).
+  /// اگر داده نشود، به جستجوی آدرس برمی‌گردد.
+  final Future<AddressModel?> Function()? onPickLocation;
+
+  /// وقتی true باشد، کلیک روی یک آدرس آن را به‌عنوان مقصد برمی‌گرداند
+  /// (ویرایش و حذف فقط از منوی سه‌نقطه). در غیر این صورت کلیک ویرایش می‌کند.
+  final bool selectMode;
+
   const SavedAddressesScreen({
     super.key,
     this.initialAddress,
     this.openAddSheetOnStart = false,
+    this.onPickLocation,
+    this.selectMode = false,
   });
 
   @override
@@ -74,14 +84,48 @@ void initState() {
   }
 
   /// نقشه‌ی خودمان در حالت فقط‌انتخاب؛ آدرس تأییدشده برمی‌گردد.
-  Future<AddressModel?> _pickLocationOnMap() {
-    return Navigator.push<AddressModel>(
+  Future<AddressModel?> _pickLocationOnMap() async {
+    final Future<AddressModel?> Function()? picker = widget.onPickLocation;
+
+    if (picker != null) {
+      return picker();
+    }
+
+    // پشتیبان: اگر نقشه داده نشده بود، جستجوی آدرس
+    final dynamic result = await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => const SafirMapScreen(
-          serviceType: 'Car',
-          isPickerOnly: true,
-        ),
+        builder: (_) => const SearchDestinationPlace(updateDropOff: false),
+      ),
+    );
+
+    if (result is Map && result['address'] is AddressModel) {
+      return result['address'] as AddressModel;
+    }
+
+    return null;
+  }
+
+  /// انتخاب آدرس ذخیره‌شده به‌عنوان مقصد؛ به صفحه‌ی قبل برمی‌گردد.
+  void _selectAddress(Map<String, dynamic> data) {
+    final double? latitude = _toDouble(data['latitude']);
+    final double? longitude = _toDouble(data['longitude']);
+
+    if (latitude == null || longitude == null) {
+      _showMessage('saved_address_location_required'.tr(), isError: true);
+      return;
+    }
+
+    final String address =
+        data['address']?.toString() ?? data['placeName']?.toString() ?? '';
+
+    Navigator.pop(
+      context,
+      AddressModel(
+        placeName: data['placeName']?.toString() ?? address,
+        humanReadableAddress: address,
+        latitudePosition: latitude,
+        longitudePosition: longitude,
       ),
     );
   }
@@ -903,6 +947,9 @@ Navigator.pop(sheetContext);
                       title: title,
                       subtitle: address,
                       type: type,
+                      onTap: widget.selectMode
+                          ? () => _selectAddress(data)
+                          : null,
                       onEdit: () {
                         _openAddAddressSheet(
                           addressDocument: document,
@@ -980,6 +1027,7 @@ Navigator.pop(sheetContext);
     required String type,
     required VoidCallback onEdit,
     required VoidCallback onDelete,
+    VoidCallback? onTap,
   }) {
     final Color iconColor = _addressColor(type);
 
@@ -996,7 +1044,7 @@ Navigator.pop(sheetContext);
         borderRadius: BorderRadius.circular(19),
         child: InkWell(
           borderRadius: BorderRadius.circular(19),
-          onTap: onEdit,
+          onTap: onTap ?? onEdit,
           child: Padding(
             padding: const EdgeInsets.symmetric(
               horizontal: 13,
