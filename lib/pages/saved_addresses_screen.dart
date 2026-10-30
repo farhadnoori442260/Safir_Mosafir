@@ -6,13 +6,24 @@ import 'package:flutter/material.dart';
 
 import 'package:safir_passengers/models/address_models.dart';
 import 'package:safir_passengers/pages/search_destination_place.dart';
-import 'package:safir_passengers/pages/map_screen.dart';
 
 const Color savedPrimaryAccent = Color(0xFF1B7A57);
 const Color savedDarkTextColor = Color(0xFF0F172A);
 const Color savedSecondaryTextColor = Color(0xFF64748B);
 const Color savedPageBackground = Color(0xFFF7F9F8);
 const Color savedIconBackground = Color(0xFFEFF5F1);
+
+/// پل بین صفحه‌ی آدرس‌ها و صفحه‌ی نقشه: وقتی کاربر روی آدرسی کلیک می‌کند،
+/// نقشه (اگر زنده باشد) آن را مقصد می‌کند و همه‌ی صفحه‌های روی خودش را می‌بندد.
+class SavedDestinationBus {
+  SavedDestinationBus._();
+
+  static final ValueNotifier<AddressModel?> notifier =
+      ValueNotifier<AddressModel?>(null);
+
+  /// تعداد صفحه‌های نقشه‌ی فعال که منتظر انتخاب هستند
+  static int receivers = 0;
+}
 
 class SavedAddressesScreen extends StatefulWidget {
   final AddressModel? initialAddress;
@@ -119,15 +130,19 @@ void initState() {
     final String address =
         data['address']?.toString() ?? data['placeName']?.toString() ?? '';
 
-    Navigator.pop(
-      context,
-      AddressModel(
-        placeName: data['placeName']?.toString() ?? address,
-        humanReadableAddress: address,
-        latitudePosition: latitude,
-        longitudePosition: longitude,
-      ),
+    final AddressModel selected = AddressModel(
+      placeName: data['placeName']?.toString() ?? address,
+      humanReadableAddress: address,
+      latitudePosition: latitude,
+      longitudePosition: longitude,
     );
+
+    if (SavedDestinationBus.receivers > 0) {
+      // نقشه خودش این صفحه را می‌بندد و مقصد را تعیین می‌کند
+      SavedDestinationBus.notifier.value = selected;
+    } else {
+      Navigator.pop(context, selected);
+    }
   }
 
   /// دکمه‌ی افزودن: اول نقشه، بعد نام‌گذاری (خانه / دفتر / ...)
@@ -947,7 +962,8 @@ Navigator.pop(sheetContext);
                       title: title,
                       subtitle: address,
                       type: type,
-                      onTap: widget.selectMode
+                      onTap: (widget.selectMode ||
+                              SavedDestinationBus.receivers > 0)
                           ? () => _selectAddress(data)
                           : null,
                       onEdit: () {
