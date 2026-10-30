@@ -750,123 +750,20 @@ class MapBottomSheets {
     );
   }
 
-  // 💳 شیت تسویه حساب
+  // 💳 شیت پرداخت
   //
-  // ✅ اصلاح مهم: قبلاً با زدن این دکمه مسافر خودش وضعیت سفر را «completed»
-  // می‌کرد و در «transactions» (که فقط ادمین اجازهٔ نوشتن دارد) سند می‌ساخت.
-  // پایان سفر باید فقط با دکمهٔ «پایان سفر» راننده انجام شود، وگرنه درآمد
-  // راننده ثبت نمی‌شود. حالا فقط «تأیید پرداخت نقدی توسط مسافر» ثبت می‌شود.
+  // مسافر فقط «درخواست تایید پرداخت» می‌فرستد (payment_status =
+  // awaiting_driver_confirmation). تا وقتی راننده تایید نکند، سفر پرداخت‌شده
+  // حساب نمی‌شود. تایید نهایی (paid) را فقط راننده ثبت می‌کند و تسویه با پنل ادمین است.
   static void _showPaymentSheet(BuildContext context, String tripId, dynamic amount) {
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (ctx) {
-        return SafeArea(
-          child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-              const SizedBox(height: 16),
-              const Icon(Icons.account_balance_wallet_rounded, size: 48, color: AppColors.primaryBrand),
-              const SizedBox(height: 12),
-              Text(
-                'payment_settlement_title'.tr(),
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                '${'payable_amount_label'.tr()}: $amount ${'currency_afg'.tr()}',
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.primaryBrand),
-              ),
-              const SizedBox(height: 20),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.amber.shade50,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.amber.shade200),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.info_outline, color: Colors.amber.shade800, size: 20),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'payment_unpaid_warning_msg'.tr(),
-                        style: const TextStyle(fontSize: 12, color: Colors.black87),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primaryBrand,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  onPressed: () async {
-                    Navigator.pop(ctx);
-
-                    if (tripId.isEmpty) return;
-
-                    try {
-                      await FirebaseFirestore.instance
-                          .collection('rides')
-                          .doc(tripId)
-                          .update({
-                        'payment_method': 'cash',
-                        'passenger_confirmed_payment': true,
-                        'paid_amount': amount,
-                        'passenger_confirmed_payment_at':
-                            FieldValue.serverTimestamp(),
-                      });
-
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('payment_success_msg'.tr())),
-                        );
-                      }
-                    } catch (e) {
-                      debugPrint('Payment confirm error: $e');
-
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              'error_occurred'.tr(args: [e.toString()]),
-                            ),
-                            backgroundColor: Colors.red.shade700,
-                          ),
-                        );
-                      }
-                    }
-                  },
-                  child: Text(
-                    'confirm_cash_payment_btn'.tr(),
-                    style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ));
-      },
+      builder: (_) => _PaymentSheet(tripId: tripId, amount: amount),
     );
   }
 
@@ -1345,6 +1242,246 @@ class _VehiclePagerState extends State<_VehiclePager> {
         widget.onCategoryChanged(index);
       },
       children: widget.pages,
+    );
+  }
+}
+
+String _payTr(String key, String fallback) {
+  final String v = key.tr();
+  return (v.trim().isEmpty || v == key) ? fallback : v;
+}
+
+/// وضعیت‌های پرداخت روی سند rides:
+///  unpaid → awaiting_driver_confirmation (مسافر) → paid (راننده) → settled (ادمین)
+class _PaymentSheet extends StatefulWidget {
+  const _PaymentSheet({required this.tripId, required this.amount});
+
+  final String tripId;
+  final dynamic amount;
+
+  @override
+  State<_PaymentSheet> createState() => _PaymentSheetState();
+}
+
+class _PaymentSheetState extends State<_PaymentSheet> {
+  bool _sending = false;
+
+  Future<void> _sendRequest() async {
+    if (_sending || widget.tripId.isEmpty) return;
+
+    HapticFeedback.mediumImpact();
+    setState(() => _sending = true);
+
+    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+
+    try {
+      await FirebaseFirestore.instance
+          .collection('rides')
+          .doc(widget.tripId)
+          .update(<String, dynamic>{
+        'payment_method': 'cash',
+        'payment_status': 'awaiting_driver_confirmation',
+        'payment_requested_amount': widget.amount,
+        'payment_requested_at': FieldValue.serverTimestamp(),
+      });
+
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            _payTr(
+              'payment_request_sent',
+              'درخواست تایید پرداخت برای راننده ارسال شد.',
+            ),
+          ),
+        ),
+      );
+    } on FirebaseException catch (e) {
+      debugPrint('Payment request error: ${e.code} | ${e.message}');
+
+      messenger.showSnackBar(
+        SnackBar(
+          backgroundColor: Colors.red.shade700,
+          content: Text(
+            '${_payTr('payment_request_failed', 'ارسال درخواست انجام نشد')} (${e.code})',
+          ),
+        ),
+      );
+    } catch (e) {
+      debugPrint('Payment request error: $e');
+
+      messenger.showSnackBar(
+        SnackBar(
+          backgroundColor: Colors.red.shade700,
+          content: Text(
+            _payTr('payment_request_failed', 'ارسال درخواست انجام نشد'),
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final Stream<DocumentSnapshot<Map<String, dynamic>>>? stream =
+        widget.tripId.isEmpty
+            ? null
+            : FirebaseFirestore.instance
+                .collection('rides')
+                .doc(widget.tripId)
+                .snapshots();
+
+    return SafeArea(
+      child: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+        stream: stream,
+        builder: (context, snapshot) {
+          final String status =
+              snapshot.data?.data()?['payment_status']?.toString() ?? 'unpaid';
+
+          final bool isPaid = status == 'paid' || status == 'settled';
+          final bool isAwaiting = status == 'awaiting_driver_confirmation';
+
+          final Color bannerColor = isPaid
+              ? const Color(0xFF16A34A)
+              : isAwaiting
+                  ? const Color(0xFF2563EB)
+                  : Colors.amber.shade800;
+
+          final IconData bannerIcon = isPaid
+              ? Icons.check_circle_rounded
+              : isAwaiting
+                  ? Icons.hourglass_top_rounded
+                  : Icons.info_outline_rounded;
+
+          final String bannerText = isPaid
+              ? _payTr('payment_driver_confirmed',
+                  'راننده دریافت پرداخت را تایید کرد.')
+              : isAwaiting
+                  ? _payTr('payment_awaiting_driver',
+                      'درخواست شما برای راننده ارسال شد. تا زمانی که راننده تایید نکند، پرداخت انجام‌نشده محسوب می‌شود.')
+                  : _payTr('payment_unpaid_warning_msg',
+                      'پرداخت تا تایید راننده ثبت نمی‌شود. بعد از پرداخت نقدی به راننده، درخواست تایید را بفرستید.');
+
+          final String buttonText = isPaid
+              ? _payTr('close', 'بستن')
+              : isAwaiting
+                  ? _payTr('payment_waiting_btn', 'در انتظار تایید راننده')
+                  : _payTr('payment_send_request_btn', 'ارسال درخواست تایید پرداخت');
+
+          final VoidCallback? onPressed = isPaid
+              ? () => Navigator.pop(context)
+              : (isAwaiting || _sending)
+                  ? null
+                  : _sendRequest;
+
+          return Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Icon(
+                  isPaid
+                      ? Icons.verified_rounded
+                      : Icons.account_balance_wallet_rounded,
+                  size: 48,
+                  color: isPaid ? const Color(0xFF16A34A) : AppColors.primaryBrand,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  _payTr('payment_settlement_title', 'پرداخت کرایه'),
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '${_payTr('payable_amount_label', 'مبلغ قابل پرداخت')}: '
+                  '${widget.amount} ${'currency_afg'.tr()}',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.primaryBrand,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: bannerColor.withOpacity(0.10),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: bannerColor.withOpacity(0.35)),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(bannerIcon, color: bannerColor, size: 20),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          bannerText,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            height: 1.5,
+                            color: Colors.black87,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: isPaid
+                          ? const Color(0xFF16A34A)
+                          : AppColors.primaryBrand,
+                      disabledBackgroundColor: Colors.grey.shade300,
+                      foregroundColor: Colors.white,
+                      disabledForegroundColor: Colors.grey.shade600,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    onPressed: onPressed,
+                    child: _sending
+                        ? const SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2.4,
+                              color: Colors.white,
+                            ),
+                          )
+                        : Text(
+                            buttonText,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 }
