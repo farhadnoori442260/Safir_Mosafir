@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:intl/intl.dart' show NumberFormat;
 import 'package:loading_animation_widget/loading_animation_widget.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -341,17 +342,17 @@ class MapBottomSheets {
     String? selectedReasonKey;
 
     final List<Map<String, String>> searchingReasons = [
-      {'key': 'cancel_reason_hurry', 'fallback': 'cancel_reason_hurry'.tr()},
-      {'key': 'cancel_reason_changed_mind', 'fallback': 'cancel_reason_changed_mind'.tr()},
-      {'key': 'cancel_reason_modify_trip', 'fallback': 'cancel_reason_modify_trip'.tr()},
-      {'key': 'cancel_reason_other', 'fallback': 'cancel_reason_other'.tr()},
+      {'key': 'cancel_reason_hurry'},
+      {'key': 'cancel_reason_changed_mind'},
+      {'key': 'cancel_reason_modify_trip'},
+      {'key': 'cancel_reason_other'},
     ];
 
     final List<Map<String, String>> afterAcceptReasons = [
-      {'key': 'cancel_reason_driver_too_far', 'fallback': 'cancel_reason_driver_too_far'.tr()},
-      {'key': 'cancel_reason_no_longer_needed', 'fallback': 'cancel_reason_no_longer_needed'.tr()},
-      {'key': 'cancel_reason_wrong_address', 'fallback': 'cancel_reason_wrong_address'.tr()},
-      {'key': 'cancel_reason_other', 'fallback': 'cancel_reason_other'.tr()},
+      {'key': 'cancel_reason_driver_too_far'},
+      {'key': 'cancel_reason_no_longer_needed'},
+      {'key': 'cancel_reason_wrong_address'},
+      {'key': 'cancel_reason_other'},
     ];
 
     final List<Map<String, String>> reasons =
@@ -431,7 +432,7 @@ class MapBottomSheets {
                   ),
                   const SizedBox(height: 12),
                   ...reasons.map((item) {
-                    String titleText = item['key']!.tr();
+                    final String titleText = _cancelReasonText(context, item['key']!);
 
                     return RadioListTile<String>(
                       title: Text(
@@ -553,6 +554,24 @@ class MapBottomSheets {
     );
   }
 
+  static const Map<String, List<String>> _cancelReasonFallbacks = {
+    'cancel_reason_hurry': ['عجله دارم', 'I am in a hurry'],
+    'cancel_reason_changed_mind': ['نظرم عوض شد', 'I changed my mind'],
+    'cancel_reason_modify_trip': ['می‌خواهم سفر را ویرایش کنم', 'I want to modify the trip'],
+    'cancel_reason_other': ['دلیل دیگر', 'Other reason'],
+    'cancel_reason_driver_too_far': ['راننده خیلی دور است', 'The driver is too far'],
+    'cancel_reason_no_longer_needed': ['دیگر نیازی ندارم', 'I no longer need the ride'],
+    'cancel_reason_wrong_address': ['آدرس را اشتباه زدم', 'I entered the wrong address'],
+  };
+
+  static String _cancelReasonText(BuildContext context, String key) {
+    final String v = key.tr();
+    if (v.trim().isNotEmpty && v != key) return v;
+    final List<String>? t = _cancelReasonFallbacks[key];
+    if (t == null) return key;
+    return context.locale.languageCode == 'en' ? t[1] : t[0];
+  }
+
   // 💳 شیت پرداخت
   static void _showPaymentSheet(BuildContext context, String tripId, dynamic amount) {
     showModalBottomSheet(
@@ -582,6 +601,8 @@ class MapBottomSheets {
     String photoDriver = '',
     String phoneNumberDriver = '',
     String estimatedArrivalTime = '5',
+    int? etaMinutes,
+    bool isOnTrip = false,
     VoidCallback? onCancelTrip,
   }) {
     return Positioned.fill(
@@ -645,7 +666,12 @@ class MapBottomSheets {
                       Icon(Icons.access_time_filled, color: safirColor, size: 22),
                       const SizedBox(width: 8),
                       Text(
-                        'driver_arrival_time_msg'.tr(args: [estimatedArrivalTime]),
+                        _etaMessage(
+                          context,
+                          etaMinutes,
+                          isOnTrip,
+                          estimatedArrivalTime,
+                        ),
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
@@ -718,6 +744,43 @@ class MapBottomSheets {
         },
       ),
     );
+  }
+
+  /// متن زمان رسیدن: عدد با ارقام همان زبان و واحد از خود ترجمه می‌آید؛
+  /// دیگر «۱ دقیقه» فارسی داخل جمله‌ی انگلیسی (minutes) نمی‌نشیند.
+  static String _etaMessage(
+    BuildContext context,
+    int? minutes,
+    bool isOnTrip,
+    String legacyText,
+  ) {
+    if (minutes == null) {
+      return 'driver_arrival_time_msg'.tr(args: [legacyText]);
+    }
+
+    final String lang = context.locale.languageCode;
+    final String n = NumberFormat.decimalPattern(lang).format(minutes);
+
+    final String key = isOnTrip ? 'trip_arrival_eta' : 'driver_arrival_eta';
+    final String translated = key.tr(args: [n]);
+
+    if (translated != key && translated.trim().isNotEmpty) {
+      return translated;
+    }
+
+    // اگر کلید در فایل ترجمه نبود
+    switch (lang) {
+      case 'fa':
+        return isOnTrip
+            ? 'تا مقصد $n دقیقه دیگر'
+            : 'راننده تا $n دقیقه دیگر می‌رسد';
+      case 'ps':
+        return isOnTrip
+            ? 'تر منزل $n دقیقې پاتې دي'
+            : 'ډرایور په $n دقیقو کې رسیږي';
+      default:
+        return isOnTrip ? '$n min to destination' : 'Driver arrives in $n min';
+    }
   }
 
   static void showTripOptions(BuildContext context, TripOptionsSheet sheetContent) {
@@ -1273,9 +1336,59 @@ class _Step2SheetState extends State<_Step2Sheet> {
   }
 }
 
-String _payTr(String key, String fallback) {
+const Map<String, Map<String, String>> _payFallbacks = {
+  'payment_request_sent': {
+    'fa': 'درخواست تایید پرداخت برای راننده ارسال شد.',
+    'en': 'Payment confirmation request sent to the driver.',
+  },
+  'payment_request_failed': {
+    'fa': 'ارسال درخواست انجام نشد',
+    'en': 'Could not send the request',
+  },
+  'payment_driver_confirmed': {
+    'fa': 'راننده دریافت پرداخت را تایید کرد.',
+    'en': 'The driver confirmed receiving your payment.',
+  },
+  'payment_awaiting_driver': {
+    'fa':
+        'درخواست شما برای راننده ارسال شد. تا زمانی که راننده تایید نکند، پرداخت انجام‌نشده محسوب می‌شود.',
+    'en':
+        'Your request was sent to the driver. Until the driver confirms, the trip counts as unpaid.',
+  },
+  'payment_unpaid_warning_msg': {
+    'fa':
+        'پرداخت تا تایید راننده ثبت نمی‌شود. بعد از پرداخت نقدی به راننده، درخواست تایید را بفرستید.',
+    'en':
+        'Payment is not recorded until the driver confirms. After paying the driver in cash, send the confirmation request.',
+  },
+  'close': {'fa': 'بستن', 'en': 'Close', 'ps': 'بندول'},
+  'payment_waiting_btn': {
+    'fa': 'در انتظار تایید راننده',
+    'en': 'Waiting for driver confirmation',
+  },
+  'payment_send_request_btn': {
+    'fa': 'ارسال درخواست تایید پرداخت',
+    'en': 'Send payment confirmation request',
+  },
+  'payment_settlement_title': {'fa': 'پرداخت کرایه', 'en': 'Pay the fare'},
+  'payable_amount_label': {'fa': 'مبلغ قابل پرداخت', 'en': 'Amount due'},
+};
+
+/// ترجمه با پشتیبان (fa / en؛ پشتو اگر نبود فارسی)
+String _payTr(BuildContext context, String key) {
   final String v = key.tr();
-  return (v.trim().isEmpty || v == key) ? fallback : v;
+  if (v.trim().isNotEmpty && v != key) return v;
+
+  final Map<String, String>? t = _payFallbacks[key];
+  if (t == null) return key;
+
+  final String lang = context.locale.languageCode;
+  return t[lang] ?? (lang == 'ps' ? t['fa']! : t['en']!);
+}
+
+String _formatAmount(dynamic amount) {
+  final num? n = amount is num ? amount : num.tryParse('$amount');
+  return n == null ? '$amount' : n.toStringAsFixed(0);
 }
 
 /// وضعیت‌های پرداخت روی سند rides
@@ -1299,6 +1412,12 @@ class _PaymentSheetState extends State<_PaymentSheet> {
     setState(() => _sending = true);
 
     final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+    // متن‌ها قبل از await ساخته می‌شوند تا بعد از آن به context وابسته نباشیم
+    final String sentMsg = _payTr(context, 'payment_request_sent');
+    final String failedMsg = _payTr(context, 'payment_request_failed');
+    final num? numericAmount = widget.amount is num
+        ? widget.amount as num
+        : num.tryParse('${widget.amount}');
 
     try {
       await FirebaseFirestore.instance
@@ -1307,18 +1426,13 @@ class _PaymentSheetState extends State<_PaymentSheet> {
           .update(<String, dynamic>{
         'payment_method': 'cash',
         'payment_status': 'awaiting_driver_confirmation',
-        'payment_requested_amount': widget.amount,
+        'payment_requested_amount': numericAmount ?? 0,
         'payment_requested_at': FieldValue.serverTimestamp(),
       });
 
       messenger.showSnackBar(
         SnackBar(
-          content: Text(
-            _payTr(
-              'payment_request_sent',
-              'درخواست تایید پرداخت برای راننده ارسال شد.',
-            ),
-          ),
+          content: Text(sentMsg),
         ),
       );
     } on FirebaseException catch (e) {
@@ -1328,7 +1442,7 @@ class _PaymentSheetState extends State<_PaymentSheet> {
         SnackBar(
           backgroundColor: Colors.red.shade700,
           content: Text(
-            '${_payTr('payment_request_failed', 'ارسال درخواست انجام نشد')} (${e.code})',
+            '$failedMsg (${e.code})',
           ),
         ),
       );
@@ -1338,9 +1452,7 @@ class _PaymentSheetState extends State<_PaymentSheet> {
       messenger.showSnackBar(
         SnackBar(
           backgroundColor: Colors.red.shade700,
-          content: Text(
-            _payTr('payment_request_failed', 'ارسال درخواست انجام نشد'),
-          ),
+          content: Text(failedMsg),
         ),
       );
     } finally {
@@ -1381,19 +1493,16 @@ class _PaymentSheetState extends State<_PaymentSheet> {
                   : Icons.info_outline_rounded;
 
           final String bannerText = isPaid
-              ? _payTr('payment_driver_confirmed',
-                  'راننده دریافت پرداخت را تایید کرد.')
+              ? _payTr(context, 'payment_driver_confirmed')
               : isAwaiting
-                  ? _payTr('payment_awaiting_driver',
-                      'درخواست شما برای راننده ارسال شد. تا زمانی که راننده تایید نکند، پرداخت انجام‌نشده محسوب می‌شود.')
-                  : _payTr('payment_unpaid_warning_msg',
-                      'پرداخت تا تایید راننده ثبت نمی‌شود. بعد از پرداخت نقدی به راننده، درخواست تایید را بفرستید.');
+                  ? _payTr(context, 'payment_awaiting_driver')
+                  : _payTr(context, 'payment_unpaid_warning_msg');
 
           final String buttonText = isPaid
-              ? _payTr('close', 'بستن')
+              ? _payTr(context, 'close')
               : isAwaiting
-                  ? _payTr('payment_waiting_btn', 'در انتظار تایید راننده')
-                  : _payTr('payment_send_request_btn', 'ارسال درخواست تایید پرداخت');
+                  ? _payTr(context, 'payment_waiting_btn')
+                  : _payTr(context, 'payment_send_request_btn');
 
           final VoidCallback? onPressed = isPaid
               ? () => Navigator.pop(context)
@@ -1424,7 +1533,7 @@ class _PaymentSheetState extends State<_PaymentSheet> {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  _payTr('payment_settlement_title', 'پرداخت کرایه'),
+                  _payTr(context, 'payment_settlement_title'),
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
@@ -1433,8 +1542,8 @@ class _PaymentSheetState extends State<_PaymentSheet> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  '${_payTr('payable_amount_label', 'مبلغ قابل پرداخت')}: '
-                  '${widget.amount} ${'currency_afg'.tr()}',
+                  '${_payTr(context, 'payable_amount_label')}: '
+                  '${_formatAmount(widget.amount)} ${'currency_afg'.tr()}',
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
