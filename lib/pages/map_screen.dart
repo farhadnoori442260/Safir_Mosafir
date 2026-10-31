@@ -79,6 +79,60 @@ Future<Uint8List> widgetToImageBytes(Widget widget) async {
   return byteData!.buffer.asUint8List();
 }
 
+/// متن‌های پیش‌فرض برای وقتی که کلید در فایل ترجمه نیست
+/// (fa / en / ps؛ پشتو اگر نبود فارسی نشان داده می‌شود)
+const Map<String, Map<String, String>> _mapFallbacks = {
+  'origin': {'fa': 'مبدأ', 'en': 'Origin', 'ps': 'مبدأ'},
+  'destination': {'fa': 'مقصد', 'en': 'Destination', 'ps': 'منزل'},
+  'car_default_color': {'fa': 'سفید', 'en': 'White', 'ps': 'سپین'},
+  'plate_default_province': {'fa': 'کابل', 'en': 'Kabul', 'ps': 'کابل'},
+  'confirm': {'fa': 'تایید', 'en': 'Confirm', 'ps': 'تایید'},
+  'gps_disruption': {
+    'fa': 'اختلال در موقعیت مکانی',
+    'en': 'Location signal problem',
+  },
+  'select_origin_destination_msg': {
+    'fa': 'لطفاً مبدأ و مقصد را مشخص کنید.',
+    'en': 'Please set your pickup and destination.',
+  },
+  'service_inactive_msg': {
+    'fa': 'سرویس موقتاً غیرفعال است. لطفاً بعداً دوباره تلاش کنید.',
+    'en': 'The service is temporarily unavailable. Please try again later.',
+  },
+  'fare_updated_msg': {
+    'fa': 'کرایه به‌روزرسانی شد. قیمت جدید را ببینید و دوباره درخواست دهید.',
+    'en': 'The fare was updated. Check the new price and request again.',
+  },
+  'driver_arrived_msg': {
+    'fa': 'راننده به مبدأ شما رسید.',
+    'en': 'Your driver has arrived.',
+  },
+  'trip_cancelled_by_driver_msg': {
+    'fa': 'سفر توسط سفیر لغو گردید.',
+    'en': 'The trip was cancelled by the driver.',
+  },
+  'request_failed_retry_msg': {
+    'fa': 'ثبت درخواست انجام نشد. دوباره تلاش کنید.',
+    'en': 'Could not send the request. Please try again.',
+  },
+  'no_driver_found_msg': {
+    'fa': 'راننده‌ای برای سفر شما پیدا نشد. لطفاً دوباره تلاش کنید.',
+    'en': 'No driver was found for your trip. Please try again.',
+  },
+};
+
+/// ترجمه با پشتیبان؛ کلیدِ ترجمه‌نشده هرگز خام نمایش داده نمی‌شود
+String _mapTr(BuildContext context, String key) {
+  final String v = key.tr();
+  if (v.trim().isNotEmpty && v != key) return v;
+
+  final Map<String, String>? t = _mapFallbacks[key];
+  if (t == null) return key;
+
+  final String lang = context.locale.languageCode;
+  return t[lang] ?? (lang == 'ps' ? t['fa']! : t['en']!);
+}
+
 /// 🚗 ویجت مخصوص نمایش مارکر ماشین راننده روی نقشه
 class DriverCarMarker extends StatelessWidget {
   const DriverCarMarker({super.key});
@@ -236,6 +290,11 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
   Timer? _debounceTimer;
 
   bool _hasNotification = false;
+
+  // ───── ثبات جهت و ETA ماشین راننده ─────
+  double _driverBaseBearing = 0.0; // جهت بدون افست آیکن
+  LatLng? _bearingRefPoint; // نقطه‌ی مرجع برای محاسبه‌ی جهت (≥ ۱۲ متر فاصله)
+  int _etaMinutes = 0; // دقیقه‌های باقی‌مانده (فقط عدد؛ متن را زبان فعلی می‌سازد)
 
   // جلوگیری از پاسخ‌های کهنه و دابل‌تپ
   int _routeRequestId = 0;
@@ -712,34 +771,55 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
         offRouteConfirmed: offRouteConfirmed,
       );
 
+      // خوانش پرت/ناگهانی GPS که هنوز «خارج از مسیر» تایید نشده: ماشین سر جایش
+      // می‌ماند (قبلاً به نقطه‌ی خام می‌پرید و بعد دوباره روی مسیر برمی‌گشت)
+      if (_isDriverTripRouteVisible &&
+          onRouteSnap == null &&
+          !offRouteConfirmed &&
+          _lastDriverLatLng != null &&
+          _driverLiveSymbol != null) {
+        unawaited(_updateLiveDriverEta(rawPosition));
+        return;
+      }
+
       await initDriverSymbolLayer();
       if (_mapController == null) return;
 
       final LatLng? previousTarget = _lastDriverLatLng;
 
       // ───── زاویه ─────
-      double markerBearing = _driverAnimationEndBearing;
+      // جهت فقط وقتی عوض می‌شود که حرکت واقعی باشد؛ لرزش GPS ماشین را نمی‌چرخاند.
+      double baseBearing = _driverBaseBearing;
 
       if (onRouteSnap != null) {
-        // روی مسیر: زاویهٔ پایدار خیابان، حتی وقتی راننده ایستاده
-        markerBearing = _routeBearingAhead(onRouteSnap);
+        // روی مسیر: زاویه‌ی پایدار خیابان
+        baseBearing = _routeBearingAhead(onRouteSnap);
+        _bearingRefPoint = markerTarget;
       } else if (_driverLiveSymbol == null) {
         if (rawHeading > 0) {
-          markerBearing = rawHeading;
+          baseBearing = rawHeading;
         }
-      } else if (previousTarget != null &&
-          Geolocator.distanceBetween(
-                previousTarget.latitude,
-                previousTarget.longitude,
-                markerTarget.latitude,
-                markerTarget.longitude,
-              ) >
-              8) {
-        markerBearing = _calculateBearing(previousTarget, markerTarget);
+        _bearingRefPoint = markerTarget;
+      } else {
+        final LatLng? ref = _bearingRefPoint ?? previousTarget;
+
+        if (ref != null &&
+            Geolocator.distanceBetween(
+                  ref.latitude,
+                  ref.longitude,
+                  markerTarget.latitude,
+                  markerTarget.longitude,
+                ) >=
+                12) {
+          baseBearing = _calculateBearing(ref, markerTarget);
+          _bearingRefPoint = markerTarget;
+        }
       }
 
-      markerBearing =
-          (markerBearing + _currentDriverIconRotationOffset() + 360) % 360;
+      _driverBaseBearing = baseBearing;
+
+      final double markerBearing =
+          (baseBearing + _currentDriverIconRotationOffset() + 360) % 360;
 
       // ───── مدت انیمیشن = فاصلهٔ زمانی بین دو آپدیت ─────
       final DateTime now = DateTime.now();
@@ -915,6 +995,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
           (route['distance'] as num?)?.toDouble() ?? 0.0;
 
       final int totalMinutes = (durationSeconds / 60).ceil();
+      _etaMinutes = totalMinutes;
       final int hours = totalMinutes ~/ 60;
       final int minutes = totalMinutes % 60;
 
@@ -1138,6 +1219,9 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
     _lastDriverRouteFetchAt = null;
     _lastEtaAt = null;
     _driverFrameBusy = false;
+    _bearingRefPoint = null;
+    _driverBaseBearing = 0.0;
+    _etaMinutes = 0;
 
     if (_driverLiveSymbol != null && _mapController != null) {
       try {
@@ -1450,7 +1534,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
             if (road.isNotEmpty && road != suburb) addressParts.add(road);
 
             if (addressParts.isNotEmpty) {
-              formattedAddress = addressParts.join('، ');
+              formattedAddress = addressParts.join(context.locale.languageCode == 'en' ? ', ' : '، ');
             } else {
               formattedAddress = data['display_name'] ?? formattedAddress;
             }
@@ -1506,11 +1590,11 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
 
     final String originName = (widget.presetOriginName ?? '').trim().isNotEmpty
         ? widget.presetOriginName!.trim()
-        : 'مبدأ';
+        : 'origin'.tr();
     final String destinationName =
         (widget.presetDestinationName ?? '').trim().isNotEmpty
             ? widget.presetDestinationName!.trim()
-            : 'مقصد';
+            : 'destination'.tr();
 
     final AppInfo appInfo = Provider.of<AppInfo>(context, listen: false);
 
@@ -1534,7 +1618,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
 
     try {
       final Uint8List originBytes =
-          await widgetToImageBytes(const MapOriginLabel(labelText: 'مبدأ'));
+          await widgetToImageBytes(MapOriginLabel(labelText: 'origin'.tr()));
       await _mapController!.addImage('origin-marker-icon', originBytes);
 
       if (_originSymbol != null) {
@@ -1550,7 +1634,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
 
       final Uint8List destinationBytes = await widgetToImageBytes(
         MapDestinationLabel(
-          labelText: 'مقصد',
+          labelText: 'destination'.tr(),
           arrivalTime: _estimatedArrivalTime,
         ),
       );
@@ -1614,7 +1698,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
       AddressModel(
         latitudePosition: currentCenter.latitude,
         longitudePosition: currentCenter.longitude,
-        placeName: name ?? appInfo.pickUpLocation?.placeName ?? 'مبدأ',
+        placeName: name ?? appInfo.pickUpLocation?.placeName ?? 'origin'.tr(),
         humanReadableAddress:
             name ?? appInfo.pickUpLocation?.humanReadableAddress,
       ),
@@ -1622,7 +1706,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
 
     // تصویر برچسب مبدأ ثابت است؛ فقط یک بار ساخته می‌شود
     final Uint8List bytes = _originLabelBytes ??=
-        await widgetToImageBytes(const MapOriginLabel(labelText: 'مبدأ'));
+        await widgetToImageBytes(MapOriginLabel(labelText: 'origin'.tr()));
     if (_mapController == null) return;
     await _mapController!.addImage('origin-marker-icon', bytes);
 
@@ -1710,7 +1794,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
       AddressModel(
         latitudePosition: currentCenter.latitude,
         longitudePosition: currentCenter.longitude,
-        placeName: name ?? appInfo.dropOffLocation?.placeName ?? 'مقصد',
+        placeName: name ?? appInfo.dropOffLocation?.placeName ?? 'destination'.tr(),
         humanReadableAddress:
             name ?? appInfo.dropOffLocation?.humanReadableAddress,
       ),
@@ -1718,7 +1802,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
 
     final bytes = await widgetToImageBytes(
       MapDestinationLabel(
-        labelText: 'مقصد',
+        labelText: 'destination'.tr(),
         arrivalTime: _estimatedArrivalTime,
       ),
     );
@@ -1982,7 +2066,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
     var appInfo = Provider.of<AppInfo>(context, listen: false);
 
     if (appInfo.pickUpLocation == null || appInfo.dropOffLocation == null) {
-      _showSnack("لطفاً مبدأ و مقصد را مشخص کنید.");
+      _showSnack(_mapTr(context, 'select_origin_destination_msg'));
       return;
     }
 
@@ -1995,7 +2079,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
 
       if (!latestConfig.isServiceActive) {
         _showSnack(
-          'سرویس موقتاً غیرفعال است. لطفاً بعداً دوباره تلاش کنید.',
+          _mapTr(context, 'service_inactive_msg'),
           color: Colors.orange.shade800,
         );
         return;
@@ -2006,7 +2090,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
       if ((freshFare - actualFareAmount).abs() >= 1) {
         setState(() => actualFareAmount = freshFare);
         _showSnack(
-          'کرایه به‌روزرسانی شد. قیمت جدید را ببینید و دوباره درخواست دهید.',
+          _mapTr(context, 'fare_updated_msg'),
         );
         return;
       }
@@ -2188,8 +2272,8 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
               photoDriver = data["driver_photo"] ?? data["driverPhoto"] ?? photoDriver;
               carDetailsDriver = data["car_details"] ?? data["carModel"] ?? carDetailsDriver;
 
-              _driverCarColor = data["car_color"] ?? data["carColor"] ?? "سفید";
-              _driverPlateProvince = data["plate_province"] ?? "کابل";
+              _driverCarColor = data["car_color"] ?? data["carColor"] ?? _mapTr(context, 'car_default_color');
+              _driverPlateProvince = data["plate_province"] ?? _mapTr(context, 'plate_default_province');
               _driverPlateCategory = data["plate_category"] ?? "ش";
               _driverPlateFarsiNum = data["plate_farsi_num"] ?? data["plateNumber"] ?? "";
               _driverPlateNum = data["plate_num"] ?? data["plateNumber"] ?? "";
@@ -2205,7 +2289,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
             }
 
             if (tripStatus == TripStatus.arrived) {
-              _showSnack("راننده به مبدأ شما رسید.");
+              _showSnack(_mapTr(context, 'driver_arrived_msg'));
             }
 
             if (tripStatus == TripStatus.cancelledByDriver) {
@@ -2215,7 +2299,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
               // برگشت به مرحلهٔ انتخاب سرویس و کشیدن دوبارهٔ مسیر پیش‌نمایش
               unawaited(_resetToRequestStep());
 
-              _showSnack("سفر توسط سفیر لغو گردید.", color: Colors.red);
+              _showSnack(_mapTr(context, 'trip_cancelled_by_driver_msg'), color: Colors.red);
             }
           }
 
@@ -2251,7 +2335,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
         if (mounted) {
           setState(() => _currentStep = 2);
           _fetchRoute();
-          _showSnack("ثبت درخواست انجام نشد. دوباره تلاش کنید.", color: Colors.red);
+          _showSnack(_mapTr(context, 'request_failed_retry_msg'), color: Colors.red);
         }
       }
     } finally {
@@ -2310,7 +2394,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
       await _resetToRequestStep();
 
       _showSnack(
-        "راننده‌ای برای سفر شما پیدا نشد. لطفاً دوباره تلاش کنید.",
+        _mapTr(context, 'no_driver_found_msg'),
         color: Colors.orange.shade800,
       );
     } catch (e) {
@@ -2468,10 +2552,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
 
   /// نوار هشدار GPS برای مرحله‌هایی که SmartLocationSheet نمایش داده نمی‌شود
   Widget _buildGpsBanner() {
-    String text = 'gps_disruption'.tr();
-    if (text.trim().isEmpty || text == 'gps_disruption') {
-      text = 'اختلال در موقعیت مکانی';
-    }
+    final String text = _mapTr(context, 'gps_disruption');
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -2570,9 +2651,9 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
                       borderRadius: BorderRadius.circular(14),
                     ),
                   ),
-                  child: const Text(
-                    'تایید',
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
+                  child: Text(
+                    _mapTr(context, 'confirm'),
+                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
                   ),
                 ),
               ),
@@ -3049,7 +3130,8 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
                 plateNumDriver: _driverPlateNum,
                 isTempPlateDriver: _driverIsTempPlate,
                 tripFareAmount: actualFareAmount,
-                estimatedArrivalTime: _tripDurationText.isNotEmpty ? _tripDurationText : "۵",
+                etaMinutes: _etaMinutes > 0 ? _etaMinutes : 5,
+                isOnTrip: _lastTripStatus == TripStatus.onTrip,
                 onCancelTrip: cancelTrip,
               ),
             ],
