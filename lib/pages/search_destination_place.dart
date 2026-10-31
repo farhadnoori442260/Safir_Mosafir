@@ -419,20 +419,21 @@ class _SearchDestinationPlaceState
                           ),
                           const SizedBox(height: 10),
                           Text(
-                            destinationTextEditingController
-                                    .text
-                                    .isEmpty
-                                ? getTranslation(
-                                    context,
-                                    'search_address_empty_prompt',
-                                  )
-                                : 'مکانی یافت نشد. نام شهر یا خیابان دیگری را امتحان کنید.',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: Colors.grey[600],
-                              fontSize: 13,
-                            ),
-                          ),
+  destinationTextEditingController.text.isEmpty
+      ? getTranslation(
+          context,
+          'search_address_empty_prompt',
+        )
+      : getTranslation(
+          context,
+          'search_address_no_results',
+        ),
+  textAlign: TextAlign.center,
+  style: TextStyle(
+    color: Colors.grey[600],
+    fontSize: 13,
+  ),
+),
                         ],
                       ),
                     ),
