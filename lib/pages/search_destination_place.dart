@@ -12,8 +12,8 @@ import 'package:safir_passengers/models/predicted_places.dart';
 import 'package:safir_passengers/widgets/place_prediction_tile.dart';
 
 class SearchDestinationPlace extends StatefulWidget {
-  /// اگر false باشد، انتخاب کاربر در AppInfo (مقصد سفر) ذخیره نمی‌شود و فقط
-  /// به‌عنوان نتیجه برمی‌گردد؛ صفحه‌ی صدازننده خودش تصمیم می‌گیرد.
+  /// اگر false باشد، انتخاب کاربر در مقصد سفر ذخیره نمی‌شود
+  /// و فقط به‌عنوان نتیجه به صفحهٔ قبلی برمی‌گردد.
   final bool updateDropOff;
 
   const SearchDestinationPlace({
@@ -72,6 +72,7 @@ class _SearchDestinationPlaceState
           isLoading = false;
         });
       }
+
       return;
     }
 
@@ -248,8 +249,7 @@ class _SearchDestinationPlaceState
                       child: Container(
                         decoration: BoxDecoration(
                           color: const Color(0xFFF3F4F6),
-                          borderRadius:
-                              BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(10),
                         ),
                         child: TextField(
                           controller: pickupTextEditingController,
@@ -298,8 +298,7 @@ class _SearchDestinationPlaceState
                       child: Container(
                         decoration: BoxDecoration(
                           color: const Color(0xFFF3F4F6),
-                          borderRadius:
-                              BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(10),
                         ),
                         child: TextField(
                           controller:
@@ -347,8 +346,7 @@ class _SearchDestinationPlaceState
                       height: 16,
                       decoration: BoxDecoration(
                         color: const Color(0xFF169365),
-                        borderRadius:
-                            BorderRadius.circular(4),
+                        borderRadius: BorderRadius.circular(4),
                       ),
                       child: Center(
                         child: Container(
@@ -356,8 +354,7 @@ class _SearchDestinationPlaceState
                           height: 5,
                           decoration: BoxDecoration(
                             color: Colors.white,
-                            borderRadius:
-                                BorderRadius.circular(1),
+                            borderRadius: BorderRadius.circular(1),
                           ),
                         ),
                       ),
@@ -419,21 +416,22 @@ class _SearchDestinationPlaceState
                           ),
                           const SizedBox(height: 10),
                           Text(
-  destinationTextEditingController.text.isEmpty
-      ? getTranslation(
-          context,
-          'search_address_empty_prompt',
-        )
-      : getTranslation(
-          context,
-          'search_address_no_results',
-        ),
-  textAlign: TextAlign.center,
-  style: TextStyle(
-    color: Colors.grey[600],
-    fontSize: 13,
-  ),
-),
+                            destinationTextEditingController
+                                    .text.isEmpty
+                                ? getTranslation(
+                                    context,
+                                    'search_address_empty_prompt',
+                                  )
+                                : getTranslation(
+                                    context,
+                                    'search_address_no_results',
+                                  ),
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Colors.grey[600],
+                              fontSize: 13,
+                            ),
+                          ),
                         ],
                       ),
                     ),
