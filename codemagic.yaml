@@ -24,6 +24,10 @@ workflows:
         script: |
           flutter pub get
 
+      - name: Generate launcher icons
+        script: |
+          dart run flutter_launcher_icons -f pubspec.yaml
+
       - name: Set up Keystore
         script: |
           echo $CM_KEYSTORE | base64 --decode > /tmp/release.jks
