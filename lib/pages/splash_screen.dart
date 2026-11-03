@@ -2,7 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-/// لوگوی ثابت (کامل) بدون انیمیشن؛ برای صفحهٔ خطا و جاهای دیگر
+/// نشان ثابت سفیر، بدون نوشته و انیمیشن.
 class SafirLogoMark extends StatelessWidget {
   const SafirLogoMark({
     super.key,
@@ -29,16 +29,13 @@ class SafirLogoMark extends StatelessWidget {
   }
 }
 
-/// لوگوی متحرک Safir (بدون Scaffold):
-///  ۱) جادهٔ S از انتهای پایین شروع می‌شود و تا بالا کشیده می‌شود
-///  ۲) پین مقصد در انتهای مسیر ظاهر می‌شود
-///  ۳) نوشتهٔ «Safir» زیر لوگو محو و بالا می‌آید
-/// بعد از پایان انیمیشن [onCompleted] صدا زده می‌شود.
+/// لوگوی متحرک:
+/// ابتدا مسیر S، سپس پین و در آخر نوشته از چپ به راست.
 class SafirLogoAnimation extends StatefulWidget {
   const SafirLogoAnimation({
     super.key,
     this.onCompleted,
-    this.backgroundColor = const Color(0xFF0E7A5F), // راننده: 0xFF12304F
+    this.backgroundColor = const Color(0xFF0E7A5F),
     this.title = 'Safir',
     this.holdAfterFinish = const Duration(milliseconds: 450),
   });
@@ -49,7 +46,8 @@ class SafirLogoAnimation extends StatefulWidget {
   final Duration holdAfterFinish;
 
   @override
-  State<SafirLogoAnimation> createState() => _SafirLogoAnimationState();
+  State<SafirLogoAnimation> createState() =>
+      _SafirLogoAnimationState();
 }
 
 class _SafirLogoAnimationState extends State<SafirLogoAnimation>
@@ -71,22 +69,48 @@ class _SafirLogoAnimationState extends State<SafirLogoAnimation>
 
     _road = CurvedAnimation(
       parent: _controller,
-      curve: const Interval(0.00, 0.55, curve: Curves.easeInOutCubic),
-    );
-    _pin = CurvedAnimation(
-      parent: _controller,
-      curve: const Interval(0.55, 0.76, curve: Curves.easeOutBack),
-    );
-    _text = CurvedAnimation(
-      parent: _controller,
-      curve: const Interval(0.72, 1.00, curve: Curves.easeOutCubic),
+      curve: const Interval(
+        0.00,
+        0.55,
+        curve: Curves.easeInOutCubic,
+      ),
     );
 
-    _controller.forward().whenComplete(() async {
-      await Future<void>.delayed(widget.holdAfterFinish);
+    _pin = CurvedAnimation(
+      parent: _controller,
+      curve: const Interval(
+        0.55,
+        0.76,
+        curve: Curves.easeOutBack,
+      ),
+    );
+
+    _text = CurvedAnimation(
+      parent: _controller,
+      curve: const Interval(
+        0.72,
+        1.00,
+        curve: Curves.easeInOutCubic,
+      ),
+    );
+
+    _playAnimation();
+  }
+
+  Future<void> _playAnimation() async {
+    try {
+      await _controller.forward().orCancel;
+
       if (!mounted) return;
+
+      await Future<void>.delayed(widget.holdAfterFinish);
+
+      if (!mounted) return;
+
       widget.onCompleted?.call();
-    });
+    } on TickerCanceled {
+      // صفحه قبل از پایان انیمیشن بسته شده است.
+    }
   }
 
   @override
@@ -97,53 +121,108 @@ class _SafirLogoAnimationState extends State<SafirLogoAnimation>
 
   @override
   Widget build(BuildContext context) {
-    final double width = MediaQuery.of(context).size.width;
-    final double logoSize = math.min(width * 0.52, 260);
+    final double screenWidth = MediaQuery.of(context).size.width;
+    final double logoSize = math.min(screenWidth * 0.52, 260.0);
 
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, _) {
-        final double t = _text.value.clamp(0.0, 1.0).toDouble();
+    return SizedBox(
+      width: logoSize,
+      height: logoSize,
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (context, _) {
+          final double textProgress =
+              _text.value.clamp(0.0, 1.0).toDouble();
 
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SizedBox(
-              width: logoSize,
-              height: logoSize,
-              child: CustomPaint(
-                painter: _SafirLogoPainter(
-                  roadProgress: _road.value,
-                  pinProgress: _pin.value,
-                  bgColor: widget.backgroundColor,
-                ),
-              ),
-            ),
-            SizedBox(height: logoSize * 0.04),
-            Opacity(
-              opacity: t,
-              child: Transform.translate(
-                offset: Offset(0, (1 - t) * 14),
-                child: Text(
-                  widget.title,
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: logoSize * 0.17,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: logoSize * 0.012,
-                    decoration: TextDecoration.none,
+          return Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Positioned.fill(
+                child: CustomPaint(
+                  painter: _SafirLogoPainter(
+                    roadProgress: _road.value,
+                    pinProgress: _pin.value,
+                    bgColor: widget.backgroundColor,
                   ),
                 ),
               ),
-            ),
-          ],
-        );
-      },
+
+              // متن داخل فضای خالی زیر نشان قرار می‌گیرد،
+              // نه زیر کل بوم مربعی.
+              Positioned(
+                top: logoSize * 0.805,
+                left: logoSize * 0.232,
+                width: logoSize * 0.562,
+                height: logoSize * 0.185,
+                child: Semantics(
+                  label: widget.title,
+                  child: ExcludeSemantics(
+                    child: ClipRect(
+                      clipper: _SafirTextRevealClipper(
+                        progress: textProgress,
+                      ),
+                      child: SizedBox.expand(
+                        child: FittedBox(
+                          fit: BoxFit.contain,
+                          alignment: Alignment.center,
+                          child: Text(
+                            widget.title,
+                            textDirection: TextDirection.ltr,
+                            textAlign: TextAlign.center,
+                            maxLines: 1,
+                            softWrap: false,
+                            textScaler: TextScaler.noScaling,
+                            style: const TextStyle(
+                              inherit: false,
+                              color: Colors.white,
+                              fontFamily: 'sans-serif',
+                              fontSize: 100,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 0.5,
+                              height: 1,
+                              decoration: TextDecoration.none,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
     );
   }
 }
 
-/// صفحهٔ اسپلش مستقل (اگر خواستید جدا استفاده کنید)
+/// ماسک از چپ به راست؛ ابعاد و جای متن ثابت می‌ماند.
+class _SafirTextRevealClipper extends CustomClipper<Rect> {
+  const _SafirTextRevealClipper({
+    required this.progress,
+  });
+
+  final double progress;
+
+  @override
+  Rect getClip(Size size) {
+    final double t = progress.clamp(0.0, 1.0).toDouble();
+
+    return Rect.fromLTWH(
+      0,
+      0,
+      size.width * t,
+      size.height,
+    );
+  }
+
+  @override
+  bool shouldReclip(covariant _SafirTextRevealClipper oldClipper) {
+    return oldClipper.progress != progress;
+  }
+}
+
+/// صفحهٔ اسپلش مستقل.
 class SafirSplashScreen extends StatelessWidget {
   const SafirSplashScreen({
     super.key,
@@ -168,7 +247,8 @@ class SafirSplashScreen extends StatelessWidget {
   }
 }
 
-/// رسم لوگو روی بوم ۱۰۲۴×۱۰۲۴ (همان مختصات فایل SVG آیکن)
+/// رسم نشان اصلی روی بوم ۱۰۲۴×۱۰۲۴.
+/// شکل و مختصات نشان اصلی حفظ شده است.
 class _SafirLogoPainter extends CustomPainter {
   _SafirLogoPainter({
     required this.roadProgress,
@@ -181,12 +261,11 @@ class _SafirLogoPainter extends CustomPainter {
   final Color bgColor;
 
   static const double _stroke = 112;
-  static const double _k = 0.88; // اندازهٔ پین
+  static const double _k = 0.88;
   static const double _pinCx = 735;
   static const double _pinCy = 300;
 
   Path _roadPath() {
-    // از انتهای پایین (مبدأ) تا بالا؛ برعکسِ مسیر SVG
     return Path()
       ..moveTo(330, 724)
       ..lineTo(624, 724)
@@ -217,14 +296,20 @@ class _SafirLogoPainter extends CustomPainter {
         clockwise: true,
       )
       ..cubicTo(
-        cx + r, cy + 52 * _k,
-        cx + r - 56 * _k, cy + 104 * _k,
-        cx, cy + 148 * _k,
+        cx + r,
+        cy + 52 * _k,
+        cx + r - 56 * _k,
+        cy + 104 * _k,
+        cx,
+        cy + 148 * _k,
       )
       ..cubicTo(
-        cx - 32 * _k, cy + 104 * _k,
-        cx - 88 * _k, cy + 52 * _k,
-        cx - r, cy,
+        cx - 32 * _k,
+        cy + 104 * _k,
+        cx - 88 * _k,
+        cy + 52 * _k,
+        cx - r,
+        cy,
       )
       ..arcToPoint(
         const Offset(cx, cy - r),
@@ -236,21 +321,26 @@ class _SafirLogoPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final double s = size.shortestSide / 1024;
+    final double scale = size.shortestSide / 1024;
+
     canvas.save();
-    canvas.scale(s);
-    canvas.translate(-1.2, -1.3); // مرکزدهی دقیق مثل آیکن
+    canvas.scale(scale);
+    canvas.translate(-1.2, -1.3);
 
     final Paint white = Paint()
       ..color = Colors.white
       ..isAntiAlias = true;
 
-    // ───── ۱) جاده ─────
+    // رسم مسیر S.
     if (roadProgress > 0) {
-      // سرِ صاف و گردِ انتهای پایین
       canvas.drawRRect(
         RRect.fromRectAndRadius(
-          const Rect.fromLTWH(330, 724 - _stroke / 2, 90, _stroke),
+          const Rect.fromLTWH(
+            330,
+            724 - _stroke / 2,
+            90,
+            _stroke,
+          ),
           const Radius.circular(14),
         ),
         white,
@@ -258,14 +348,30 @@ class _SafirLogoPainter extends CustomPainter {
 
       final Path road = _roadPath();
       final metrics = road.computeMetrics().toList();
-      final double total = metrics.fold<double>(0, (a, m) => a + m.length);
-      double remaining = total * roadProgress.clamp(0.0, 1.0).toDouble();
+
+      final double total = metrics.fold<double>(
+        0,
+        (sum, metric) => sum + metric.length,
+      );
+
+      double remaining =
+          total * roadProgress.clamp(0.0, 1.0).toDouble();
 
       final Path drawn = Path();
-      for (final m in metrics) {
+
+      for (final metric in metrics) {
         if (remaining <= 0) break;
-        final double take = math.min(remaining, m.length);
-        drawn.addPath(m.extractPath(0, take), Offset.zero);
+
+        final double take = math.min(
+          remaining,
+          metric.length,
+        );
+
+        drawn.addPath(
+          metric.extractPath(0, take),
+          Offset.zero,
+        );
+
         remaining -= take;
       }
 
@@ -281,15 +387,20 @@ class _SafirLogoPainter extends CustomPainter {
       );
     }
 
-    // ───── ۲) پین (از نوک بزرگ می‌شود) ─────
+    // ظاهرشدن پین از نوک آن.
     if (pinProgress > 0) {
       canvas.save();
+
       const double tipY = _pinCy + 148 * _k;
+
       canvas.translate(_pinCx, tipY);
-      canvas.scale(pinProgress.clamp(0.0, 1.25).toDouble());
+      canvas.scale(
+        pinProgress.clamp(0.0, 1.25).toDouble(),
+      );
       canvas.translate(-_pinCx, -tipY);
 
       canvas.drawPath(_pinPath(), white);
+
       canvas.drawCircle(
         const Offset(_pinCx, _pinCy),
         30 * _k,
@@ -297,6 +408,7 @@ class _SafirLogoPainter extends CustomPainter {
           ..color = bgColor
           ..isAntiAlias = true,
       );
+
       canvas.restore();
     }
 
@@ -304,8 +416,9 @@ class _SafirLogoPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _SafirLogoPainter old) =>
-      old.roadProgress != roadProgress ||
-      old.pinProgress != pinProgress ||
-      old.bgColor != bgColor;
+  bool shouldRepaint(covariant _SafirLogoPainter oldDelegate) {
+    return oldDelegate.roadProgress != roadProgress ||
+        oldDelegate.pinProgress != pinProgress ||
+        oldDelegate.bgColor != bgColor;
+  }
 }
