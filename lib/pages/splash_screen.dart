@@ -1,250 +1,311 @@
-import 'dart:async';
-import 'dart:io';
-import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:easy_localization/easy_localization.dart';
+import 'dart:math' as math;
 
-class SafirSplashScreen extends StatefulWidget {
-  const SafirSplashScreen({Key? key}) : super(key: key);
+import 'package:flutter/material.dart';
+
+/// لوگوی ثابت (کامل) بدون انیمیشن؛ برای صفحهٔ خطا و جاهای دیگر
+class SafirLogoMark extends StatelessWidget {
+  const SafirLogoMark({
+    super.key,
+    this.size = 160,
+    this.backgroundColor = const Color(0xFF0E7A5F),
+  });
+
+  final double size;
+  final Color backgroundColor;
 
   @override
-  State<SafirSplashScreen> createState() => _SafirSplashScreenState();
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: size,
+      height: size,
+      child: CustomPaint(
+        painter: _SafirLogoPainter(
+          roadProgress: 1,
+          pinProgress: 1,
+          bgColor: backgroundColor,
+        ),
+      ),
+    );
+  }
 }
 
-class _SafirSplashScreenState extends State<SafirSplashScreen>
+/// لوگوی متحرک Safir (بدون Scaffold):
+///  ۱) جادهٔ S از انتهای پایین شروع می‌شود و تا بالا کشیده می‌شود
+///  ۲) پین مقصد در انتهای مسیر ظاهر می‌شود
+///  ۳) نوشتهٔ «Safir» زیر لوگو محو و بالا می‌آید
+/// بعد از پایان انیمیشن [onCompleted] صدا زده می‌شود.
+class SafirLogoAnimation extends StatefulWidget {
+  const SafirLogoAnimation({
+    super.key,
+    this.onCompleted,
+    this.backgroundColor = const Color(0xFF0E7A5F), // راننده: 0xFF12304F
+    this.title = 'Safir',
+    this.holdAfterFinish = const Duration(milliseconds: 450),
+  });
+
+  final VoidCallback? onCompleted;
+  final Color backgroundColor;
+  final String title;
+  final Duration holdAfterFinish;
+
+  @override
+  State<SafirLogoAnimation> createState() => _SafirLogoAnimationState();
+}
+
+class _SafirLogoAnimationState extends State<SafirLogoAnimation>
     with SingleTickerProviderStateMixin {
-  bool _isLoading = true;
-  bool _hasError = false;
+  late final AnimationController _controller;
 
-  late AnimationController _animationController;
-  late Animation<double> _fadeAnimation;
-  late Animation<double> _scaleAnimation;
-
-  // 🟢 رنگ اختصاصی برند سفیر
-  static const Color safirGreen = Color(0xFF145A41);
+  late final Animation<double> _road;
+  late final Animation<double> _pin;
+  late final Animation<double> _text;
 
   @override
   void initState() {
     super.initState();
 
-    // تنظیمات انیمیشن ورودی لوگو
-    _animationController = AnimationController(
+    _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1000),
+      duration: const Duration(milliseconds: 2400),
     );
 
-    _fadeAnimation = CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeIn,
+    _road = CurvedAnimation(
+      parent: _controller,
+      curve: const Interval(0.00, 0.55, curve: Curves.easeInOutCubic),
+    );
+    _pin = CurvedAnimation(
+      parent: _controller,
+      curve: const Interval(0.55, 0.76, curve: Curves.easeOutBack),
+    );
+    _text = CurvedAnimation(
+      parent: _controller,
+      curve: const Interval(0.72, 1.00, curve: Curves.easeOutCubic),
     );
 
-    _scaleAnimation = Tween<double>(begin: 0.85, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _animationController,
-        curve: Curves.easeOutBack,
-      ),
-    );
-
-    _animationController.forward();
-    _initializeApp();
+    _controller.forward().whenComplete(() async {
+      await Future<void>.delayed(widget.holdAfterFinish);
+      if (!mounted) return;
+      widget.onCompleted?.call();
+    });
   }
 
   @override
   void dispose() {
-    _animationController.dispose();
+    _controller.dispose();
     super.dispose();
-  }
-
-  // 🌐 بررسی واقعی اتصال به اینترنت
-  Future<bool> _checkRealInternetConnection() async {
-    try {
-      final result = await InternetAddress.lookup('google.com')
-          .timeout(const Duration(seconds: 4));
-      return result.isNotEmpty && result[0].rawAddress.isNotEmpty;
-    } on SocketException catch (_) {
-      return false;
-    } on TimeoutException catch (_) {
-      return false;
-    } catch (_) {
-      return false;
-    }
-  }
-
-  void _showErrorState() {
-    if (mounted) {
-      setState(() {
-        _isLoading = false;
-        _hasError = true;
-      });
-    }
-  }
-
-  Future<void> _initializeApp() async {
-    if (!mounted) return;
-    setState(() {
-      _isLoading = true;
-      _hasError = false;
-    });
-
-    await Future.delayed(const Duration(seconds: 2));
-
-    try {
-      // ۱. بررسی شبکه
-      var connectivityResult = await (Connectivity().checkConnectivity());
-      bool isNetworkActive = !connectivityResult.contains(ConnectivityResult.none);
-
-      if (!isNetworkActive) {
-        _showErrorState();
-        return;
-      }
-
-      // ۲. بررسی اینترنت واقعی
-      bool hasRealInternet = await _checkRealInternetConnection();
-      if (!hasRealInternet) {
-        _showErrorState();
-        return;
-      }
-
-      // ۳. بررسی وضعیت لاگین
-      User? currentUser = FirebaseAuth.instance.currentUser;
-
-      if (!mounted) return;
-
-      if (currentUser != null) {
-        Navigator.pushReplacementNamed(context, '/main');
-      } else {
-        Navigator.pushReplacementNamed(context, '/login');
-      }
-    } catch (e) {
-      debugPrint("Splash Error: $e");
-      _showErrorState();
-    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: safirGreen,
-      body: SafeArea(
-        child: Stack(
+    final double width = MediaQuery.of(context).size.width;
+    final double logoSize = math.min(width * 0.52, 260);
+
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        final double t = _text.value.clamp(0.0, 1.0).toDouble();
+
+        return Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Center(
-              child: FadeTransition(
-                opacity: _fadeAnimation,
-                child: ScaleTransition(
-                  scale: _scaleAnimation,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      // 📍 لوگوی سفیر
-                      Image.asset(
-                        'assets/images/safir_logo_new.png',
-                        width: 150,
-                        height: 150,
-                        fit: BoxFit.contain,
-                        errorBuilder: (context, error, stackTrace) {
-                          debugPrint("خطا در بارگذاری تصویر لوگو: $error");
-                          return _buildSafirVectorIcon();
-                        },
-                      ),
-
-                      const SizedBox(height: 32),
-
-                      if (_hasError)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 40.0),
-                          child: Text(
-                            'splash_error_msg'.tr(),
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              fontSize: 15,
-                              color: Colors.white,
-                              fontWeight: FontWeight.w500,
-                              height: 1.4,
-                            ),
-                          ),
-                        ),
-
-                      if (_isLoading)
-                        const SizedBox(
-                          height: 28,
-                          width: 28,
-                          child: CircularProgressIndicator(
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                            strokeWidth: 2.5,
-                          ),
-                        ),
-                    ],
+            SizedBox(
+              width: logoSize,
+              height: logoSize,
+              child: CustomPaint(
+                painter: _SafirLogoPainter(
+                  roadProgress: _road.value,
+                  pinProgress: _pin.value,
+                  bgColor: widget.backgroundColor,
+                ),
+              ),
+            ),
+            SizedBox(height: logoSize * 0.04),
+            Opacity(
+              opacity: t,
+              child: Transform.translate(
+                offset: Offset(0, (1 - t) * 14),
+                child: Text(
+                  widget.title,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: logoSize * 0.17,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: logoSize * 0.012,
+                    decoration: TextDecoration.none,
                   ),
                 ),
               ),
             ),
-
-            if (_hasError)
-              Align(
-                alignment: Alignment.bottomCenter,
-                child: Padding(
-                  padding: const EdgeInsets.all(20.0),
-                  child: SizedBox(
-                    width: double.infinity,
-                    height: 52,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        HapticFeedback.mediumImpact();
-                        _initializeApp();
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                      ),
-                      child: Text(
-                        'retry_btn'.tr(),
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: safirGreen,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
           ],
+        );
+      },
+    );
+  }
+}
+
+/// صفحهٔ اسپلش مستقل (اگر خواستید جدا استفاده کنید)
+class SafirSplashScreen extends StatelessWidget {
+  const SafirSplashScreen({
+    super.key,
+    required this.onFinished,
+    this.backgroundColor = const Color(0xFF0E7A5F),
+  });
+
+  final VoidCallback onFinished;
+  final Color backgroundColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: backgroundColor,
+      body: Center(
+        child: SafirLogoAnimation(
+          backgroundColor: backgroundColor,
+          onCompleted: onFinished,
         ),
       ),
     );
   }
+}
 
-  // 🎯 لوگوی برداری جایگزین در صورت عدم وجود تصویر
-  Widget _buildSafirVectorIcon() {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        const Text(
-          'S',
-          style: TextStyle(
-            fontSize: 90,
-            fontWeight: FontWeight.w900,
-            color: Colors.white,
-            height: 0.9,
-            letterSpacing: -2,
-          ),
-        ),
-        const SizedBox(height: 6),
-        Container(
-          width: 40,
-          height: 4,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(2),
-          ),
-        ),
-      ],
-    );
+/// رسم لوگو روی بوم ۱۰۲۴×۱۰۲۴ (همان مختصات فایل SVG آیکن)
+class _SafirLogoPainter extends CustomPainter {
+  _SafirLogoPainter({
+    required this.roadProgress,
+    required this.pinProgress,
+    required this.bgColor,
+  });
+
+  final double roadProgress;
+  final double pinProgress;
+  final Color bgColor;
+
+  static const double _stroke = 112;
+  static const double _k = 0.88; // اندازهٔ پین
+  static const double _pinCx = 735;
+  static const double _pinCy = 300;
+
+  Path _roadPath() {
+    // از انتهای پایین (مبدأ) تا بالا؛ برعکسِ مسیر SVG
+    return Path()
+      ..moveTo(330, 724)
+      ..lineTo(624, 724)
+      ..arcToPoint(
+        const Offset(624, 512),
+        radius: const Radius.circular(106),
+        clockwise: false,
+      )
+      ..lineTo(400, 512)
+      ..arcToPoint(
+        const Offset(400, 300),
+        radius: const Radius.circular(106),
+        clockwise: true,
+      )
+      ..lineTo(690, 300);
   }
+
+  Path _pinPath() {
+    const double r = 88 * _k;
+    const double cx = _pinCx;
+    const double cy = _pinCy;
+
+    return Path()
+      ..moveTo(cx, cy - r)
+      ..arcToPoint(
+        const Offset(cx + r, cy),
+        radius: const Radius.circular(r),
+        clockwise: true,
+      )
+      ..cubicTo(
+        cx + r, cy + 52 * _k,
+        cx + r - 56 * _k, cy + 104 * _k,
+        cx, cy + 148 * _k,
+      )
+      ..cubicTo(
+        cx - 32 * _k, cy + 104 * _k,
+        cx - 88 * _k, cy + 52 * _k,
+        cx - r, cy,
+      )
+      ..arcToPoint(
+        const Offset(cx, cy - r),
+        radius: const Radius.circular(r),
+        clockwise: true,
+      )
+      ..close();
+  }
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final double s = size.shortestSide / 1024;
+    canvas.save();
+    canvas.scale(s);
+    canvas.translate(-1.2, -1.3); // مرکزدهی دقیق مثل آیکن
+
+    final Paint white = Paint()
+      ..color = Colors.white
+      ..isAntiAlias = true;
+
+    // ───── ۱) جاده ─────
+    if (roadProgress > 0) {
+      // سرِ صاف و گردِ انتهای پایین
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          const Rect.fromLTWH(330, 724 - _stroke / 2, 90, _stroke),
+          const Radius.circular(14),
+        ),
+        white,
+      );
+
+      final Path road = _roadPath();
+      final metrics = road.computeMetrics().toList();
+      final double total = metrics.fold<double>(0, (a, m) => a + m.length);
+      double remaining = total * roadProgress.clamp(0.0, 1.0).toDouble();
+
+      final Path drawn = Path();
+      for (final m in metrics) {
+        if (remaining <= 0) break;
+        final double take = math.min(remaining, m.length);
+        drawn.addPath(m.extractPath(0, take), Offset.zero);
+        remaining -= take;
+      }
+
+      canvas.drawPath(
+        drawn,
+        Paint()
+          ..color = Colors.white
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = _stroke
+          ..strokeCap = StrokeCap.butt
+          ..strokeJoin = StrokeJoin.round
+          ..isAntiAlias = true,
+      );
+    }
+
+    // ───── ۲) پین (از نوک بزرگ می‌شود) ─────
+    if (pinProgress > 0) {
+      canvas.save();
+      const double tipY = _pinCy + 148 * _k;
+      canvas.translate(_pinCx, tipY);
+      canvas.scale(pinProgress.clamp(0.0, 1.25).toDouble());
+      canvas.translate(-_pinCx, -tipY);
+
+      canvas.drawPath(_pinPath(), white);
+      canvas.drawCircle(
+        const Offset(_pinCx, _pinCy),
+        30 * _k,
+        Paint()
+          ..color = bgColor
+          ..isAntiAlias = true,
+      );
+      canvas.restore();
+    }
+
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(covariant _SafirLogoPainter old) =>
+      old.roadProgress != roadProgress ||
+      old.pinProgress != pinProgress ||
+      old.bgColor != bgColor;
 }
