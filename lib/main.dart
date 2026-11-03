@@ -12,6 +12,7 @@ import 'global/global_var.dart';
 import 'authentication/register_screen.dart';
 import 'pages/blocked_screen.dart';
 import 'pages/safir_home_screen.dart';
+import 'pages/safir_splash_screen.dart';
 
 // پرووایدرها
 import 'appInfo/app_info.dart';
@@ -176,7 +177,9 @@ class MyApp extends StatelessWidget {
   }
 }
 
-/// 🛡️ چک‌کننده هوشمند و سریع وضعیت کاربر با اسپلش‌سکرین سفیر
+/// 🛡️ چک‌کننده وضعیت کاربر با اسپلش متحرک سفیر
+///  • همزمان با پخش انیمیشن، وضعیت لاگین بررسی می‌شود
+///  • وقتی هر دو تمام شدند، به صفحهٔ مقصد می‌رود (بدون تأخیر مصنوعی ۳ ثانیه‌ای)
 class AuthCheck extends StatefulWidget {
   const AuthCheck({super.key});
 
@@ -184,198 +187,50 @@ class AuthCheck extends StatefulWidget {
   State<AuthCheck> createState() => _AuthCheckState();
 }
 
-class _AuthCheckState extends State<AuthCheck>
-    with SingleTickerProviderStateMixin {
-  bool _isLoading = true;
+class _AuthCheckState extends State<AuthCheck> {
+  // رنگ لوگو/آیکن (با اسپلش بومی یکی است تا پرش دیده نشود)
+  static const Color safirGreen = Color(0xFF0E7A5F);
+
+  bool _animationDone = false;
   bool _hasError = false;
   Widget? _targetScreen;
-
-  // رنگ دقیق برند لوگوی سفیر
-  static const Color safirGreen = Color(0xFF127C59);
-
-  late AnimationController _loadingController;
-  late Animation<double> _dot1;
-  late Animation<double> _dot2;
-  late Animation<double> _dot3;
-  late Animation<double> _dot4;
 
   @override
   void initState() {
     super.initState();
-
-    _loadingController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1200),
-    )..repeat();
-
-    _dot1 = _createDotAnimation(0.00);
-    _dot2 = _createDotAnimation(0.18);
-    _dot3 = _createDotAnimation(0.36);
-    _dot4 = _createDotAnimation(0.54);
-
-    _checkAuthAndNavigation();
+    _checkAuth();
   }
 
-  /// انیمیشن نقطه‌ها از حالت بزرگ (1.0) به کوچک (0.0) و برگشت به حالت اولیه
-  Animation<double> _createDotAnimation(double begin) {
-    return TweenSequence<double>([
-      TweenSequenceItem(
-        tween: Tween<double>(begin: 1.0, end: 0.0)
-            .chain(CurveTween(curve: Curves.easeInOut)),
-        weight: 35,
-      ),
-      TweenSequenceItem(
-        tween: Tween<double>(begin: 0.0, end: 1.0)
-            .chain(CurveTween(curve: Curves.easeInOut)),
-        weight: 35,
-      ),
-      TweenSequenceItem(
-        tween: ConstantTween<double>(1.0),
-        weight: 30,
-      ),
-    ]).animate(
-      CurvedAnimation(
-        parent: _loadingController,
-        curve: Interval(
-          begin,
-          (begin + 0.45).clamp(0.0, 1.0),
-          curve: Curves.linear,
-        ),
-      ),
-    );
+  String _tr(String key, String fallback) {
+    final String v = key.tr();
+    return (v.trim().isEmpty || v == key) ? fallback : v;
   }
 
-  Future<void> _checkAuthAndNavigation() async {
-    if (mounted) {
-      setState(() {
-        _isLoading = true;
-        _hasError = false;
-      });
-    }
-
+  void _checkAuth() {
     try {
-      // افزایش زمان نمایش Splash به ۳ ثانیه
-      await Future.delayed(const Duration(milliseconds: 3000));
-
       final User? user = FirebaseAuth.instance.currentUser;
 
       if (!mounted) return;
 
-      if (user == null) {
-        setState(() {
-          _isLoading = false;
-          _targetScreen = const RegisterScreen();
-        });
-      } else {
-        setState(() {
-          _isLoading = false;
-          _targetScreen = const SafirHomeScreen();
-        });
-      }
+      setState(() {
+        _hasError = false;
+        _targetScreen =
+            user == null ? const RegisterScreen() : const SafirHomeScreen();
+      });
     } catch (e) {
+      debugPrint('AuthCheck error: $e');
       if (!mounted) return;
       setState(() {
-        _isLoading = false;
         _hasError = true;
+        _targetScreen = null;
       });
     }
   }
 
-  @override
-  void dispose() {
-    _loadingController.dispose();
-    super.dispose();
-  }
-
-  Widget _buildSafirLogo() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 40),
-      child: Image.asset(
-        'assets/images/safir_logo.png',
-        width: 220,
-        height: 90,
-        fit: BoxFit.contain,
-        errorBuilder: (context, error, stackTrace) {
-          return const Text(
-            'Safir',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 52,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -2,
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildDot(double animationValue) {
-    // تغییر سایز دینامیک بر اساس مقدار انیمیشن (از ۷ تا ۱۴)
-    final double size = 7 + (animationValue * 7);
-
-    return AnimatedBuilder(
-      animation: _loadingController,
-      builder: (context, child) {
-        return Transform.scale(
-          scale: 0.8 + (animationValue * 0.4),
-          child: Container(
-            width: size,
-            height: size,
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(
-                0.35 + (animationValue * 0.65),
-              ),
-              shape: BoxShape.circle,
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildDotLoading() {
-    return SizedBox(
-      height: 24,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          AnimatedBuilder(
-            animation: _dot1,
-            builder: (_, __) => _buildDot(_dot1.value),
-          ),
-          const SizedBox(width: 8),
-          AnimatedBuilder(
-            animation: _dot2,
-            builder: (_, __) => _buildDot(_dot2.value),
-          ),
-          const SizedBox(width: 8),
-          AnimatedBuilder(
-            animation: _dot3,
-            builder: (_, __) => _buildDot(_dot3.value),
-          ),
-          const SizedBox(width: 8),
-          AnimatedBuilder(
-            animation: _dot4,
-            builder: (_, __) => _buildDot(_dot4.value),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSplashContent() {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _buildSafirLogo(),
-          const SizedBox(height: 18),
-          _buildDotLoading(),
-        ],
-      ),
-    );
+  void _retry() {
+    HapticFeedback.mediumImpact();
+    setState(() => _hasError = false);
+    _checkAuth();
   }
 
   @override
@@ -390,17 +245,19 @@ class _AuthCheckState extends State<AuthCheck>
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    _buildSafirLogo(),
+                    const SafirLogoMark(size: 140, backgroundColor: safirGreen),
                     const SizedBox(height: 24),
-                    const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 40.0),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 40.0),
                       child: Text(
-                        'مشکلی در برقراری ارتباط پیش آمده است.',
+                        _tr('splash_error_msg',
+                            'مشکلی در برقراری ارتباط پیش آمده است.'),
                         textAlign: TextAlign.center,
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 15,
                           color: Colors.white,
                           fontWeight: FontWeight.w500,
+                          height: 1.4,
                         ),
                       ),
                     ),
@@ -415,7 +272,7 @@ class _AuthCheckState extends State<AuthCheck>
                     width: double.infinity,
                     height: 50,
                     child: ElevatedButton(
-                      onPressed: _checkAuthAndNavigation,
+                      onPressed: _retry,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.white,
                         elevation: 0,
@@ -423,9 +280,9 @@ class _AuthCheckState extends State<AuthCheck>
                           borderRadius: BorderRadius.circular(14),
                         ),
                       ),
-                      child: const Text(
-                        'تلاش دوباره',
-                        style: TextStyle(
+                      child: Text(
+                        _tr('retry_btn', 'تلاش دوباره'),
+                        style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
                           color: safirGreen,
@@ -441,13 +298,23 @@ class _AuthCheckState extends State<AuthCheck>
       );
     }
 
-    if (_isLoading || _targetScreen == null) {
-      return Scaffold(
-        backgroundColor: safirGreen,
-        body: _buildSplashContent(),
-      );
+    // انیمیشن تمام شده و مقصد مشخص است → برو
+    if (_animationDone && _targetScreen != null) {
+      return _targetScreen!;
     }
 
-    return _targetScreen!;
+    return Scaffold(
+      backgroundColor: safirGreen,
+      body: Center(
+        child: SafirLogoAnimation(
+          key: const ValueKey('safir_logo_animation'),
+          backgroundColor: safirGreen,
+          onCompleted: () {
+            if (!mounted) return;
+            setState(() => _animationDone = true);
+          },
+        ),
+      ),
+    );
   }
 }
