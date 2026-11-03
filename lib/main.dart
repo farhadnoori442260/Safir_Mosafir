@@ -12,7 +12,7 @@ import 'global/global_var.dart';
 import 'authentication/register_screen.dart';
 import 'pages/blocked_screen.dart';
 import 'pages/safir_home_screen.dart';
-import 'pages/safir_splash_screen.dart';
+import 'pages/splash_screen.dart';
 
 // پرووایدرها
 import 'appInfo/app_info.dart';
