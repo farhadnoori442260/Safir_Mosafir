@@ -9,6 +9,7 @@ import 'package:safir_passengers/global/global_var.dart';
 import 'package:safir_passengers/global/trip_var.dart';
 import 'package:safir_passengers/theme/app_colors.dart';
 import '../chat_page.dart';
+import '../chat_banner_service.dart';
 
 import 'smart_location_sheet.dart';
 import 'package:safir_passengers/widgets/driver_info_card.dart';
@@ -606,7 +607,12 @@ class MapBottomSheets {
     VoidCallback? onCancelTrip,
   }) {
     return Positioned.fill(
-      child: DraggableScrollableSheet(
+      // ✅ تا وقتی این شیت روی صفحه است، بنر پیام راننده فعال است
+      child: ChatBannerScope(
+        tripId: tripId,
+        driverName: nameDriver,
+        driverPhoto: photoDriver,
+        child: DraggableScrollableSheet(
         initialChildSize: 0.38,
         minChildSize: 0.22,
         maxChildSize: 0.65,
@@ -742,6 +748,7 @@ class MapBottomSheets {
             ),
           );
         },
+      ),
       ),
     );
   }
