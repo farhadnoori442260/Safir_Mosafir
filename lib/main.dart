@@ -13,6 +13,7 @@ import 'authentication/register_screen.dart';
 import 'pages/blocked_screen.dart';
 import 'pages/safir_home_screen.dart';
 import 'pages/splash_screen.dart';
+import 'pages/chat_banner_service.dart';
 
 // پرووایدرها
 import 'appInfo/app_info.dart';
@@ -73,6 +74,8 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AuthenticationProvider()),
       ],
       child: MaterialApp(
+        // کلید ناوبری برای نمایش بنر پیام راننده در کل اپ
+        navigatorKey: ChatBannerService.instance.navigatorKey,
         title: 'Safir Passengers',
         debugShowCheckedModeBanner: false,
 
