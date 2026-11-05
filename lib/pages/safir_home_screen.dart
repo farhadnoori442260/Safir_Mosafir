@@ -1,18 +1,17 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
-import 'package:easy_localization/easy_localization.dart' hide TextDirection; 
+import 'package:easy_localization/easy_localization.dart' hide TextDirection;
 import 'package:provider/provider.dart';
-import 'package:url_launcher/url_launcher.dart'; 
+import 'package:url_launcher/url_launcher.dart';
 
-import 'package:safir_passengers/global/global_var.dart'; 
-import 'package:safir_passengers/widgets/animated_menus.dart'; 
+import 'package:safir_passengers/global/global_var.dart';
+import 'package:safir_passengers/widgets/animated_menus.dart';
 import 'package:safir_passengers/appInfo/auth_provider.dart';
 import 'package:safir_passengers/pages/blocked_screen.dart';
 import 'package:safir_passengers/authentication/register_screen.dart';
 
-import 'map_screen.dart'; 
+import 'map_screen.dart';
 
 class SafirHomeScreen extends StatefulWidget {
   const SafirHomeScreen({super.key});
@@ -21,40 +20,72 @@ class SafirHomeScreen extends StatefulWidget {
   State<SafirHomeScreen> createState() => _SafirHomeScreenState();
 }
 
-class _SafirHomeScreenState extends State<SafirHomeScreen> with SingleTickerProviderStateMixin {
-  int _activeSelectedIndex = 0; 
-  final Color safirBrandColor = const Color(0xFF1B7A57); 
-  final Color activeBgColor = const Color(0xFFEAF6F1); 
+class _SafirHomeScreenState extends State<SafirHomeScreen> {
+  static const Color brand = Color(0xFF1B7A57);
+  static const Color brandDark = Color(0xFF0E5F44);
+  static const Color pageBg = Color(0xFFF6F8F7);
+  static const Color darkText = Color(0xFF17202A);
+  static const Color softText = Color(0xFF718096);
+
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
-  late AnimationController _galaxyController;
+  // متن‌های پیش‌فرض برای کلیدهایی که هنوز در فایل ترجمه نیستند
+  static const Map<String, Map<String, String>> _fallbacks = {
+    'home_where_to': {
+      'fa': 'کجا می‌روید؟',
+      'en': 'Where to?',
+      'ps': 'چیرته ځې؟',
+    },
+    'home_hello': {'fa': 'سلام', 'en': 'Hello', 'ps': 'سلام'},
+    'home_services': {'fa': 'خدمات', 'en': 'Services', 'ps': 'خدمات'},
+    'home_become_driver': {
+      'fa': 'راننده سفیر شوید',
+      'en': 'Become a Safir driver',
+      'ps': 'د سفیر ډرایور شئ',
+    },
+    'service_car': {'fa': 'سفیر', 'en': 'Safir', 'ps': 'سفیر'},
+    'taxi_subtitle': {
+      'fa': 'تاکسی آنلاین شهری',
+      'en': 'City taxi',
+      'ps': 'ښاري ټکسي',
+    },
+    'service_cargo': {'fa': 'باربری', 'en': 'Cargo', 'ps': 'بار وړنه'},
+    'service_auto': {'fa': 'بین شهری', 'en': 'Intercity', 'ps': 'بین ښاري'},
+    'register_subtitle': {
+      'fa': 'ثبت خودرو و راننده',
+      'en': 'Register your vehicle',
+      'ps': 'موټر او ډرایور ثبت کړئ',
+    },
+  };
 
   @override
   void initState() {
     super.initState();
     _loadCurrentUserInfo();
     _checkUserStatusInBackground();
-
-    _galaxyController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 4),
-    )..repeat();
   }
 
-  @override
-  void dispose() {
-    _galaxyController.dispose();
-    super.dispose();
+  /// ترجمه با پشتیبان: اگر کلید ترجمه نداشت، متن پیش‌فرض همان زبان نمایش داده می‌شود
+  String _tr(String key) {
+    final String v = key.tr();
+    if (v.trim().isNotEmpty && v != key) return v;
+
+    final Map<String, String>? t = _fallbacks[key];
+    if (t == null) return key;
+
+    final String lang = context.locale.languageCode;
+    return t[lang] ?? t['fa'] ?? key;
   }
 
   Future<void> _checkUserStatusInBackground() async {
     try {
-      final authProvider = Provider.of<AuthenticationProvider>(context, listen: false);
+      final authProvider =
+          Provider.of<AuthenticationProvider>(context, listen: false);
 
       bool isBlocked = await authProvider.checkIfUserIsBlocked().timeout(
-        const Duration(seconds: 3),
-        onTimeout: () => false,
-      );
+            const Duration(seconds: 3),
+            onTimeout: () => false,
+          );
 
       if (isBlocked && mounted) {
         Navigator.pushReplacement(
@@ -65,9 +96,9 @@ class _SafirHomeScreenState extends State<SafirHomeScreen> with SingleTickerProv
       }
 
       bool isFilled = await authProvider.checkUserFieldsFilled().timeout(
-        const Duration(seconds: 3),
-        onTimeout: () => true,
-      );
+            const Duration(seconds: 3),
+            onTimeout: () => true,
+          );
 
       if (!isFilled && mounted) {
         Navigator.pushReplacement(
@@ -84,13 +115,11 @@ class _SafirHomeScreenState extends State<SafirHomeScreen> with SingleTickerProv
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
       try {
-        DatabaseReference usersRef = FirebaseDatabase.instance
-            .ref()
-            .child("users")
-            .child(user.uid);
+        DatabaseReference usersRef =
+            FirebaseDatabase.instance.ref().child("users").child(user.uid);
 
         DatabaseEvent event = await usersRef.once();
-        
+
         if (event.snapshot.value != null && mounted) {
           final userData = event.snapshot.value as Map;
           setState(() {
@@ -104,10 +133,10 @@ class _SafirHomeScreenState extends State<SafirHomeScreen> with SingleTickerProv
     }
   }
 
-    void _navigateToService(String serviceId, String type) async {
+  void _navigateToService(String serviceId) async {
     if (serviceId == 'register') {
       final Uri appUri = Uri.parse("safirdriver://open");
-      final Uri storeUri = Uri.parse("https://safirapp.com/download-driver"); 
+      final Uri storeUri = Uri.parse("https://safirapp.com/download-driver");
 
       try {
         bool isInstalled = await canLaunchUrl(appUri);
@@ -130,74 +159,36 @@ class _SafirHomeScreenState extends State<SafirHomeScreen> with SingleTickerProv
           mode: LaunchMode.externalApplication,
         );
       }
-    } else if (serviceId == 'intercity') {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => const SafirMapScreen(serviceType: 'intercity'),
-        ),
-      );
-    } else if (serviceId == 'cargo') {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => const SafirMapScreen(serviceType: 'cargo'),
-        ),
-      );
-    } else { 
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => const SafirMapScreen(serviceType: 'taxi'),
-        ),
-      );
+      return;
+    }
+
+    if (!mounted) return;
+
+    final String type = serviceId == 'intercity'
+        ? 'intercity'
+        : serviceId == 'cargo'
+            ? 'cargo'
+            : 'taxi';
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => SafirMapScreen(serviceType: type),
+      ),
+    );
+  }
+
+  void _openMenu(bool isRTL) {
+    if (isRTL) {
+      _scaffoldKey.currentState?.openDrawer();
+    } else {
+      _scaffoldKey.currentState?.openEndDrawer();
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final bool isRTL = Directionality.of(context) == TextDirection.rtl;
-
-   final List<Map<String, dynamic>> services = [
-      {
-        'title': 'service_car'.tr().isEmpty ? 'سفیر' : 'service_car'.tr(),
-        'subtitle': 'taxi_subtitle'.tr().isEmpty ? 'تاکسی آنلاین شهری' : 'taxi_subtitle'.tr(),
-        'bannerImage': 'assets/images/taxi_banner.png',
-        'bottomIcon': 'assets/images/taxi_car.png',
-        'icon': Icons.local_taxi_rounded,
-        'type': 'Car',
-        'id': 'car'
-      }, 
-      {
-        'title': 'service_cargo'.tr().isEmpty ? 'باربری' : 'service_cargo'.tr(),
-        'subtitle': 'cargo_subtitle'.tr().isEmpty ? 'حمل و نقل سریع بار' : 'cargo_subtitle'.tr(),
-        'bannerImage': 'assets/images/cargo_banner.png',
-        'bottomIcon': 'assets/images/cargo_truck.png',
-        'icon': Icons.local_shipping_rounded,
-        'type': 'Bike',
-        'id': 'cargo'
-      },
-      {
-        'title': 'service_register'.tr().isEmpty ? 'ثبت سرویس' : 'service_register'.tr(),
-        'subtitle': 'register_subtitle'.tr().isEmpty ? 'ثبت خودرو و راننده' : 'register_subtitle'.tr(),
-        'bannerImage': 'assets/images/register_banner.png',
-        'bottomIcon': 'assets/images/driver_card.png',
-        'icon': Icons.assignment_rounded,
-        'type': 'Register',
-        'id': 'register'
-      },
-      {
-        'title': 'service_auto'.tr().isEmpty ? 'بین شهری' : 'service_auto'.tr(),
-        'subtitle': 'intercity_subtitle'.tr().isEmpty ? 'سفر ایمن بین شهرها' : 'intercity_subtitle'.tr(),
-        'bannerImage': 'assets/images/intercity_banner.png',
-        'bottomIcon': 'assets/images/intercity_car.png',
-        'icon': Icons.add_road_rounded,
-        'type': 'Auto',
-        'id': 'intercity'
-      },
-    ];
-
-    final activeService = services[_activeSelectedIndex];
 
     Widget buildDrawer() {
       return Drawer(
@@ -217,463 +208,357 @@ class _SafirHomeScreenState extends State<SafirHomeScreen> with SingleTickerProv
 
     return Scaffold(
       key: _scaffoldKey,
-      backgroundColor: const Color(0xFFF8F9FA), 
+      backgroundColor: pageBg,
       drawer: isRTL ? buildDrawer() : null,
       endDrawer: !isRTL ? buildDrawer() : null,
-      extendBody: true, 
-
-      body: SafeArea(
+      body: SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 🔝 هدر بالایی
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Row(
-                children: [
-                  Text(
-                    'Safir',
-                    style: TextStyle(
-                      color: safirBrandColor,
-                      fontSize: 24,
-                      fontWeight: FontWeight.w600, // 👈 ضخیم‌تر شد
-                      fontFamily: 'Serif',
-                    ),
-                  ),
-                  Expanded(
-                    child: Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 8),
-                      height: 42,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: Colors.grey.shade300),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.03),
-                            blurRadius: 6,
-                            offset: const Offset(0, 2),
-                          )
-                        ],
-                      ),
-                      child: Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(20),
-                          onTap: null, 
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    'home_select_service'.tr().isEmpty ? 'سرویس را انتخاب کنید' : 'home_select_service'.tr(),
-                                    style: TextStyle(
-                                      color: Colors.grey.shade500,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w400,
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Icon(Icons.search_rounded, color: safirBrandColor, size: 20),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    icon: Icon(Icons.menu_rounded, color: safirBrandColor, size: 28),
-                    onPressed: () {
-                      if (isRTL) {
-                        _scaffoldKey.currentState?.openDrawer();
-                      } else {
-                        _scaffoldKey.currentState?.openEndDrawer();
-                      }
-                    },
-                  ),
-                ],
-              ),
-            ),
-
-            Divider(color: safirBrandColor.withOpacity(0.15), height: 1, thickness: 1),
-
-            // 📜 لیست اصلی
-            Expanded(
-              child: SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                child: Column(
-                  children: [
-                    _buildHeroBanner(activeService, isRTL), 
-                    const SizedBox(height: 16),
-                    
-                    Column(
-                      children: List.generate(services.length, (index) {
-                        return _buildServiceCard(services[index], index);
-                      }),
-                    ),
-                    
-                    const SizedBox(height: 100),
-                  ],
-                ),
-              ),
+            _buildHeader(isRTL),
+            const SizedBox(height: 22),
+            _buildServicesSection(),
+            const SizedBox(height: 18),
+            _buildDriverCard(isRTL),
+            SizedBox(
+              height: MediaQuery.of(context).padding.bottom + 24,
             ),
           ],
         ),
       ),
+    );
+  }
 
-      // 🏁 نوار شناور پایینی
-      bottomNavigationBar: Container(
-        margin: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-        height: 68,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(32),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.14),
-              blurRadius: 30,
-              spreadRadius: 2,
-              offset: const Offset(0, 10),
-            ),
-            BoxShadow(
-              color: safirBrandColor.withOpacity(0.06),
-              blurRadius: 15,
-              spreadRadius: -2,
-              offset: const Offset(0, -2),
-            ),
-          ],
+  // 🔝 هدر سبز: لوگو، منو، خوش‌آمد و جعبه‌ی «کجا می‌روید؟»
+  Widget _buildHeader(bool isRTL) {
+    final String name = userName.toString().trim();
+
+    return Container(
+      width: double.infinity,
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [brand, brandDark],
         ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(32),
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final double totalWidth = constraints.maxWidth;
-              final double itemWidth = totalWidth / services.length;
-
-              final double leftPosition = isRTL
-                  ? totalWidth - ((_activeSelectedIndex + 1) * itemWidth)
-                  : _activeSelectedIndex * itemWidth;
-
-              return Stack(
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
+      ),
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsetsDirectional.fromSTEB(18, 10, 18, 22),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
                 children: [
-                  AnimatedPositioned(
-                    duration: const Duration(milliseconds: 350),
-                    curve: Curves.easeOutCubic,
-                    left: leftPosition,
-                    top: 6,
-                    width: itemWidth,
-                    height: 56,
-                    child: Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 4),
-                      decoration: BoxDecoration(
-                        color: activeBgColor,
-                        borderRadius: BorderRadius.circular(22),
+                  const Text(
+                    'Safir',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 24,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                  const Spacer(),
+                  Semantics(
+                    button: true,
+                    label: 'menu',
+                    child: Material(
+                      color: Colors.white.withOpacity(0.16),
+                      borderRadius: BorderRadius.circular(14),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(14),
+                        onTap: () => _openMenu(isRTL),
+                        child: const SizedBox(
+                          width: 44,
+                          height: 44,
+                          child: Icon(
+                            Icons.menu_rounded,
+                            color: Colors.white,
+                            size: 26,
+                          ),
+                        ),
                       ),
                     ),
                   ),
-
-                  Row(
-                    children: List.generate(services.length, (index) {
-                      bool isSelected = _activeSelectedIndex == index;
-                      String serviceId = services[index]['id'];
-
-                      return Expanded(
-                        child: InkWell(
-                          onTap: () {
-                            setState(() {
-                              _activeSelectedIndex = index;
-                            });
-
-                            _navigateToService(serviceId, services[index]['type']);
-                          },
-                          splashColor: Colors.transparent,
-                          highlightColor: Colors.transparent,
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              AnimatedContainer(
-                                duration: const Duration(milliseconds: 250),
-                                width: 28,
-                                height: 28,
-                                padding: const EdgeInsets.all(3),
-                                decoration: BoxDecoration(
-                                  color: isSelected ? safirBrandColor : Colors.transparent,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Image.asset(
-                                  services[index]['bottomIcon'],
-                                  fit: BoxFit.contain,
-                                  color: isSelected ? Colors.white : Colors.grey[700],
-                                  errorBuilder: (context, error, stackTrace) {
-                                    return Icon(
-                                      services[index]['icon'] as IconData,
-                                      color: isSelected ? Colors.white : Colors.grey[600],
-                                      size: 18,
-                                    );
-                                  },
-                                ),
-                              ),
-                              const SizedBox(height: 3),
-                              
-                              Text(
-                                services[index]['title'],
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  color: isSelected ? safirBrandColor : Colors.grey[600],
-                                  fontSize: 12,
-                                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400, // 👈 ضخیم‌تر شد
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    }),
-                  ),
                 ],
-              );
-            },
+              ),
+              const SizedBox(height: 20),
+              Text(
+                name.isEmpty ? _tr('home_hello') : '${_tr('home_hello')} $name',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 14),
+              _buildSearchBox(),
+            ],
           ),
         ),
       ),
     );
   }
 
-  // 🌟 بنر اصلی
-  Widget _buildHeroBanner(Map<String, dynamic> activeService, bool isRTL) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: safirBrandColor,
-        borderRadius: BorderRadius.circular(22),
-        boxShadow: [
-          BoxShadow(
-            color: safirBrandColor.withOpacity(0.3),
-            blurRadius: 12,
-            offset: const Offset(0, 5),
-          )
-        ],
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            flex: 4,
-            child: SizedBox(
-              height: 90,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  RotationTransition(
-                    turns: _galaxyController,
-                    child: Container(
-                      width: 88,
-                      height: 88,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: SweepGradient(
-                          colors: [
-                            Colors.transparent,
-                            Colors.greenAccent.withOpacity(0.15),
-                            Colors.white.withOpacity(0.75),
-                            Colors.transparent,
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-
-                  AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 350),
-                    transitionBuilder: (child, animation) {
-                      return ScaleTransition(scale: animation, child: child);
-                    },
-                    child: Image.asset(
-                      activeService['bannerImage'],
-                      key: ValueKey<String>(activeService['id']),
-                      fit: BoxFit.contain,
-                      height: 75,
-                      errorBuilder: (_, __, ___) => Icon(
-                        activeService['icon'] as IconData,
-                        color: Colors.white,
-                        size: 45,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          
-          const SizedBox(width: 10),
-
-          Expanded(
-            flex: 5,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildSearchBox() {
+    return Semantics(
+      button: true,
+      label: _tr('home_where_to'),
+      child: Material(
+        color: Colors.white,
+        elevation: 6,
+        shadowColor: Colors.black38,
+        borderRadius: BorderRadius.circular(18),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(18),
+          onTap: () => _navigateToService('car'),
+          child: Container(
+            height: 58,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
               children: [
-                AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 250),
+                const Icon(Icons.search_rounded, color: brand, size: 26),
+                const SizedBox(width: 12),
+                Expanded(
                   child: Text(
-                    activeService['title'],
-                    key: ValueKey<String>("title_${activeService['id']}"),
+                    _tr('home_where_to'),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600, // 👈 ضخیم‌تر شد
+                      color: darkText,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                 ),
-                const SizedBox(height: 4),
-                AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 250),
-                  child: Text(
-                    activeService['subtitle'],
-                    key: ValueKey<String>("sub_${activeService['id']}"),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w400,
-                      height: 1.3,
-                    ),
+                Container(
+                  width: 34,
+                  height: 34,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFEAF6F1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.local_taxi_rounded,
+                    color: brand,
+                    size: 19,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // 🧩 ردیف خدمات
+  Widget _buildServicesSection() {
+    final List<_ServiceItem> items = [
+      _ServiceItem(
+        id: 'car',
+        title: _tr('service_car'),
+        image: 'assets/images/taxi_banner.png',
+        icon: Icons.local_taxi_rounded,
+      ),
+      _ServiceItem(
+        id: 'cargo',
+        title: _tr('service_cargo'),
+        image: 'assets/images/cargo_banner.png',
+        icon: Icons.local_shipping_rounded,
+      ),
+      _ServiceItem(
+        id: 'intercity',
+        title: _tr('service_auto'),
+        image: 'assets/images/intercity_banner.png',
+        icon: Icons.add_road_rounded,
+      ),
+    ];
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            _tr('home_services'),
+            style: const TextStyle(
+              color: darkText,
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              for (int i = 0; i < items.length; i++) ...[
+                if (i > 0) const SizedBox(width: 12),
+                Expanded(child: _buildServiceTile(items[i])),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildServiceTile(_ServiceItem item) {
+    return Semantics(
+      button: true,
+      label: item.title,
+      child: Material(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        elevation: 0,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: () => _navigateToService(item.id),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 6),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: const Color(0xFFE6EBE8)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.03),
+                  blurRadius: 8,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                Container(
+                  width: 58,
+                  height: 58,
+                  padding: const EdgeInsets.all(10),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFEAF6F1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Image.asset(
+                    item.image,
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, __, ___) =>
+                        Icon(item.icon, color: brand, size: 28),
                   ),
                 ),
                 const SizedBox(height: 10),
-                ElevatedButton(
-                  onPressed: () => _navigateToService(activeService['id'], activeService['type']),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    elevation: 0,
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        isRTL 
-                            ? Icons.arrow_back_rounded 
-                            : Icons.arrow_forward_rounded, 
-                        size: 14, 
-                        color: safirBrandColor,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        'request_service'.tr().isEmpty ? 'درخواست سرویس' : 'request_service'.tr(),
-                        style: TextStyle(
-                          color: safirBrandColor,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600, // 👈 ضخیم‌تر شد
-                        ),
-                      ),
-                    ],
+                Text(
+                  item.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: darkText,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ],
             ),
           ),
-        ],
+        ),
       ),
     );
   }
 
-  // 💳 کارت‌های خدمات
-  Widget _buildServiceCard(Map<String, dynamic> service, int index) {
-    bool isSelected = _activeSelectedIndex == index;
-
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 250),
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: isSelected ? safirBrandColor : Colors.grey.shade200,
-          width: isSelected ? 1.8 : 1.0,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: isSelected ? safirBrandColor.withOpacity(0.12) : Colors.black.withOpacity(0.02),
-            blurRadius: isSelected ? 12 : 6,
-            offset: const Offset(0, 3),
-          )
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(20),
-        child: InkWell(
+  // 🚖 کارت «راننده سفیر شوید»
+  Widget _buildDriverCard(bool isRTL) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 18),
+      child: Semantics(
+        button: true,
+        label: _tr('home_become_driver'),
+        child: Material(
+          color: Colors.white,
           borderRadius: BorderRadius.circular(20),
-          onTap: () {
-            setState(() {
-              _activeSelectedIndex = index;
-            });
-          },
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      service['title'],
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600, // 👈 ضخیم‌تر شد
-                        color: isSelected ? safirBrandColor : Colors.grey.shade800,
-                      ),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(20),
+            onTap: () => _navigateToService('register'),
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: const Color(0xFFE6EBE8)),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFEAF6F1),
+                      shape: BoxShape.circle,
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      service['subtitle'],
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w400,
-                        color: Colors.grey.shade500,
-                      ),
-                    ),
-                  ],
-                ),
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 250),
-                  width: 48,
-                  height: 48,
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: isSelected ? safirBrandColor.withOpacity(0.1) : const Color(0xFFF4F6F8),
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: isSelected ? safirBrandColor : Colors.grey.shade300,
-                      width: 1.2,
+                    child: const Icon(
+                      Icons.assignment_ind_rounded,
+                      color: brand,
+                      size: 24,
                     ),
                   ),
-                  child: Image.asset(
-                    service['bannerImage'],
-                    fit: BoxFit.contain,
-                    errorBuilder: (_, __, ___) => Icon(
-                      service['icon'] as IconData,
-                      color: safirBrandColor,
-                      size: 22,
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _tr('home_become_driver'),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: darkText,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          _tr('register_subtitle'),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: softText,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w400,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ),
-              ],
+                  Icon(
+                    isRTL
+                        ? Icons.chevron_left_rounded
+                        : Icons.chevron_right_rounded,
+                    color: softText,
+                    size: 26,
+                  ),
+                ],
+              ),
             ),
           ),
         ),
       ),
     );
   }
+}
+
+class _ServiceItem {
+  const _ServiceItem({
+    required this.id,
+    required this.title,
+    required this.image,
+    required this.icon,
+  });
+
+  final String id;
+  final String title;
+  final String image;
+  final IconData icon;
 }
