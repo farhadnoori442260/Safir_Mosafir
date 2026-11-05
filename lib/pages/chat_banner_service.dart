@@ -1,8 +1,8 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
-import 'chat_page.dart';
 
 // ─────────────────────────────────────────────────────────────
 // پیش‌نیاز: فونت Oswald در pubspec.yaml (زیر بخش flutter: fonts:)
