@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'package:safir_passengers/theme/app_colors.dart';
+import 'chat_banner_service.dart';
 
 class ChatPage extends StatefulWidget {
   final String tripId;
@@ -57,7 +58,17 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    // وقتی چت باز است بنر نمایش داده نشود و پیام‌ها خوانده شوند
+    ChatBannerService.instance.isChatOpen = true;
+    ChatBannerService.instance.markAllRead();
+  }
+
+  @override
   void dispose() {
+    ChatBannerService.instance.isChatOpen = false;
+    ChatBannerService.instance.markAllRead();
     _messageController.dispose();
     _scrollController.dispose();
     super.dispose();
