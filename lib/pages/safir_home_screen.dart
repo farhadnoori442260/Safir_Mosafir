@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:easy_localization/easy_localization.dart'
@@ -23,36 +24,38 @@ class SafirHomeScreen extends StatefulWidget {
   State<SafirHomeScreen> createState() => _SafirHomeScreenState();
 }
 
-class _SafirHomeScreenState extends State<SafirHomeScreen>
-    with SingleTickerProviderStateMixin {
-  int _activeSelectedIndex = 0;
+class _SafirHomeScreenState extends State<SafirHomeScreen> {
+  static const String _font = 'IranYekan';
 
-  final Color safirBrandColor = const Color(0xFF1B7A57);
-  final Color activeBgColor = const Color(0xFFEAF6F1);
+  static const Color _brand = Color(0xFF1B7A57);
+  static const Color _brandDark = Color(0xFF0E5F44);
+  static const Color _activeBg = Color(0xFFEAF6F1);
+  static const Color _pageBg = Color(0xFFF1F4F2);
+  static const Color _darkText = Color(0xFF17202A);
+  static const Color _softText = Color(0xFF6B7A73);
+  static const Color _line = Color(0xFFE4EBE7);
+
+  // فیلتر خاکستری برای آیکن‌های انتخاب‌نشده‌ی نوار پایین
+  static const ColorFilter _grayFilter = ColorFilter.matrix(<double>[
+    0.2126, 0.7152, 0.0722, 0, 0,
+    0.2126, 0.7152, 0.0722, 0, 0,
+    0.2126, 0.7152, 0.0722, 0, 0,
+    0, 0, 0, 1, 0,
+  ]);
+
+  int _activeSelectedIndex = 0;
 
   final GlobalKey<ScaffoldState> _scaffoldKey =
       GlobalKey<ScaffoldState>();
 
-  late AnimationController _galaxyController;
-
   @override
   void initState() {
     super.initState();
-
     _loadCurrentUserInfo();
     _checkUserStatusInBackground();
-
-    _galaxyController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 4),
-    )..repeat();
   }
 
-  @override
-  void dispose() {
-    _galaxyController.dispose();
-    super.dispose();
-  }
+  // ───────────────────────── ترجمه ─────────────────────────
 
   String _text(
     String key, {
@@ -76,6 +79,8 @@ class _SafirHomeScreenState extends State<SafirHomeScreen>
     }
   }
 
+  // ───────────────────────── منطق ─────────────────────────
+
   Future<void> _checkUserStatusInBackground() async {
     try {
       final authProvider = Provider.of<AuthenticationProvider>(
@@ -94,9 +99,7 @@ class _SafirHomeScreenState extends State<SafirHomeScreen>
       if (isBlocked) {
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(
-            builder: (_) => const BlockedScreen(),
-          ),
+          MaterialPageRoute(builder: (_) => const BlockedScreen()),
         );
         return;
       }
@@ -112,9 +115,7 @@ class _SafirHomeScreenState extends State<SafirHomeScreen>
       if (!isFilled) {
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(
-            builder: (_) => const RegisterScreen(),
-          ),
+          MaterialPageRoute(builder: (_) => const RegisterScreen()),
         );
       }
     } catch (e) {
@@ -210,11 +211,17 @@ class _SafirHomeScreenState extends State<SafirHomeScreen>
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => SafirMapScreen(
-          serviceType: serviceType,
-        ),
+        builder: (_) => SafirMapScreen(serviceType: serviceType),
       ),
     );
+  }
+
+  void _openMenu(bool isRTL) {
+    if (isRTL) {
+      _scaffoldKey.currentState?.openDrawer();
+    } else {
+      _scaffoldKey.currentState?.openEndDrawer();
+    }
   }
 
   List<Map<String, dynamic>> _services() {
@@ -260,7 +267,7 @@ class _SafirHomeScreenState extends State<SafirHomeScreen>
       {
         'title': _text(
           'service_auto',
-          fa: 'بین‌شهری',
+          fa: 'بین‌ولایتی',
           en: 'Intercity',
           ps: 'بین ښاري',
         ),
@@ -278,6 +285,8 @@ class _SafirHomeScreenState extends State<SafirHomeScreen>
       },
     ];
   }
+
+  // ───────────────────────── ساخت صفحه ─────────────────────────
 
   Widget _buildDrawer() {
     return Drawer(
@@ -304,107 +313,353 @@ class _SafirHomeScreenState extends State<SafirHomeScreen>
     final Map<String, dynamic> activeService =
         services[_activeSelectedIndex];
 
-    return Scaffold(
-      key: _scaffoldKey,
-      backgroundColor: const Color(0xFFF8F9FA),
-      drawer: isRTL ? _buildDrawer() : null,
-      endDrawer: !isRTL ? _buildDrawer() : null,
-      extendBody: true,
-      body: SafeArea(
-        child: Column(
-          children: [
-            _buildHeader(isRTL),
-            Expanded(
-              child: SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(
-                  16,
-                  10,
-                  16,
-                  110,
-                ),
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      // هدر سبز تا بالای صفحه می‌رود؛ آیکن‌های نوار وضعیت سفید باشند
+      value: SystemUiOverlayStyle.light.copyWith(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
+        statusBarBrightness: Brightness.dark,
+      ),
+      child: Scaffold(
+        key: _scaffoldKey,
+        backgroundColor: _pageBg,
+        drawer: isRTL ? _buildDrawer() : null,
+        endDrawer: !isRTL ? _buildDrawer() : null,
+        extendBody: true,
+        body: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _buildHeader(isRTL, activeService),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 20, 16, 150),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    _buildHeroBanner(activeService, isRTL),
+                    _buildHeroBanner(activeService),
                     const SizedBox(height: 16),
-                    _buildDriverRegistrationCard(),
+                    _buildDriverRegistrationCard(isRTL),
 
-                    // بخش مستقل تبلیغات:
-                    // فعلاً خالی است و هیچ کادر اضافی نمایش نمی‌دهد.
+                    // بخش مستقل تبلیغات: تا خالی است چیزی نمایش نمی‌دهد
                     const HomeAdvertisementsSection(),
                   ],
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
-      ),
-      bottomNavigationBar: _buildBottomNavigation(
-        services,
-        isRTL,
+        bottomNavigationBar: _buildBottomNavigation(services, isRTL),
       ),
     );
   }
 
-  Widget _buildHeader(bool isRTL) {
-    return Padding(
-      padding: const EdgeInsetsDirectional.fromSTEB(
-        20,
-        8,
-        12,
-        4,
+  // 🔝 هدر سبز: لوگو، منو، خوش‌آمد و «کجا می‌روید؟»
+  Widget _buildHeader(bool isRTL, Map<String, dynamic> activeService) {
+    final String name = userName.toString().trim();
+    final bool hasName = name.isNotEmpty && name.toLowerCase() != 'null';
+
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [_brand, _brandDark],
+        ),
+        borderRadius: BorderRadius.vertical(
+          bottom: Radius.circular(30),
+        ),
       ),
-      child: Row(
-        children: [
-          Text(
-            'Safir',
-            style: TextStyle(
-              color: safirBrandColor,
-              fontSize: 28,
-              fontWeight: FontWeight.w600,
-              fontFamily: 'Serif',
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsetsDirectional.fromSTEB(20, 10, 14, 22),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Text(
+                    'Safir',
+                    style: TextStyle(
+                      fontFamily: _font,
+                      color: Colors.white,
+                      fontSize: 28,
+                      fontWeight: FontWeight.w800,
+                      height: 1.2,
+                    ),
+                  ),
+                  const Spacer(),
+                  Material(
+                    color: Colors.white.withOpacity(0.16),
+                    borderRadius: BorderRadius.circular(14),
+                    child: IconButton(
+                      tooltip: MaterialLocalizations.of(context)
+                          .openAppDrawerTooltip,
+                      icon: const Icon(
+                        Icons.menu_rounded,
+                        color: Colors.white,
+                        size: 26,
+                      ),
+                      onPressed: () => _openMenu(isRTL),
+                    ),
+                  ),
+                ],
+              ),
+              if (hasName) ...[
+                const SizedBox(height: 14),
+                Padding(
+                  padding: const EdgeInsetsDirectional.only(end: 6),
+                  child: Text(
+                    '${_text('home_hello', fa: 'سلام', en: 'Hello', ps: 'سلام')} $name',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
+              ] else
+                const SizedBox(height: 22),
+              Padding(
+                padding: const EdgeInsetsDirectional.only(end: 6),
+                child: _buildWhereToBox(activeService),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // 🔎 «کجا می‌روید؟» — با لمس، نقشه‌ی سرویس انتخاب‌شده باز می‌شود
+  Widget _buildWhereToBox(Map<String, dynamic> activeService) {
+    final String hint = _text(
+      'home_where_to',
+      fa: 'کجا می‌روید؟',
+      en: 'Where to?',
+      ps: 'چیرته ځې؟',
+    );
+
+    return Semantics(
+      button: true,
+      label: hint,
+      child: Material(
+        color: Colors.white,
+        elevation: 6,
+        shadowColor: Colors.black45,
+        borderRadius: BorderRadius.circular(18),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(18),
+          onTap: () {
+            HapticFeedback.selectionClick();
+            _navigateToService(
+              activeService['id'] as String,
+              activeService['type'] as String,
+            );
+          },
+          child: SizedBox(
+            height: 58,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.search_rounded,
+                    color: _brand,
+                    size: 26,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      hint,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: _darkText,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: const BoxDecoration(
+                      color: _activeBg,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      activeService['icon'] as IconData,
+                      color: _brand,
+                      size: 20,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
-          const Spacer(),
-          Material(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(14),
-            child: IconButton(
-              tooltip: MaterialLocalizations.of(context)
-                  .openAppDrawerTooltip,
-              icon: Icon(
-                Icons.menu_rounded,
-                color: safirBrandColor,
-                size: 26,
-              ),
-              onPressed: () {
-                if (isRTL) {
-                  _scaffoldKey.currentState?.openDrawer();
-                } else {
-                  _scaffoldKey.currentState?.openEndDrawer();
-                }
-              },
-            ),
+        ),
+      ),
+    );
+  }
+
+  // 🌟 بنر سفید با سایه — فقط نام و شعار هر بخش
+  Widget _buildHeroBanner(Map<String, dynamic> activeService) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(26),
+        border: Border.all(color: const Color(0xFFE9EFEC)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.10),
+            blurRadius: 28,
+            offset: const Offset(0, 12),
+          ),
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(26),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(26),
+          onTap: () {
+            _navigateToService(
+              activeService['id'] as String,
+              activeService['type'] as String,
+            );
+          },
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(18, 20, 18, 20),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(
+                  flex: 5,
+                  child: SizedBox(
+                    height: 112,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        // هالهٔ ملایم پشت ماشین
+                        Container(
+                          width: 104,
+                          height: 104,
+                          decoration: const BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: RadialGradient(
+                              colors: [
+                                Color(0xFFDDF1E8),
+                                Color(0x00DDF1E8),
+                              ],
+                            ),
+                          ),
+                        ),
+                        AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 350),
+                          transitionBuilder: (child, animation) {
+                            return FadeTransition(
+                              opacity: animation,
+                              child: ScaleTransition(
+                                scale: Tween<double>(
+                                  begin: 0.92,
+                                  end: 1,
+                                ).animate(animation),
+                                child: child,
+                              ),
+                            );
+                          },
+                          child: Image.asset(
+                            activeService['bannerImage'] as String,
+                            key: ValueKey<String>(
+                              activeService['id'] as String,
+                            ),
+                            fit: BoxFit.contain,
+                            height: 92,
+                            errorBuilder: (_, __, ___) => Icon(
+                              activeService['icon'] as IconData,
+                              color: _brand,
+                              size: 52,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  flex: 5,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 250),
+                        child: Text(
+                          activeService['title'] as String,
+                          key: ValueKey<String>(
+                            'title_${activeService['id']}',
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: _brand,
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 250),
+                        child: Text(
+                          activeService['subtitle'] as String,
+                          key: ValueKey<String>(
+                            'sub_${activeService['id']}',
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: _softText,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w400,
+                            height: 1.5,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 
-  Widget _buildDriverRegistrationCard() {
+  // 🚖 کارت «رانندهٔ سفیر شوید»
+  Widget _buildDriverRegistrationCard(bool isRTL) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: const Color(0xFFE7ECE9),
-        ),
+        border: Border.all(color: _line),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.025),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 14,
+            offset: const Offset(0, 5),
           ),
         ],
       ),
@@ -413,9 +668,7 @@ class _SafirHomeScreenState extends State<SafirHomeScreen>
         borderRadius: BorderRadius.circular(18),
         child: InkWell(
           borderRadius: BorderRadius.circular(18),
-          onTap: () {
-            _navigateToService('register', 'Register');
-          },
+          onTap: () => _navigateToService('register', 'Register'),
           child: Padding(
             padding: const EdgeInsets.symmetric(
               horizontal: 14,
@@ -424,20 +677,20 @@ class _SafirHomeScreenState extends State<SafirHomeScreen>
             child: Row(
               children: [
                 Container(
-                  width: 44,
-                  height: 44,
+                  width: 46,
+                  height: 46,
                   padding: const EdgeInsets.all(9),
                   decoration: BoxDecoration(
-                    color: activeBgColor,
+                    color: _activeBg,
                     borderRadius: BorderRadius.circular(14),
                   ),
                   child: Image.asset(
                     'assets/images/driver_card.png',
                     fit: BoxFit.contain,
                     errorBuilder: (_, __, ___) {
-                      return Icon(
+                      return const Icon(
                         Icons.badge_outlined,
-                        color: safirBrandColor,
+                        color: _brand,
                         size: 25,
                       );
                     },
@@ -456,6 +709,8 @@ class _SafirHomeScreenState extends State<SafirHomeScreen>
                           en: 'Become a Safir driver',
                           ps: 'د سفیر چلوونکی شئ',
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           color: Color(0xFF243B32),
                           fontSize: 14,
@@ -470,6 +725,8 @@ class _SafirHomeScreenState extends State<SafirHomeScreen>
                           en: 'Register yourself and your vehicle',
                           ps: 'د موټر او چلوونکي نوم‌لیکنه',
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           color: Color(0xFF75827C),
                           fontSize: 11,
@@ -481,10 +738,11 @@ class _SafirHomeScreenState extends State<SafirHomeScreen>
                 ),
                 const SizedBox(width: 8),
                 Icon(
-                  Icons.chevron_right_rounded,
-                  textDirection: Directionality.of(context),
+                  isRTL
+                      ? Icons.chevron_left_rounded
+                      : Icons.chevron_right_rounded,
                   color: const Color(0xFF84938C),
-                  size: 23,
+                  size: 24,
                 ),
               ],
             ),
@@ -494,113 +752,107 @@ class _SafirHomeScreenState extends State<SafirHomeScreen>
     );
   }
 
+  // 🏁 نوار پایین — بالاتر از لبه، با آیکن اصلی (بدون رنگ‌آمیزی)
   Widget _buildBottomNavigation(
     List<Map<String, dynamic>> services,
     bool isRTL,
   ) {
     return SafeArea(
       top: false,
-      minimum: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      minimum: const EdgeInsets.fromLTRB(16, 0, 16, 30),
       child: Container(
-        height: 64,
+        height: 68,
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(22),
-          border: Border.all(
-            color: const Color(0xFFE2EAE6),
-          ),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: const Color(0xFFE2EAE6)),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.07),
-              blurRadius: 22,
-              offset: const Offset(0, 7),
+              color: Colors.black.withOpacity(0.10),
+              blurRadius: 26,
+              offset: const Offset(0, 8),
             ),
             BoxShadow(
-              color: safirBrandColor.withOpacity(0.03),
+              color: _brand.withOpacity(0.04),
               blurRadius: 10,
               offset: const Offset(0, -2),
             ),
           ],
         ),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(21),
+          borderRadius: BorderRadius.circular(23),
           child: LayoutBuilder(
             builder: (context, constraints) {
               final double totalWidth = constraints.maxWidth;
-              final double itemWidth =
-                  totalWidth / services.length;
+              final double itemWidth = totalWidth / services.length;
 
               final double leftPosition = isRTL
-                  ? totalWidth -
-                      ((_activeSelectedIndex + 1) * itemWidth)
+                  ? totalWidth - ((_activeSelectedIndex + 1) * itemWidth)
                   : _activeSelectedIndex * itemWidth;
 
               return Stack(
                 children: [
+                  // پس‌زمینه‌ی متحرک گزینه‌ی انتخاب‌شده
                   AnimatedPositioned(
                     duration: const Duration(milliseconds: 350),
                     curve: Curves.easeOutCubic,
                     left: leftPosition,
                     top: 6,
                     width: itemWidth,
-                    height: 52,
+                    height: 54,
                     child: Container(
-                      margin: const EdgeInsets.symmetric(
-                        horizontal: 6,
-                      ),
+                      margin: const EdgeInsets.symmetric(horizontal: 6),
                       decoration: BoxDecoration(
-                        color: activeBgColor,
-                        borderRadius: BorderRadius.circular(16),
+                        color: _activeBg,
+                        borderRadius: BorderRadius.circular(17),
                         border: Border.all(
-                          color: safirBrandColor.withOpacity(0.09),
+                          color: _brand.withOpacity(0.10),
                         ),
                       ),
                     ),
                   ),
 
-                  // خطوط ظریف برای تفکیک سه گزینه.
+                  // خطوط ظریف جداکننده
                   Positioned.fill(
                     child: IgnorePointer(
                       child: Row(
-                        children: List.generate(
-                          services.length,
-                          (index) {
-                            return Expanded(
-                              child: Align(
-                                alignment:
-                                    AlignmentDirectional.centerEnd,
-                                child: index < services.length - 1
-                                    ? Container(
-                                        width: 1,
-                                        height: 20,
-                                        color: const Color(
-                                          0xFFE5ECE8,
-                                        ),
-                                      )
-                                    : const SizedBox.shrink(),
-                              ),
-                            );
-                          },
-                        ),
+                        children: List.generate(services.length, (index) {
+                          return Expanded(
+                            child: Align(
+                              alignment: AlignmentDirectional.centerEnd,
+                              child: index < services.length - 1
+                                  ? Container(
+                                      width: 1,
+                                      height: 22,
+                                      color: const Color(0xFFE5ECE8),
+                                    )
+                                  : const SizedBox.shrink(),
+                            ),
+                          );
+                        }),
                       ),
                     ),
                   ),
+
                   Positioned.fill(
                     child: Material(
                       color: Colors.transparent,
                       child: Row(
-                        children: List.generate(
-                          services.length,
-                          (index) {
-                            final bool isSelected =
-                                _activeSelectedIndex == index;
+                        children: List.generate(services.length, (index) {
+                          final bool isSelected =
+                              _activeSelectedIndex == index;
+                          final Map<String, dynamic> service =
+                              services[index];
 
-                            final Map<String, dynamic> service =
-                                services[index];
-
-                            return Expanded(
+                          return Expanded(
+                            child: Semantics(
+                              button: true,
+                              selected: isSelected,
+                              label: service['title'] as String,
                               child: InkWell(
                                 onTap: () {
+                                  HapticFeedback.selectionClick();
+
                                   setState(() {
                                     _activeSelectedIndex = index;
                                   });
@@ -613,69 +865,27 @@ class _SafirHomeScreenState extends State<SafirHomeScreen>
                                 splashColor: Colors.transparent,
                                 highlightColor: Colors.transparent,
                                 child: Padding(
-                                  padding:
-                                      const EdgeInsets.symmetric(
-                                    horizontal: 7,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
                                   ),
                                   child: Row(
                                     mainAxisAlignment:
                                         MainAxisAlignment.center,
                                     children: [
-                                      AnimatedContainer(
-                                        duration: const Duration(
-                                          milliseconds: 250,
-                                        ),
-                                        width: 28,
-                                        height: 28,
-                                        padding:
-                                            const EdgeInsets.all(4),
-                                        decoration: BoxDecoration(
-                                          color: isSelected
-                                              ? safirBrandColor
-                                              : Colors.transparent,
-                                          shape: BoxShape.circle,
-                                        ),
-                                        child: Image.asset(
-                                          service['bottomIcon']
-                                              as String,
-                                          fit: BoxFit.contain,
-                                          color: isSelected
-                                              ? Colors.white
-                                              : const Color(
-                                                  0xFF6D7B74,
-                                                ),
-                                          errorBuilder:
-                                              (_, __, ___) {
-                                            return Icon(
-                                              service['icon']
-                                                  as IconData,
-                                              color: isSelected
-                                                  ? Colors.white
-                                                  : const Color(
-                                                      0xFF6D7B74,
-                                                    ),
-                                              size: 19,
-                                            );
-                                          },
-                                        ),
-                                      ),
-                                      const SizedBox(width: 5),
+                                      _buildNavIcon(service, isSelected),
+                                      const SizedBox(width: 6),
                                       Flexible(
                                         child: Text(
-                                          service['title']
-                                              as String,
+                                          service['title'] as String,
                                           maxLines: 1,
-                                          overflow:
-                                              TextOverflow.ellipsis,
+                                          overflow: TextOverflow.ellipsis,
                                           style: TextStyle(
                                             color: isSelected
-                                                ? safirBrandColor
-                                                : const Color(
-                                                    0xFF6D7B74,
-                                                  ),
+                                                ? _brand
+                                                : const Color(0xFF6D7B74),
                                             fontSize: 12,
                                             fontWeight: isSelected
-                                                ? FontWeight.w600
+                                                ? FontWeight.w700
                                                 : FontWeight.w400,
                                           ),
                                         ),
@@ -684,9 +894,9 @@ class _SafirHomeScreenState extends State<SafirHomeScreen>
                                   ),
                                 ),
                               ),
-                            );
-                          },
-                        ),
+                            ),
+                          );
+                        }),
                       ),
                     ),
                   ),
@@ -699,170 +909,36 @@ class _SafirHomeScreenState extends State<SafirHomeScreen>
     );
   }
 
-  Widget _buildHeroBanner(
-    Map<String, dynamic> activeService,
-    bool isRTL,
-  ) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: safirBrandColor,
-        borderRadius: BorderRadius.circular(22),
-        boxShadow: [
-          BoxShadow(
-            color: safirBrandColor.withOpacity(0.3),
-            blurRadius: 12,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            flex: 4,
-            child: SizedBox(
-              height: 90,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  RotationTransition(
-                    turns: _galaxyController,
-                    child: Container(
-                      width: 88,
-                      height: 88,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: SweepGradient(
-                          colors: [
-                            Colors.transparent,
-                            Colors.greenAccent.withOpacity(0.15),
-                            Colors.white.withOpacity(0.75),
-                            Colors.transparent,
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 350),
-                    transitionBuilder: (child, animation) {
-                      return ScaleTransition(
-                        scale: animation,
-                        child: child,
-                      );
-                    },
-                    child: Image.asset(
-                      activeService['bannerImage'] as String,
-                      key: ValueKey<String>(
-                        activeService['id'] as String,
-                      ),
-                      fit: BoxFit.contain,
-                      height: 75,
-                      errorBuilder: (_, __, ___) => Icon(
-                        activeService['icon'] as IconData,
-                        color: Colors.white,
-                        size: 45,
-                      ),
-                    ),
-                  ),
-                ],
+  /// آیکن اصلی خودِ پروژه: وقتی انتخاب شده با رنگ اصلی دیده می‌شود،
+  /// وقتی انتخاب نشده کمرنگ و خاکستری است.
+  Widget _buildNavIcon(Map<String, dynamic> service, bool isSelected) {
+    final Widget icon = Image.asset(
+      service['bottomIcon'] as String,
+      width: 32,
+      height: 32,
+      fit: BoxFit.contain,
+      errorBuilder: (_, __, ___) {
+        return Icon(
+          service['icon'] as IconData,
+          color: isSelected ? _brand : const Color(0xFF6D7B74),
+          size: 24,
+        );
+      },
+    );
+
+    return AnimatedScale(
+      scale: isSelected ? 1.1 : 1.0,
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeOutBack,
+      child: isSelected
+          ? icon
+          : Opacity(
+              opacity: 0.7,
+              child: ColorFiltered(
+                colorFilter: _grayFilter,
+                child: icon,
               ),
             ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            flex: 5,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 250),
-                  child: Text(
-                    activeService['title'] as String,
-                    key: ValueKey<String>(
-                      "title_${activeService['id']}",
-                    ),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 4),
-                AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 250),
-                  child: Text(
-                    activeService['subtitle'] as String,
-                    key: ValueKey<String>(
-                      "sub_${activeService['id']}",
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w400,
-                      height: 1.3,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                ElevatedButton(
-                  onPressed: () {
-                    _navigateToService(
-                      activeService['id'] as String,
-                      activeService['type'] as String,
-                    );
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    elevation: 0,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        isRTL
-                            ? Icons.arrow_back_rounded
-                            : Icons.arrow_forward_rounded,
-                        size: 14,
-                        color: safirBrandColor,
-                      ),
-                      const SizedBox(width: 4),
-                      Flexible(
-                        child: Text(
-                          _text(
-                            'request_service',
-                            fa: 'درخواست سرویس',
-                            en: 'Request service',
-                            ps: 'د خدمت غوښتنه',
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: safirBrandColor,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
@@ -888,9 +964,7 @@ class HomeAdvertisementsSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          for (int index = 0;
-              index < advertisements.length;
-              index++) ...[
+          for (int index = 0; index < advertisements.length; index++) ...[
             if (index > 0) const SizedBox(height: 14),
             advertisements[index],
           ],
