@@ -534,8 +534,8 @@ class _SafirHomeScreenState extends State<SafirHomeScreen>
                     },
                     child: SizedBox(
                       key: ValueKey<String>(activeService.id),
-                      width: 96,
-                      height: 76,
+                      width: 110,
+                      height: 86,
                       child: Image.asset(
                         activeService.bannerImage,
                         fit: BoxFit.contain,
