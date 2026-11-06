@@ -1,18 +1,8 @@
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 import 'dart:typed_data';
-import 'package:flutter/material.dart';
 
-// ─────────────────────────────────────────────────────────────
-// پیش‌نیاز: فونت Oswald در pubspec.yaml (زیر بخش flutter: fonts:)
-//
-//   - family: Oswald
-//     fonts:
-//       - asset: assets/fonts/Oswald-VariableFont_wght.ttf
-//
-// اگر فونت نبود، با فونت پیش‌فرض سیستم نمایش داده می‌شود و
-// تراز نوشته با S باز هم دقیق است.
-// ─────────────────────────────────────────────────────────────
+import 'package:flutter/material.dart';
 
 /// نشان ثابت سفیر، بدون نوشته و انیمیشن.
 class SafirLogoMark extends StatelessWidget {
@@ -41,15 +31,14 @@ class SafirLogoMark extends StatelessWidget {
   }
 }
 
-/// لوگوی متحرک:
-/// ابتدا مسیر S، سپس پین و در آخر نوشته از چپ به راست.
-/// نوشته دقیقاً هم‌عرض خود S است (لبهٔ چپ و راست یکی).
+/// ابتدا مسیر S، سپس پین و در آخر نوشته آشکار می‌شود.
+/// نوشته با نسبت طبیعی حروف، وسط زیر S قرار می‌گیرد.
 class SafirLogoAnimation extends StatefulWidget {
   const SafirLogoAnimation({
     super.key,
     this.onCompleted,
     this.backgroundColor = const Color(0xFF0E7A5F),
-    this.title = 'Safir',
+    this.title = 'SAFIR',
     this.holdAfterFinish = const Duration(milliseconds: 450),
   });
 
@@ -59,7 +48,8 @@ class SafirLogoAnimation extends StatefulWidget {
   final Duration holdAfterFinish;
 
   @override
-  State<SafirLogoAnimation> createState() => _SafirLogoAnimationState();
+  State<SafirLogoAnimation> createState() =>
+      _SafirLogoAnimationState();
 }
 
 class _SafirLogoAnimationState extends State<SafirLogoAnimation>
@@ -83,29 +73,56 @@ class _SafirLogoAnimationState extends State<SafirLogoAnimation>
 
     _road = CurvedAnimation(
       parent: _controller,
-      curve: const Interval(0.00, 0.55, curve: Curves.easeInOutCubic),
+      curve: const Interval(
+        0.00,
+        0.55,
+        curve: Curves.easeInOutCubic,
+      ),
     );
 
     _pin = CurvedAnimation(
       parent: _controller,
-      curve: const Interval(0.55, 0.76, curve: Curves.easeOutBack),
+      curve: const Interval(
+        0.55,
+        0.76,
+        curve: Curves.easeOutBack,
+      ),
     );
 
     _text = CurvedAnimation(
       parent: _controller,
-      curve: const Interval(0.72, 1.00, curve: Curves.easeInOutCubic),
+      curve: const Interval(
+        0.72,
+        1.00,
+        curve: Curves.easeInOutCubic,
+      ),
     );
 
     _measureText();
     _playAnimation();
   }
 
-  /// ابعاد واقعی «جوهر» نوشته را اندازه می‌گیرد تا هر فونتی
-  /// دقیقاً هم‌عرض S شود.
+  @override
+  void didUpdateWidget(covariant SafirLogoAnimation oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    if (oldWidget.title != widget.title) {
+      _ink = null;
+      _measureText();
+    }
+  }
+
   Future<void> _measureText() async {
+    final String measuredTitle = widget.title;
+
     try {
-      final _TextInk? ink = await _TextInk.measure(widget.title);
-      if (!mounted) return;
+      final _TextInk? ink =
+          await _TextInk.measure(measuredTitle);
+
+      if (!mounted || measuredTitle != widget.title) {
+        return;
+      }
+
       setState(() => _ink = ink);
     } catch (e) {
       debugPrint('Safir splash text measure error: $e');
@@ -136,8 +153,11 @@ class _SafirLogoAnimationState extends State<SafirLogoAnimation>
 
   @override
   Widget build(BuildContext context) {
-    final double screenWidth = MediaQuery.of(context).size.width;
-    final double logoSize = math.min(screenWidth * 0.52, 260.0);
+    final double screenWidth =
+        MediaQuery.of(context).size.width;
+
+    final double logoSize =
+        math.min(screenWidth * 0.52, 260.0);
 
     return SizedBox(
       width: logoSize,
@@ -154,7 +174,8 @@ class _SafirLogoAnimationState extends State<SafirLogoAnimation>
                 bgColor: widget.backgroundColor,
                 title: widget.title,
                 ink: _ink,
-                textProgress: _text.value.clamp(0.0, 1.0).toDouble(),
+                textProgress:
+                    _text.value.clamp(0.0, 1.0).toDouble(),
                 showText: true,
               ),
             ),
@@ -165,7 +186,7 @@ class _SafirLogoAnimationState extends State<SafirLogoAnimation>
   }
 }
 
-/// صفحهٔ اسپلش مستقل.
+/// صفحهٔ اسپلش مسافر.
 class SafirSplashScreen extends StatelessWidget {
   const SafirSplashScreen({
     super.key,
@@ -182,6 +203,7 @@ class SafirSplashScreen extends StatelessWidget {
       backgroundColor: backgroundColor,
       body: Center(
         child: SafirLogoAnimation(
+          title: 'SAFIR',
           backgroundColor: backgroundColor,
           onCompleted: onFinished,
         ),
@@ -190,19 +212,22 @@ class SafirSplashScreen extends StatelessWidget {
   }
 }
 
-/// استایل نوشتهٔ لوگو (تخت و ضخیم، هماهنگ با جادهٔ S)
+/// همان فونت و وزن عنوان در نسخهٔ راننده.
 const TextStyle _wordmarkStyle = TextStyle(
   inherit: false,
   color: Colors.white,
   fontFamily: 'Oswald',
   fontFamilyFallback: <String>['sans-serif'],
   fontWeight: FontWeight.w700,
-  fontVariations: <FontVariation>[FontVariation('wght', 700)],
+  fontVariations: <ui.FontVariation>[
+    ui.FontVariation('wght', 700),
+  ],
+  letterSpacing: 0,
   height: 1,
   decoration: TextDecoration.none,
 );
 
-/// ابعاد واقعی جوهر نوشته (بدون حاشیهٔ خالی کنار حروف)، در فونت‌سایز مرجع.
+/// ابعاد واقعی بخش قابل‌دیدن نوشته، بدون فضای خالی اطراف.
 class _TextInk {
   const _TextInk({
     required this.left,
@@ -212,62 +237,84 @@ class _TextInk {
     required this.fontSize,
   });
 
-  final double left; // فاصلهٔ جوهر از مبدأ نوشته
+  final double left;
   final double top;
   final double width;
   final double height;
   final double fontSize;
 
   static Future<_TextInk?> measure(String text) async {
+    if (text.isEmpty) return null;
+
     const double fontSize = 200;
     const double pad = 24;
 
     final TextPainter tp = TextPainter(
       text: TextSpan(
         text: text,
-        style: _wordmarkStyle.copyWith(fontSize: fontSize),
+        style: _wordmarkStyle.copyWith(
+          fontSize: fontSize,
+        ),
       ),
       textDirection: TextDirection.ltr,
       textScaler: TextScaler.noScaling,
     )..layout();
 
-    final int w = (tp.width + pad * 2).ceil();
-    final int h = (tp.height + pad * 2).ceil();
+    ui.Picture? picture;
+    ui.Image? image;
 
-    final ui.PictureRecorder recorder = ui.PictureRecorder();
-    final Canvas canvas = Canvas(recorder);
-    tp.paint(canvas, const Offset(pad, pad));
+    try {
+      final int w = (tp.width + pad * 2).ceil();
+      final int h = (tp.height + pad * 2).ceil();
 
-    final ui.Image image = await recorder.endRecording().toImage(w, h);
-    final ByteData? data =
-        await image.toByteData(format: ui.ImageByteFormat.rawRgba);
-    image.dispose();
+      final ui.PictureRecorder recorder =
+          ui.PictureRecorder();
+      final Canvas canvas = Canvas(recorder);
 
-    if (data == null) return null;
+      tp.paint(canvas, const Offset(pad, pad));
 
-    int minX = w, maxX = -1, minY = h, maxY = -1;
+      picture = recorder.endRecording();
+      image = await picture.toImage(w, h);
 
-    for (int y = 0; y < h; y++) {
-      for (int x = 0; x < w; x++) {
-        final int alpha = data.getUint8((y * w + x) * 4 + 3);
-        if (alpha > 40) {
-          if (x < minX) minX = x;
-          if (x > maxX) maxX = x;
-          if (y < minY) minY = y;
-          if (y > maxY) maxY = y;
+      final ByteData? data = await image.toByteData(
+        format: ui.ImageByteFormat.rawRgba,
+      );
+
+      if (data == null) return null;
+
+      int minX = w;
+      int maxX = -1;
+      int minY = h;
+      int maxY = -1;
+
+      for (int y = 0; y < h; y++) {
+        for (int x = 0; x < w; x++) {
+          final int alpha =
+              data.getUint8((y * w + x) * 4 + 3);
+
+          if (alpha > 40) {
+            if (x < minX) minX = x;
+            if (x > maxX) maxX = x;
+            if (y < minY) minY = y;
+            if (y > maxY) maxY = y;
+          }
         }
       }
+
+      if (maxX < 0 || maxY < 0) return null;
+
+      return _TextInk(
+        left: minX - pad,
+        top: minY - pad,
+        width: (maxX - minX + 1).toDouble(),
+        height: (maxY - minY + 1).toDouble(),
+        fontSize: fontSize,
+      );
+    } finally {
+      image?.dispose();
+      picture?.dispose();
+      tp.dispose();
     }
-
-    if (maxX < 0 || maxY < 0) return null;
-
-    return _TextInk(
-      left: minX - pad,
-      top: minY - pad,
-      width: (maxX - minX + 1).toDouble(),
-      height: (maxY - minY + 1).toDouble(),
-      fontSize: fontSize,
-    );
   }
 }
 
@@ -296,14 +343,17 @@ class _SafirLogoPainter extends CustomPainter {
   static const double _pinCx = 735;
   static const double _pinCy = 300;
 
-  // لبهٔ چپ و راست بدنهٔ S (بدون پین) و محل نوشته
-  static const double _sLeft = 238; // 400 - 106 - 56
-  static const double _sRight = 786; // 624 + 106 + 56
-  static const double _textTop = 852; // ۷۲ واحد پایین‌تر از لبهٔ پایین S
-  static const double _textHeight = 180;
+  static const double _sLeft = 238;
+  static const double _sRight = 786;
 
-  // وقتی نوشته هست، کل گروه را کمی بالا می‌بریم تا وسط کادر بماند
-  static const double _groupShiftY = -115;
+  // فاصلهٔ نوشته از نشان، همان مقدار نسخهٔ قبلی است.
+  static const double _textTop = 852;
+
+  // ارتفاع هدف نوشته در بوم ۱۰۲۴.
+  static const double _textHeight = 118;
+
+  double get _groupShiftY =>
+      512 - (222.6 + _textTop + _textHeight) / 2;
 
   Path _roadPath() {
     return Path()
@@ -361,24 +411,36 @@ class _SafirLogoPainter extends CustomPainter {
 
   void _paintWordmark(Canvas canvas) {
     final _TextInk? m = ink;
-    if (m == null || textProgress <= 0 || title.isEmpty) return;
+
+    if (m == null ||
+        m.width <= 0 ||
+        m.height <= 0 ||
+        textProgress <= 0 ||
+        title.isEmpty) {
+      return;
+    }
 
     const double targetW = _sRight - _sLeft;
 
-    // اندازهٔ فونت طوری که ارتفاع جوهر = _textHeight شود
-    final double scale = _textHeight / m.height;
-    final double fontSize = m.fontSize * scale;
+    // حفظ نسبت طبیعی حروف، بدون اجبار به هم‌عرض شدن با S.
+    final double scale = math.min(
+      _textHeight / m.height,
+      targetW / m.width,
+    );
 
-    // فاصلهٔ حروف طوری که عرض جوهر دقیقاً = عرض S شود
-    final int gaps = math.max(title.runes.length - 1, 1);
-    final double letterSpacing = (targetW - m.width * scale) / gaps;
+    final double fontSize = m.fontSize * scale;
+    final double visibleWidth = m.width * scale;
+    final double visibleHeight = m.height * scale;
+
+    final double textLeft =
+        _sLeft + (targetW - visibleWidth) / 2;
 
     final TextPainter tp = TextPainter(
       text: TextSpan(
         text: title,
         style: _wordmarkStyle.copyWith(
           fontSize: fontSize,
-          letterSpacing: letterSpacing,
+          letterSpacing: 0,
         ),
       ),
       textDirection: TextDirection.ltr,
@@ -386,22 +448,26 @@ class _SafirLogoPainter extends CustomPainter {
     )..layout();
 
     final Offset origin = Offset(
-      _sLeft - m.left * scale,
+      textLeft - m.left * scale,
       _textTop - m.top * scale,
     );
 
     canvas.save();
-    // آشکارشدن از چپ به راست؛ اندازه و جای نوشته ثابت می‌ماند
+
     canvas.clipRect(
       Rect.fromLTWH(
-        _sLeft - 6,
+        textLeft - 6,
         _textTop - 20,
-        (targetW + 12) * textProgress.clamp(0.0, 1.0),
-        _textHeight + 40,
+        (visibleWidth + 12) *
+            textProgress.clamp(0.0, 1.0).toDouble(),
+        visibleHeight + 40,
       ),
     );
+
     tp.paint(canvas, origin);
+
     canvas.restore();
+    tp.dispose();
   }
 
   @override
@@ -410,40 +476,53 @@ class _SafirLogoPainter extends CustomPainter {
 
     canvas.save();
     canvas.scale(scale);
-    canvas.translate(-1.2, -1.3 + (showText ? _groupShiftY : 0));
+    canvas.translate(
+      -1.2,
+      -1.3 + (showText ? _groupShiftY : 0),
+    );
 
     final Paint white = Paint()
       ..color = Colors.white
       ..isAntiAlias = true;
 
-    // رسم مسیر S.
     if (roadProgress > 0) {
       canvas.drawRRect(
         RRect.fromRectAndRadius(
-          const Rect.fromLTWH(330, 724 - _stroke / 2, 90, _stroke),
+          const Rect.fromLTWH(
+            330,
+            724 - _stroke / 2,
+            90,
+            _stroke,
+          ),
           const Radius.circular(14),
         ),
         white,
       );
 
       final Path road = _roadPath();
-      final List<ui.PathMetric> metrics = road.computeMetrics().toList();
+      final List<ui.PathMetric> metrics =
+          road.computeMetrics().toList();
 
       final double total = metrics.fold<double>(
         0,
         (sum, metric) => sum + metric.length,
       );
 
-      double remaining = total * roadProgress.clamp(0.0, 1.0).toDouble();
+      double remaining =
+          total * roadProgress.clamp(0.0, 1.0).toDouble();
 
       final Path drawn = Path();
 
       for (final ui.PathMetric metric in metrics) {
         if (remaining <= 0) break;
 
-        final double take = math.min(remaining, metric.length);
+        final double take =
+            math.min(remaining, metric.length);
 
-        drawn.addPath(metric.extractPath(0, take), Offset.zero);
+        drawn.addPath(
+          metric.extractPath(0, take),
+          Offset.zero,
+        );
 
         remaining -= take;
       }
@@ -460,14 +539,15 @@ class _SafirLogoPainter extends CustomPainter {
       );
     }
 
-    // ظاهرشدن پین از نوک آن.
     if (pinProgress > 0) {
       canvas.save();
 
       const double tipY = _pinCy + 148 * _k;
 
       canvas.translate(_pinCx, tipY);
-      canvas.scale(pinProgress.clamp(0.0, 1.25).toDouble());
+      canvas.scale(
+        pinProgress.clamp(0.0, 1.25).toDouble(),
+      );
       canvas.translate(-_pinCx, -tipY);
 
       canvas.drawPath(_pinPath(), white);
@@ -483,7 +563,6 @@ class _SafirLogoPainter extends CustomPainter {
       canvas.restore();
     }
 
-    // نوشتهٔ Safir
     if (showText) {
       _paintWordmark(canvas);
     }
@@ -492,7 +571,9 @@ class _SafirLogoPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _SafirLogoPainter oldDelegate) {
+  bool shouldRepaint(
+    covariant _SafirLogoPainter oldDelegate,
+  ) {
     return oldDelegate.roadProgress != roadProgress ||
         oldDelegate.pinProgress != pinProgress ||
         oldDelegate.bgColor != bgColor ||
