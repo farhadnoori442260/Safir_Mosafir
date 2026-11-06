@@ -351,15 +351,11 @@ class _SafirHomeScreenState extends State<SafirHomeScreen>
     return Container(
       width: double.infinity,
       decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [brand, brandDark],
-        ),
-        borderRadius: BorderRadius.vertical(
-          bottom: Radius.circular(28),
-        ),
-      ),
+  color: Color(0xFF1B7A57),
+  borderRadius: BorderRadius.vertical(
+    bottom: Radius.circular(28),
+  ),
+),
       child: SafeArea(
         bottom: false,
         child: Padding(
@@ -479,7 +475,7 @@ class _SafirHomeScreenState extends State<SafirHomeScreen>
         vertical: 20,
       ),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: const Color(0xFF1B7A57),
         borderRadius: BorderRadius.circular(22),
         border: Border.all(
           color: const Color(0xFFE4EBE7),
