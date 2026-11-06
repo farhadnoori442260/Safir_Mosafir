@@ -498,22 +498,22 @@ class _SafirHomeScreenState extends State<SafirHomeScreen>
           Expanded(
             flex: 5,
             child: SizedBox(
-              height: 108,
+              height: 120,
               child: Stack(
                 alignment: Alignment.center,
                 children: [
                   RotationTransition(
                     turns: _galaxyController,
                     child: Container(
-                      width: 100,
-                      height: 100,
+                      width: 115,
+                      height: 115,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         gradient: SweepGradient(
                           colors: [
                             Colors.transparent,
-                            brand.withOpacity(0.05),
-                            brand.withOpacity(0.20),
+                            Colors.white.withOpacity(0.08),
+                            Colors.white.withOpacity(0.25),
                             Colors.transparent,
                           ],
                         ),
@@ -564,7 +564,7 @@ class _SafirHomeScreenState extends State<SafirHomeScreen>
                       'title_${activeService.id}',
                     ),
                     style: const TextStyle(
-                      color: brandDark,
+                      color: Colors.white,
                       fontSize: 18,
                       fontWeight: FontWeight.w700,
                     ),
@@ -581,7 +581,7 @@ class _SafirHomeScreenState extends State<SafirHomeScreen>
                     maxLines: 3,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      color: softText,
+                      color: Colors.white70,
                       fontSize: 12,
                       fontWeight: FontWeight.w400,
                       height: 1.6,
