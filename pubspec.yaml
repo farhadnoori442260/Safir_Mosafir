@@ -104,5 +104,10 @@ flutter:
         - asset: assets/fonts/iranyekanwebbold.ttf
           weight: 700
 
+    # فونت نوشتهٔ SAFIR در اسپلش، مانند پروژهٔ راننده
+    - family: Oswald
+      fonts:
+        - asset: assets/fonts/Oswald-VariableFont_wght.ttf
+
 dependency_overrides:
   vector_math: 2.1.4
