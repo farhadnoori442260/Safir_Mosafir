@@ -30,6 +30,10 @@ class _SafirHomeScreenState extends State<SafirHomeScreen>
   static const Color softText = Color(0xFF718096);
   static const Color activeBg = Color(0xFFEAF6F1);
 
+  // عکس اختصاصی کارت ثبت‌نام راننده.
+  static const String driverCardImage =
+      'assets/images/driver_card.png';
+
   final GlobalKey<ScaffoldState> _scaffoldKey =
       GlobalKey<ScaffoldState>();
 
@@ -324,7 +328,7 @@ class _SafirHomeScreenState extends State<SafirHomeScreen>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _buildHeader(isRTL, activeService),
+            _buildHeader(isRTL),
             const SizedBox(height: 22),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -332,8 +336,6 @@ class _SafirHomeScreenState extends State<SafirHomeScreen>
             ),
             const SizedBox(height: 16),
             _buildDriverCard(isRTL),
-
-            // محل مستقل نمایش تبلیغات آینده.
             const HomeAdvertisementsSection(),
           ],
         ),
@@ -345,11 +347,7 @@ class _SafirHomeScreenState extends State<SafirHomeScreen>
     );
   }
 
-  // هدر سبز با ورودی فعال سرویس انتخاب‌شده.
-  Widget _buildHeader(
-    bool isRTL,
-    _HomeService activeService,
-  ) {
+  Widget _buildHeader(bool isRTL) {
     return Container(
       width: double.infinity,
       decoration: const BoxDecoration(
@@ -403,7 +401,7 @@ class _SafirHomeScreenState extends State<SafirHomeScreen>
                 ],
               ),
               const SizedBox(height: 32),
-              _buildSearchBox(activeService),
+              _buildSearchBox(),
             ],
           ),
         ),
@@ -411,10 +409,11 @@ class _SafirHomeScreenState extends State<SafirHomeScreen>
     );
   }
 
-  Widget _buildSearchBox(_HomeService activeService) {
+  // این ورودی همیشه تکسی شهری را باز می‌کند.
+  Widget _buildSearchBox() {
     return Semantics(
       button: true,
-      label: '${_tr('home_where_to')} ${activeService.title}',
+      label: '${_tr('home_where_to')} ${_tr('taxi_subtitle')}',
       child: Material(
         color: Colors.white,
         elevation: 3,
@@ -422,7 +421,7 @@ class _SafirHomeScreenState extends State<SafirHomeScreen>
         borderRadius: BorderRadius.circular(18),
         child: InkWell(
           borderRadius: BorderRadius.circular(18),
-          onTap: () => _navigateToService(activeService.id),
+          onTap: () => _navigateToService('car'),
           child: Padding(
             padding: const EdgeInsets.symmetric(
               horizontal: 14,
@@ -454,13 +453,11 @@ class _SafirHomeScreenState extends State<SafirHomeScreen>
                     color: activeBg,
                     shape: BoxShape.circle,
                   ),
-                  child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 250),
+                  child: const AnimatedSwitcher(
+                    duration: Duration(milliseconds: 250),
                     child: Icon(
-                      activeService.icon,
-                      key: ValueKey<String>(
-                        'search_${activeService.id}',
-                      ),
+                      Icons.local_taxi_rounded,
+                      key: ValueKey<String>('search_car'),
                       color: brand,
                       size: 18,
                     ),
@@ -474,7 +471,6 @@ class _SafirHomeScreenState extends State<SafirHomeScreen>
     );
   }
 
-  // بنر سفید، بدون دکمهٔ درخواست.
   Widget _buildHeroBanner(_HomeService activeService) {
     return Container(
       width: double.infinity,
@@ -536,18 +532,21 @@ class _SafirHomeScreenState extends State<SafirHomeScreen>
                         child: child,
                       );
                     },
-                    child: Image.asset(
-                      activeService.bannerImage,
+                    child: SizedBox(
                       key: ValueKey<String>(activeService.id),
-                      height: 96,
-                      fit: BoxFit.contain,
-                      errorBuilder: (_, __, ___) {
-                        return Icon(
-                          activeService.icon,
-                          color: brand,
-                          size: 60,
-                        );
-                      },
+                      width: 96,
+                      height: 76,
+                      child: Image.asset(
+                        activeService.bannerImage,
+                        fit: BoxFit.contain,
+                        errorBuilder: (_, __, ___) {
+                          return Icon(
+                            activeService.icon,
+                            color: brand,
+                            size: 46,
+                          );
+                        },
+                      ),
                     ),
                   ),
                 ],
@@ -601,7 +600,6 @@ class _SafirHomeScreenState extends State<SafirHomeScreen>
     );
   }
 
-  // همان آیکن ثبت‌نام فایل ارسالی، با رنگ سبز واضح.
   Widget _buildDriverCard(bool isRTL) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -639,14 +637,24 @@ class _SafirHomeScreenState extends State<SafirHomeScreen>
                     Container(
                       width: 44,
                       height: 44,
+                      padding: const EdgeInsets.all(5),
                       decoration: BoxDecoration(
                         color: activeBg,
                         borderRadius: BorderRadius.circular(13),
                       ),
-                      child: const Icon(
-                        Icons.assignment_ind_rounded,
-                        color: brand,
-                        size: 27,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.asset(
+                          driverCardImage,
+                          fit: BoxFit.contain,
+                          errorBuilder: (_, __, ___) {
+                            return const Icon(
+                              Icons.assignment_ind_rounded,
+                              color: brand,
+                              size: 27,
+                            );
+                          },
+                        ),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -701,7 +709,6 @@ class _SafirHomeScreenState extends State<SafirHomeScreen>
     return SafeArea(
       top: false,
       child: Padding(
-        // فاصله از لبهٔ امن پایین، بیشتر از نسخهٔ قبلی.
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
         child: Container(
           height: 64,
@@ -807,7 +814,6 @@ class _SafirHomeScreenState extends State<SafirHomeScreen>
                                             index;
                                       });
 
-                                      // رفتار ورود مستقیم قبلی حفظ شده.
                                       _navigateToService(service.id);
                                     },
                                     splashColor:
