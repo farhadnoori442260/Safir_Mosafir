@@ -32,7 +32,7 @@ class _SafirHomeScreenState extends State<SafirHomeScreen>
 
   // عکس اختصاصی کارت ثبت‌نام راننده.
   static const String driverCardImage =
-      'assets/images/driver_card.png';
+      'assets/images/register_banner.png';
 
   final GlobalKey<ScaffoldState> _scaffoldKey =
       GlobalKey<ScaffoldState>();
