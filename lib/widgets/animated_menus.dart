@@ -483,31 +483,6 @@ class _ProfileAnimatedMenuState
     );
   }
 
-  void _openAboutApp() {
-    showAboutDialog(
-      context: context,
-      applicationName: 'Safir',
-      applicationIcon: const Icon(
-        Icons.local_taxi_rounded,
-        color: primaryAccent,
-        size: 40,
-      ),
-      children: [
-        Text(
-          _localizedKey(
-            'about_safir_description',
-            'سفیر، سامانهٔ درخواست آنلاین تکسی و خدمات حمل‌ونقل است.',
-          ),
-          style: const TextStyle(
-            color: secondaryTextColor,
-            fontSize: 13,
-            height: 1.7,
-          ),
-        ),
-      ],
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -681,19 +656,6 @@ class _ProfileAnimatedMenuState
                 onTap: () {
                   _makeSupportCall(context);
                 },
-              ),
-              // دربارهٔ اپلیکیشن آخرین گزینه است.
-              _buildMenuItem(
-                icon: Icons.info_outline_rounded,
-                title: _localizedKey(
-                  'about_app',
-                  'دربارهٔ اپلیکیشن',
-                ),
-                subtitle: _localizedKey(
-                  'about_app_sub',
-                  'معرفی سفیر',
-                ),
-                onTap: _openAboutApp,
               ),
             ]),
           ],
