@@ -2451,6 +2451,12 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
             'latitude': appInfo.dropOffLocation!.latitudePosition,
             'longitude': appInfo.dropOffLocation!.longitudePosition,
           },
+          // ناحیهٔ جغرافیایی مبدأ (شبکهٔ ۰٫۱ درجه ≈ ۱۰ کیلومتر)؛ راننده‌ها فقط
+          // سفرهای ناحیهٔ خودشان و ناحیه‌های اطراف را می‌خوانند.
+          // فرمول باید دقیقاً با اپ راننده یکی باشد: «عرض_طول»
+          'geo_cell':
+              '${(appInfo.pickUpLocation!.latitudePosition! / 0.1).floor()}_'
+              '${(appInfo.pickUpLocation!.longitudePosition! / 0.1).floor()}',
           'originLatLng': GeoPoint(
             appInfo.pickUpLocation!.latitudePosition!,
             appInfo.pickUpLocation!.longitudePosition!,
