@@ -351,6 +351,21 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
   static const int _offRouteConfirmCount = 2;
   static const int _rerouteCooldownSeconds = 5;
 
+  /// خیلی دور از مسیر (بیش از این فاصله): بدون انتظار برای تایید، فوراً بازمسیریابی
+  static const double _immediateOffRouteMeters = 70.0;
+
+  /// پیچیدن به کوچهٔ کناری: وقتی ماشین بیش از این فاصله از خط دور شده و جهت
+  /// حرکتش بیش از این زاویه با جهت مسیر فرق دارد، سریع‌تر تشخیص داده می‌شود
+  static const double _deviationMinDistanceMeters = 15.0;
+  static const double _deviationAngleDegrees = 60.0;
+
+  /// کمترین جابه‌جایی برای محاسبهٔ جهت واقعی حرکت
+  static const double _moveSampleMeters = 8.0;
+
+  /// بازمسیریابی از نقطه‌ای این‌قدر «جلوتر» در جهت حرکت شروع می‌شود تا مسیر
+  /// جدید هیچ‌وقت از پشت ماشین شروع نشود
+  static const double _lookAheadMeters = 35.0;
+
   /// حرکت خلاف جهت مسیر (دنده‌عقب / ورود به خیابان از سمت مخالف)
   static const double _wrongWayAngleDegrees = 120.0;
   static const int _wrongWayConfirmCount = 2;
@@ -852,7 +867,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
             rawPosition.latitude,
             rawPosition.longitude,
           ) >=
-          12) {
+          _moveSampleMeters) {
         moveBearing = _calculateBearing(dirRef, rawPosition);
         _driverMoveBearing = moveBearing;
         _dirRefPoint = rawPosition;
@@ -870,13 +885,20 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
         );
 
         if (snap != null && snap.distance <= _offRouteThresholdMeters) {
-          // حرکت خلاف جهت مسیر (دنده‌عقب یا خیابان مخالف) حتی نزدیک خط
           if (moveBearing != null) {
             double diff =
                 (moveBearing - _routeBearingAhead(snap)).abs() % 360;
             if (diff > 180) diff = 360 - diff;
+
+            // حرکت خلاف جهت مسیر (دنده‌عقب یا خیابان مخالف) حتی نزدیک خط
+            final bool wrongWay = diff > _wrongWayAngleDegrees;
+
+            // پیچیدن به کوچهٔ کناری: هنوز نزدیک خط است ولی جهتش فرق کرده
+            final bool deviating = diff > _deviationAngleDegrees &&
+                snap.distance > _deviationMinDistanceMeters;
+
             _wrongWayCount =
-                diff > _wrongWayAngleDegrees ? _wrongWayCount + 1 : 0;
+                (wrongWay || deviating) ? _wrongWayCount + 1 : 0;
           }
 
           if (_wrongWayCount >= _wrongWayConfirmCount) {
@@ -889,6 +911,12 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
           }
         } else {
           _driverOffRouteCount++;
+
+          // خیلی دور از مسیر: منتظر تایید دوباره نمی‌ماند
+          if (snap == null || snap.distance > _immediateOffRouteMeters) {
+            _driverOffRouteCount = _offRouteConfirmCount;
+          }
+
           offRoute = _driverOffRouteCount >= _offRouteConfirmCount;
         }
       }
@@ -1028,8 +1056,13 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
         ? _rerouteCooldownSeconds
         : min(5 * (1 << _rerouteFailCount), 40);
 
+    // اولین بازمسیریابی بعد از خروج از مسیر (بدون خطای قبلی) فقط ۲ ثانیه
+    // فاصله می‌خواهد تا مسیر جدید دیر نیاید.
+    final int effectiveCooldown =
+        (_driverRouteStale && _rerouteFailCount == 0) ? 2 : cooldownSeconds;
+
     final bool cooledDown = _lastDriverRouteFetchAt == null ||
-        now.difference(_lastDriverRouteFetchAt!).inSeconds >= cooldownSeconds;
+        now.difference(_lastDriverRouteFetchAt!).inSeconds >= effectiveCooldown;
 
     final bool phaseChanged = _driverRouteBuiltForPhase != _currentRoutePhase();
     final bool needsRoute =
@@ -1051,6 +1084,76 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
     final LatLng? raw = _latestDriverRaw;
     if (raw == null || _isFetchingDriverTripRoute) return;
     unawaited(_drawDriverTripRoute(raw));
+  }
+
+  /// نقطه‌ای در فاصلهٔ [meters] از [from] در جهت [bearing] (درجه از شمال)
+  LatLng _offsetPoint(LatLng from, double bearing, double meters) {
+    final double rad = bearing * pi / 180;
+    final double dLat = meters * cos(rad) / 111320.0;
+    final double dLng =
+        meters * sin(rad) / (111320.0 * cos(from.latitude * pi / 180));
+    return LatLng(from.latitude + dLat, from.longitude + dLng);
+  }
+
+  /// اگر ابتدای مسیر نسبت به جهت حرکت ماشین «به عقب» می‌رود (مثلاً دور
+  /// برگردان)، آن بخش را حذف می‌کند و مسیر از ماشین به‌طرف جلو ادامه می‌یابد.
+  /// فقط ۲۰۰ متر اول مسیر بررسی می‌شود.
+  List<LatLng> _trimBackwardStart(
+    List<LatLng> route,
+    LatLng car,
+    double bearing,
+  ) {
+    if (route.length < 3) return route;
+
+    final double k = cos(car.latitude * pi / 180);
+    final double hx = sin(bearing * pi / 180);
+    final double hy = cos(bearing * pi / 180);
+
+    // فاصلهٔ نقطه «در امتداد جهت حرکت» نسبت به ماشین (متر؛ منفی = پشت ماشین)
+    double along(LatLng p) {
+      final double dx = (p.longitude - car.longitude) * k * 111320.0;
+      final double dy = (p.latitude - car.latitude) * 111320.0;
+      return dx * hx + dy * hy;
+    }
+
+    double dist(LatLng a, LatLng b) => Geolocator.distanceBetween(
+          a.latitude,
+          a.longitude,
+          b.latitude,
+          b.longitude,
+        );
+
+    int firstBack = -1;
+    double travelled = 0;
+    for (int i = 0; i < route.length; i++) {
+      if (i > 0) travelled += dist(route[i - 1], route[i]);
+      if (travelled > 200) break;
+      if (along(route[i]) < -10) {
+        firstBack = i;
+        break;
+      }
+    }
+
+    if (firstBack == -1) return route;
+
+    // اولین نقطه‌ای که دوباره «جلوی» ماشین است و مسیر از آن رو به جلو می‌رود
+    double travelled2 = 0;
+    for (int j = firstBack + 1; j < route.length - 1; j++) {
+      travelled2 += dist(route[j - 1], route[j]);
+      if (travelled2 > 400) break;
+
+      if (along(route[j]) >= 0) {
+        double diff =
+            (_calculateBearing(route[j], route[j + 1]) - bearing).abs() % 360;
+        if (diff > 180) diff = 360 - diff;
+
+        if (diff <= 90) {
+          return <LatLng>[car, ...route.sublist(j)];
+        }
+      }
+    }
+
+    return route;
   }
 
   /// مسیر OSRM با جایگزینی خودکار بین سرورها.
@@ -1201,23 +1304,47 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
               ? _latestDriverHeading
               : null);
 
+      // بازمسیریابی بعد از خروج از مسیر: مسیر از نقطه‌ای کمی «جلوتر» در جهت
+      // حرکت شروع می‌شود تا هرگز از پشت ماشین شروع نشود (دور زدن به عقب).
+      final bool useLookAhead = _driverRouteStale && bearingHint != null;
+      final LatLng routeStart = useLookAhead
+          ? _offsetPoint(driverPosition, bearingHint!, _lookAheadMeters)
+          : driverPosition;
+
+      // ماشین را به ابتدای مسیر وصل می‌کند و اگر مسیر اول به عقب می‌رفت
+      // (حتی اگر سرور جهت را نادیده گرفته باشد)، بخش عقب را حذف می‌کند.
+      List<LatLng> forwardOnly(List<LatLng> leg) {
+        List<LatLng> result = leg;
+        if (useLookAhead) {
+          result = <LatLng>[driverPosition, ...result];
+        }
+        if (bearingHint != null) {
+          result = _trimBackwardStart(result, driverPosition, bearingHint);
+        }
+        return result;
+      }
+
       final List<LatLng> fullRoute;
       int pickupEnd;
 
       if (phaseAtStart == 'onTrip') {
         // سفر شروع شده: مسیر راننده تا مقصد
-        fullRoute = await _getOsrmPoints(
-          driverPosition,
-          _tripDestinationLatLng!,
-          bearing: bearingHint,
+        fullRoute = forwardOnly(
+          await _getOsrmPoints(
+            routeStart,
+            _tripDestinationLatLng!,
+            bearing: bearingHint,
+          ),
         );
         pickupEnd = fullRoute.length - 1;
       } else {
         // قبل از سوارشدن: راننده → مبدأ → مقصد
-        final List<LatLng> driverToOrigin = await _getOsrmPoints(
-          driverPosition,
-          _tripOriginLatLng!,
-          bearing: bearingHint,
+        final List<LatLng> driverToOrigin = forwardOnly(
+          await _getOsrmPoints(
+            routeStart,
+            _tripOriginLatLng!,
+            bearing: bearingHint,
+          ),
         );
         final List<LatLng> originToDestination =
             await _getOsrmPoints(_tripOriginLatLng!, _tripDestinationLatLng!);
