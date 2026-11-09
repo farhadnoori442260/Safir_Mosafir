@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_stripe/flutter_stripe.dart' hide AppInfo;
@@ -21,6 +22,67 @@ import 'appInfo/auth_provider.dart';
 
 late Size mq;
 
+// دریافت پیام در پس‌زمینه
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(
+  RemoteMessage message,
+) async {
+  await Firebase.initializeApp();
+
+  debugPrint(
+    'Passenger background message received: ${message.messageId}',
+  );
+}
+
+// آماده‌سازی اعلان‌های عمومی مسافران
+Future<void> _setupPassengerNotifications() async {
+  try {
+    final messaging = FirebaseMessaging.instance;
+
+    final settings = await messaging.requestPermission(
+      alert: true,
+      badge: true,
+      sound: true,
+    );
+
+    if (settings.authorizationStatus == AuthorizationStatus.denied) {
+      debugPrint(
+        'Passenger notifications: permission denied',
+      );
+      return;
+    }
+
+    await messaging.setAutoInitEnabled(true);
+
+    // تنظیم نمایش اعلان در پیش‌زمینه برای پلتفرم‌های Apple
+    await messaging.setForegroundNotificationPresentationOptions(
+      alert: true,
+      badge: true,
+      sound: true,
+    );
+
+    // دریافت پیام در پیش‌زمینه؛ نمایش سیستمی روی Android
+    // به تنظیم جداگانه نیاز دارد.
+    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+      debugPrint(
+        'Passenger foreground message received: ${message.messageId}',
+      );
+    });
+
+    // نام این گروه با مقصد سرور Netlify یکسان است.
+    await messaging.subscribeToTopic('passengers');
+
+    debugPrint(
+      'Passenger notifications: subscribed to passengers',
+    );
+  } catch (e) {
+    // خطای اعلان نباید مانع بازشدن اپ شود.
+    debugPrint(
+      'Passenger notifications setup error: $e',
+    );
+  }
+}
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await EasyLocalization.ensureInitialized();
@@ -40,6 +102,10 @@ Future<void> main() async {
   Stripe.publishableKey = stripePublishedKey;
   await Firebase.initializeApp();
 
+  FirebaseMessaging.onBackgroundMessage(
+    _firebaseMessagingBackgroundHandler,
+  );
+
   await Permission.locationWhenInUse.isDenied.then((valueOfPermission) {
     if (valueOfPermission) {
       Permission.locationWhenInUse.request();
@@ -57,6 +123,11 @@ Future<void> main() async {
       child: const MyApp(),
     ),
   );
+
+  // راه‌اندازی اعلان پس از نمایش اولین فریم برنامه
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    _setupPassengerNotifications();
+  });
 }
 
 class MyApp extends StatelessWidget {
@@ -182,7 +253,7 @@ class MyApp extends StatelessWidget {
 
 /// 🛡️ چک‌کننده وضعیت کاربر با اسپلش متحرک سفیر
 ///  • همزمان با پخش انیمیشن، وضعیت لاگین بررسی می‌شود
-///  • وقتی هر دو تمام شدند، به صفحهٔ مقصد می‌رود (بدون تأخیر مصنوعی ۳ ثانیه‌ای)
+///  • وقتی هر دو تمام شدند، به صفحهٔ مقصد می‌رود
 class AuthCheck extends StatefulWidget {
   const AuthCheck({super.key});
 
@@ -191,7 +262,7 @@ class AuthCheck extends StatefulWidget {
 }
 
 class _AuthCheckState extends State<AuthCheck> {
-  // رنگ لوگو/آیکن (با اسپلش بومی یکی است تا پرش دیده نشود)
+  // رنگ لوگو/آیکن، هماهنگ با اسپلش بومی
   static const Color safirGreen = Color(0xFF0E7A5F);
 
   bool _animationDone = false;
@@ -223,6 +294,7 @@ class _AuthCheckState extends State<AuthCheck> {
     } catch (e) {
       debugPrint('AuthCheck error: $e');
       if (!mounted) return;
+
       setState(() {
         _hasError = true;
         _targetScreen = null;
@@ -248,13 +320,18 @@ class _AuthCheckState extends State<AuthCheck> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const SafirLogoMark(size: 140, backgroundColor: safirGreen),
+                    const SafirLogoMark(
+                      size: 140,
+                      backgroundColor: safirGreen,
+                    ),
                     const SizedBox(height: 24),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 40.0),
                       child: Text(
-                        _tr('splash_error_msg',
-                            'مشکلی در برقراری ارتباط پیش آمده است.'),
+                        _tr(
+                          'splash_error_msg',
+                          'مشکلی در برقراری ارتباط پیش آمده است.',
+                        ),
                         textAlign: TextAlign.center,
                         style: const TextStyle(
                           fontSize: 15,
