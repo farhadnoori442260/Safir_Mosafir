@@ -16,6 +16,10 @@ workflows:
           flutter --version
           dart --version
 
+      - name: Fix const for dark mode
+        script: |
+          python3 tools/fix_const.py lib
+
       - name: Clean Flutter cache
         script: |
           flutter clean
