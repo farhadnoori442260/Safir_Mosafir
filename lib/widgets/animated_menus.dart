@@ -16,11 +16,11 @@ import 'package:safir_passengers/pages/user_profile_screen.dart';
 
 // این پنج نام ممکن است در فایل‌های دیگر import شده باشند؛
 // نام‌ها نگه داشته شده‌اند ولی حالا به AppColors وصل‌اند (رنگ جدا ندارند).
-const Color primaryAccent = AppColors.primaryBrand;
-const Color darkTextColor = AppColors.textPrimary;
-const Color secondaryTextColor = AppColors.textSecondary;
-const Color pageBackground = AppColors.backgroundLight;
-const Color menuIconBackground = AppColors.cardBackground;
+Color get primaryAccent => AppColors.primaryBrand;
+Color get darkTextColor => AppColors.textPrimary;
+Color get secondaryTextColor => AppColors.textSecondary;
+Color get pageBackground => AppColors.backgroundLight;
+Color get menuIconBackground => AppColors.cardBackground;
 
 Future<void> _makeSupportCall(BuildContext context) async {
   String phone = '+93700000000';
@@ -218,7 +218,7 @@ class _DiscountCodeSheetState
           20,
           MediaQuery.of(context).viewInsets.bottom + 20,
         ),
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           color: AppColors.cardBgLight,
           borderRadius: BorderRadius.vertical(
             top: Radius.circular(28),
@@ -239,7 +239,7 @@ class _DiscountCodeSheetState
                 Expanded(
                   child: Text(
                     'discount_code'.tr(),
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: AppColors.textPrimary,
                       fontSize: 17,
                       fontWeight: FontWeight.w800,
@@ -248,7 +248,7 @@ class _DiscountCodeSheetState
                 ),
                 IconButton(
                   onPressed: () => Navigator.pop(context),
-                  icon: const Icon(
+                  icon: Icon(
                     Icons.close_rounded,
                     color: AppColors.textSecondary,
                   ),
@@ -262,7 +262,7 @@ class _DiscountCodeSheetState
               textDirection: TextDirection.ltr,
               textCapitalization:
                   TextCapitalization.characters,
-              style: const TextStyle(
+              style: TextStyle(
                 color: AppColors.textPrimary,
                 fontSize: 15,
                 fontWeight: FontWeight.w700,
@@ -270,12 +270,12 @@ class _DiscountCodeSheetState
               ),
               decoration: InputDecoration(
                 hintText: 'enter_discount_code'.tr(),
-                hintStyle: const TextStyle(
+                hintStyle: TextStyle(
                   color: AppColors.textSecondary,
                   fontSize: 13,
                   fontWeight: FontWeight.w400,
                 ),
-                prefixIcon: const Icon(
+                prefixIcon: Icon(
                   Icons.confirmation_number_outlined,
                   color: AppColors.textSecondary,
                 ),
@@ -288,13 +288,13 @@ class _DiscountCodeSheetState
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(16),
-                  borderSide: const BorderSide(
+                  borderSide: BorderSide(
                     color: AppColors.fieldBorder,
                   ),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(16),
-                  borderSide: const BorderSide(
+                  borderSide: BorderSide(
                     color: AppColors.primaryBrand,
                     width: 1.5,
                   ),
@@ -318,7 +318,7 @@ class _DiscountCodeSheetState
                   ),
                 ),
                 child: _isLoading
-                    ? const SizedBox(
+                    ? SizedBox(
                         width: 21,
                         height: 21,
                         child: CircularProgressIndicator(
@@ -501,7 +501,7 @@ class _ProfileAnimatedMenuState
           onPressed: () {
             Navigator.pop(context);
           },
-          icon: const Icon(
+          icon: Icon(
             Icons.arrow_back_ios_new_rounded,
             color: AppColors.textPrimary,
             size: 19,
@@ -509,7 +509,7 @@ class _ProfileAnimatedMenuState
         ),
         title: Text(
           _localizedKey('profile', 'پروفایل'),
-          style: const TextStyle(
+          style: TextStyle(
             color: AppColors.textPrimary,
             fontSize: 18,
             fontWeight: FontWeight.w800,
@@ -691,7 +691,7 @@ class _ProfileAnimatedMenuState
         child: Container(
           padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
+            gradient: LinearGradient(
               begin: AlignmentDirectional.topStart,
               end: AlignmentDirectional.bottomEnd,
               colors: [
@@ -722,7 +722,7 @@ class _ProfileAnimatedMenuState
                       'assets/images/default_profile.png',
                       fit: BoxFit.cover,
                       errorBuilder: (_, __, ___) {
-                        return const Icon(
+                        return Icon(
                           Icons.person_rounded,
                           color: AppColors.primaryBrand,
                           size: 32,
@@ -755,7 +755,7 @@ class _ProfileAnimatedMenuState
                           name,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: AppColors.textPrimary,
                             fontSize: 17,
                             fontWeight: FontWeight.w800,
@@ -773,7 +773,7 @@ class _ProfileAnimatedMenuState
                         return Text(
                           snapshot.data ?? '---',
                           textDirection: TextDirection.ltr,
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: AppColors.textSecondary,
                             fontSize: 14,
                             fontWeight: FontWeight.w500,
@@ -806,7 +806,7 @@ class _ProfileAnimatedMenuState
       ),
       child: Text(
         title,
-        style: const TextStyle(
+        style: TextStyle(
           color: AppColors.textSecondary,
           fontSize: 12,
           fontWeight: FontWeight.w800,
@@ -822,7 +822,7 @@ class _ProfileAnimatedMenuState
     for (int i = 0; i < children.length; i++) {
       if (i > 0) {
         rows.add(
-          const Divider(
+          Divider(
             height: 1,
             thickness: 1,
             indent: 70,
@@ -887,7 +887,7 @@ class _ProfileAnimatedMenuState
                       title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: AppColors.textPrimary,
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
@@ -898,7 +898,7 @@ class _ProfileAnimatedMenuState
                       subtitle,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: AppColors.textSecondary,
                         fontSize: 12,
                         fontWeight: FontWeight.w400,
