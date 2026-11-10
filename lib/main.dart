@@ -19,6 +19,8 @@ import 'pages/chat_banner_service.dart';
 // پرووایدرها
 import 'appInfo/app_info.dart';
 import 'appInfo/auth_provider.dart';
+import 'theme/app_colors.dart';
+import 'theme/theme_controller.dart';
 
 late Size mq;
 
@@ -91,13 +93,11 @@ Future<void> main() async {
     SystemUiMode.edgeToEdge,
   );
 
-  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-    statusBarColor: Colors.transparent,
-    statusBarIconBrightness: Brightness.light,
-    statusBarBrightness: Brightness.dark,
-    systemNavigationBarColor: Colors.transparent,
-    systemNavigationBarIconBrightness: Brightness.light,
-  ));
+  // تم ذخیره‌شده قبل از اولین فریم خوانده می‌شود (تا چشمک روشن→تاریک نداشته باشیم)
+  await ThemeController.instance.load();
+  AppColors.isDark = ThemeController.instance.resolveDark(
+    WidgetsBinding.instance.platformDispatcher.platformBrightness,
+  );
 
   Stripe.publishableKey = stripePublishedKey;
   await Firebase.initializeApp();
@@ -130,14 +130,175 @@ Future<void> main() async {
   });
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
 
   @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
+  static const String _defaultFont = 'IranYekan';
+
+  final ThemeController _theme = ThemeController.instance;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _theme.addListener(_onThemeChanged);
+  }
+
+  @override
+  void dispose() {
+    _theme.removeListener(_onThemeChanged);
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  // کاربر در حالت «سیستم» است و روشنایی گوشی عوض شد
+  @override
+  void didChangePlatformBrightness() {
+    if (_theme.mode == ThemeMode.system) _onThemeChanged();
+  }
+
+  void _onThemeChanged() {
+    final bool dark = _theme.resolveDark(
+      WidgetsBinding.instance.platformDispatcher.platformBrightness,
+    );
+    if (dark == AppColors.isDark) return;
+
+    // ۱) پالت جدید فعال می‌شود
+    AppColors.isDark = dark;
+
+    // ۲) همهٔ المان‌ها (حتی const ها) دوباره ساخته می‌شوند؛ پشتهٔ صفحه‌ها و
+    //    state ها دست‌نخورده می‌مانند. چون MyApp از همه بالاتر است، همین فریم
+    //    با رنگ‌های جدید ساخته می‌شود.
+    void mark(Element e) {
+      e.markNeedsBuild();
+      e.visitChildren(mark);
+    }
+
+    if (mounted) {
+      setState(() {});
+      (context as Element).visitChildren(mark);
+    }
+  }
+
+  ThemeData _buildTheme(bool dark) {
+    final Color primary = dark ? const Color(0xFF34B27F) : const Color(0xFF117656);
+    final Color bg = dark ? const Color(0xFF0F1412) : Colors.white;
+    final Color surface = dark ? const Color(0xFF1A211E) : Colors.white;
+    final Color title = dark ? const Color(0xFFECF1EF) : const Color(0xFF212121);
+    final Color body = dark ? const Color(0xFFD5DEDA) : const Color(0xFF2D3142);
+    final Color muted = dark ? const Color(0xFF9AA8A1) : Colors.grey;
+    final Color line = dark ? const Color(0xFF2B3631) : Colors.grey.shade300;
+
+    return ThemeData(
+      useMaterial3: true,
+      brightness: dark ? Brightness.dark : Brightness.light,
+      fontFamily: _defaultFont,
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: const Color(0xFF117656),
+        brightness: dark ? Brightness.dark : Brightness.light,
+      ).copyWith(primary: primary, surface: surface),
+      scaffoldBackgroundColor: bg,
+      canvasColor: surface,
+      dialogBackgroundColor: surface,
+      dividerColor: line,
+      bottomSheetTheme: BottomSheetThemeData(
+        backgroundColor: surface,
+        surfaceTintColor: Colors.transparent,
+      ),
+      appBarTheme: AppBarTheme(
+        backgroundColor: bg,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        centerTitle: true,
+        iconTheme: IconThemeData(color: title),
+        titleTextStyle: TextStyle(
+          fontFamily: _defaultFont,
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+          color: title,
+        ),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        labelStyle: TextStyle(
+          fontFamily: _defaultFont,
+          fontSize: 12,
+          fontWeight: FontWeight.w400,
+          color: muted,
+        ),
+        floatingLabelStyle: TextStyle(
+          fontFamily: _defaultFont,
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
+          color: primary,
+        ),
+        hintStyle: TextStyle(
+          fontFamily: _defaultFont,
+          fontSize: 13,
+          fontWeight: FontWeight.w400,
+          color: dark ? const Color(0xFF6F7C76) : Colors.grey.shade400,
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: line),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: line),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: const BorderRadius.all(Radius.circular(12)),
+          borderSide: BorderSide(color: primary, width: 1.5),
+        ),
+      ),
+      textTheme: TextTheme(
+        titleLarge: TextStyle(
+          fontFamily: _defaultFont,
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+          color: title,
+        ),
+        titleMedium: TextStyle(
+          fontFamily: _defaultFont,
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+          color: title,
+        ),
+        bodyLarge: TextStyle(
+          fontFamily: _defaultFont,
+          fontSize: 14,
+          fontWeight: FontWeight.w400,
+          color: body,
+        ),
+        bodyMedium: TextStyle(
+          fontFamily: _defaultFont,
+          fontSize: 13,
+          fontWeight: FontWeight.w400,
+          color: body,
+        ),
+        bodySmall: TextStyle(
+          fontFamily: _defaultFont,
+          fontSize: 12,
+          fontWeight: FontWeight.w400,
+          color: muted,
+        ),
+        labelLarge: const TextStyle(
+          fontFamily: _defaultFont,
+          fontSize: 15,
+          fontWeight: FontWeight.w500,
+          color: Colors.white,
+        ),
+      ),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
-    const String defaultFont = 'IranYekan';
-    const Color primaryColor = Color(0xFF117656);
-    const Color textColor = Color(0xFF2D3142);
+    final bool dark = AppColors.isDark;
 
     return MultiProvider(
       providers: [
@@ -154,96 +315,28 @@ class MyApp extends StatelessWidget {
         supportedLocales: context.supportedLocales,
         locale: context.locale,
 
-        theme: ThemeData(
-          useMaterial3: true,
-          fontFamily: defaultFont,
-          colorScheme: ColorScheme.fromSeed(seedColor: primaryColor),
-          scaffoldBackgroundColor: Colors.white,
+        // تم را خودمان با AppColors.isDark تعیین می‌کنیم (روشن/تاریک/سیستم
+        // قبلاً در ThemeController حل شده)
+        themeMode: dark ? ThemeMode.dark : ThemeMode.light,
+        theme: _buildTheme(false),
+        darkTheme: _buildTheme(true),
 
-          appBarTheme: const AppBarTheme(
-            backgroundColor: Colors.white,
-            elevation: 0,
-            centerTitle: true,
-            titleTextStyle: TextStyle(
-              fontFamily: defaultFont,
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: Color(0xFF212121),
+        // رنگ آیکون‌های نوار وضعیت و نوار پایین متناسب با تم
+        builder: (context, child) {
+          return AnnotatedRegion<SystemUiOverlayStyle>(
+            value: SystemUiOverlayStyle(
+              statusBarColor: Colors.transparent,
+              statusBarIconBrightness:
+                  dark ? Brightness.light : Brightness.dark,
+              statusBarBrightness: dark ? Brightness.dark : Brightness.light,
+              systemNavigationBarColor: Colors.transparent,
+              systemNavigationBarIconBrightness:
+                  dark ? Brightness.light : Brightness.dark,
+              systemNavigationBarContrastEnforced: false,
             ),
-          ),
-
-          inputDecorationTheme: InputDecorationTheme(
-            labelStyle: const TextStyle(
-              fontFamily: defaultFont,
-              fontSize: 12,
-              fontWeight: FontWeight.w400,
-              color: Colors.grey,
-            ),
-            floatingLabelStyle: const TextStyle(
-              fontFamily: defaultFont,
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-              color: primaryColor,
-            ),
-            hintStyle: TextStyle(
-              fontFamily: defaultFont,
-              fontSize: 13,
-              fontWeight: FontWeight.w400,
-              color: Colors.grey.shade400,
-            ),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.grey.shade300),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.grey.shade300),
-            ),
-            focusedBorder: const OutlineInputBorder(
-              borderRadius: BorderRadius.all(Radius.circular(12)),
-              borderSide: BorderSide(color: primaryColor, width: 1.5),
-            ),
-          ),
-
-          textTheme: const TextTheme(
-            titleLarge: TextStyle(
-              fontFamily: defaultFont,
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: Color(0xFF212121),
-            ),
-            titleMedium: TextStyle(
-              fontFamily: defaultFont,
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: Color(0xFF212121),
-            ),
-            bodyLarge: TextStyle(
-              fontFamily: defaultFont,
-              fontSize: 14,
-              fontWeight: FontWeight.w400,
-              color: textColor,
-            ),
-            bodyMedium: TextStyle(
-              fontFamily: defaultFont,
-              fontSize: 13,
-              fontWeight: FontWeight.w400,
-              color: textColor,
-            ),
-            bodySmall: TextStyle(
-              fontFamily: defaultFont,
-              fontSize: 12,
-              fontWeight: FontWeight.w400,
-              color: Colors.grey,
-            ),
-            labelLarge: TextStyle(
-              fontFamily: defaultFont,
-              fontSize: 15,
-              fontWeight: FontWeight.w500,
-              color: Colors.white,
-            ),
-          ),
-        ),
+            child: child ?? const SizedBox.shrink(),
+          );
+        },
 
         home: const AuthCheck(),
       ),
