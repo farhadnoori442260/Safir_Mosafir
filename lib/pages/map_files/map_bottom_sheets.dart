@@ -123,8 +123,8 @@ class MapBottomSheets {
 
         return Container(
           decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            color: AppColors.cardBgLight,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
             boxShadow: [
               BoxShadow(
                 color: Colors.black12,
@@ -140,10 +140,10 @@ class MapBottomSheets {
             children: [
               Center(
                 child: Container(
-                  width: 42,
-                  height: 5,
+                  width: 40,
+                  height: 4,
                   decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
+                    color: AppColors.handle,
                     borderRadius: BorderRadius.circular(10),
                   ),
                 ),
@@ -154,7 +154,7 @@ class MapBottomSheets {
                   children: [
                     LoadingAnimationWidget.flickr(
                       leftDotColor: AppColors.primaryBrand,
-                      rightDotColor: Colors.orangeAccent,
+                      rightDotColor: AppColors.warning,
                       size: 42,
                     ),
                     const SizedBox(height: 12),
@@ -237,7 +237,7 @@ class MapBottomSheets {
                 margin: const EdgeInsetsDirectional.only(start: 5, top: 2, bottom: 2),
                 height: 14,
                 width: 2,
-                color: Colors.grey.shade300,
+                color: AppColors.handle,
               ),
               Row(
                 children: [
@@ -269,7 +269,7 @@ class MapBottomSheets {
                   const Icon(
                     Icons.payments_outlined,
                     size: 18,
-                    color: Colors.grey,
+                    color: AppColors.iconSecondary,
                   ),
                   const SizedBox(width: 8),
                   Text(
@@ -286,14 +286,14 @@ class MapBottomSheets {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
+                  color: AppColors.backgroundLight,
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
                   'terms_and_privacy_notice'.tr(),
                   style: TextStyle(
                     fontSize: 12,
-                    color: Colors.grey.shade700,
+                    color: AppColors.textSecondary,
                     height: 1.4,
                     fontWeight: FontWeight.w400,
                   ),
@@ -302,7 +302,7 @@ class MapBottomSheets {
               const SizedBox(height: 20),
               OutlinedButton(
                 style: OutlinedButton.styleFrom(
-                  side: BorderSide(color: Colors.grey.shade400),
+                  side: BorderSide(color: AppColors.borderLight),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -362,7 +362,7 @@ class MapBottomSheets {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.cardBgLight,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -384,7 +384,7 @@ class MapBottomSheets {
                       width: 38,
                       height: 4,
                       decoration: BoxDecoration(
-                        color: Colors.grey.shade300,
+                        color: AppColors.handle,
                         borderRadius: BorderRadius.circular(10),
                       ),
                     ),
@@ -412,13 +412,13 @@ class MapBottomSheets {
                     Container(
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: Colors.amber.shade50,
+                        color: AppColors.warningBg,
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: Colors.amber.shade200),
+                        border: Border.all(color: AppColors.warning),
                       ),
                       child: Text(
                         'cancel_after_accept_warning'.tr(),
-                        style: TextStyle(fontSize: 12, color: Colors.amber.shade900),
+                        style: TextStyle(fontSize: 12, color: AppColors.warningText),
                       ),
                     ),
                   ],
@@ -446,7 +446,7 @@ class MapBottomSheets {
                       ),
                       value: item['key']!,
                       groupValue: selectedReasonKey,
-                      activeColor: Colors.red,
+                      activeColor: AppColors.danger,
                       contentPadding: EdgeInsets.zero,
                       onChanged: (value) {
                         HapticFeedback.selectionClick();
@@ -462,9 +462,9 @@ class MapBottomSheets {
                       Expanded(
                         child: ElevatedButton(
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.red.shade600,
-                            disabledBackgroundColor: Colors.red.shade100,
-                            foregroundColor: Colors.white,
+                            backgroundColor: AppColors.danger,
+                            disabledBackgroundColor: AppColors.dangerSoft,
+                            foregroundColor: AppColors.buttonText,
                             elevation: 0,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
@@ -525,7 +525,7 @@ class MapBottomSheets {
                           child: Text(
                             'confirm_cancel_btn'.tr(),
                             style: const TextStyle(
-                              color: Colors.white,
+                              color: AppColors.buttonText,
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
                             ),
@@ -578,9 +578,9 @@ class MapBottomSheets {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.cardBgLight,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
       builder: (_) => _PaymentSheet(tripId: tripId, amount: amount),
     );
@@ -638,8 +638,8 @@ class MapBottomSheets {
 
           return Container(
             decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              color: AppColors.cardBgLight,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black12,
@@ -659,7 +659,7 @@ class MapBottomSheets {
                     width: 40,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: Colors.grey.shade300,
+                      color: AppColors.handle,
                       borderRadius: BorderRadius.circular(10),
                     ),
                   ),
@@ -687,7 +687,7 @@ class MapBottomSheets {
                     ],
                   ),
                 ),
-                const Divider(height: 1, thickness: 0.8),
+                const Divider(height: 1, thickness: 0.8, color: AppColors.fieldBorder),
                 DriverInfoCard(
                   driverData: driverData,
                   onCallPressed: () {
@@ -721,8 +721,8 @@ class MapBottomSheets {
                     height: 48,
                     child: OutlinedButton.icon(
                       style: OutlinedButton.styleFrom(
-                        backgroundColor: Colors.red.shade50,
-                        side: const BorderSide(color: Colors.redAccent, width: 1.2),
+                        backgroundColor: AppColors.dangerSoft,
+                        side: const BorderSide(color: AppColors.danger, width: 1.2),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
                       onPressed: () {
@@ -736,10 +736,10 @@ class MapBottomSheets {
                           );
                         }
                       },
-                      icon: const Icon(Icons.cancel_outlined, color: Colors.redAccent, size: 20),
+                      icon: const Icon(Icons.cancel_outlined, color: AppColors.danger, size: 20),
                       label: Text(
                         'cancel_current_trip_btn'.tr(),
-                        style: const TextStyle(color: Colors.redAccent, fontSize: 14, fontWeight: FontWeight.w600),
+                        style: const TextStyle(color: AppColors.danger, fontSize: 14, fontWeight: FontWeight.w600),
                       ),
                     ),
                   ),
@@ -794,7 +794,7 @@ class MapBottomSheets {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.cardBgLight,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -806,7 +806,7 @@ class MapBottomSheets {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.cardBgLight,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -818,7 +818,7 @@ class MapBottomSheets {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.cardBgLight,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -830,29 +830,38 @@ class MapBottomSheets {
     required int selectedCategory,
     required Function(int) onCategoryChanged,
   }) {
-    return Column(
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
+    // کنترل دوحالته (به‌جای تب با خط زیرین)
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Container(
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: AppColors.backgroundLight,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Row(
           children: [
-            _buildTabItem(
-              title: 'tab_car'.tr(),
-              index: 0,
-              selectedCategory: selectedCategory,
-              color: AppColors.primaryBrand,
-              onTap: () => onCategoryChanged(0),
+            Expanded(
+              child: _buildTabItem(
+                title: 'tab_car'.tr(),
+                index: 0,
+                selectedCategory: selectedCategory,
+                color: AppColors.primaryBrand,
+                onTap: () => onCategoryChanged(0),
+              ),
             ),
-            _buildTabItem(
-              title: 'tab_motorbike'.tr(),
-              index: 1,
-              selectedCategory: selectedCategory,
-              color: AppColors.primaryBrand,
-              onTap: () => onCategoryChanged(1),
+            Expanded(
+              child: _buildTabItem(
+                title: 'tab_motorbike'.tr(),
+                index: 1,
+                selectedCategory: selectedCategory,
+                color: AppColors.primaryBrand,
+                onTap: () => onCategoryChanged(1),
+              ),
             ),
           ],
         ),
-        const Divider(height: 1),
-      ],
+      ),
     );
   }
 
@@ -868,33 +877,31 @@ class MapBottomSheets {
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(
-              vertical: 8,
-              horizontal: 24,
-            ),
-            child: Text(
-              title,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                color: isSelected ? AppColors.textPrimary : Colors.grey.shade600,
-              ),
-            ),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        height: 40,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.cardBgLight : Colors.transparent,
+          borderRadius: BorderRadius.circular(11),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.06),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
+        ),
+        child: Text(
+          title,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+            color: isSelected ? color : AppColors.textSecondary,
           ),
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            height: 3,
-            width: isSelected ? 80 : 0,
-            decoration: BoxDecoration(
-              color: isSelected ? color : Colors.transparent,
-              borderRadius: BorderRadius.circular(3),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -914,35 +921,40 @@ class MapBottomSheets {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(18),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
           curve: Curves.easeOut,
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.symmetric(
+            horizontal: 14,
+            vertical: 12,
+          ),
           decoration: BoxDecoration(
-            color: isSelected ? cardBgColor : Colors.white,
-            borderRadius: BorderRadius.circular(16),
+            color: isSelected ? cardBgColor : AppColors.cardBgLight,
+            borderRadius: BorderRadius.circular(18),
             border: Border.all(
-              color: isSelected ? safirColor : Colors.grey.shade200,
-              width: isSelected ? 1.8 : 1,
+              color: isSelected ? safirColor : AppColors.fieldBorder,
+              width: isSelected ? 1.6 : 1,
             ),
           ),
           child: Row(
             children: [
               Image.asset(
                 imagePath,
-                width: 75,
-                height: 45,
+                width: 84,
+                height: 52,
                 fit: BoxFit.contain,
                 errorBuilder: (context, error, stackTrace) {
                   return Icon(
                     isBike ? Icons.motorcycle : Icons.directions_car,
-                    size: 38,
-                    color: isSelected ? safirColor : Colors.grey,
+                    size: 40,
+                    color: isSelected
+                        ? safirColor
+                        : AppColors.iconSecondary,
                   );
                 },
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -952,8 +964,8 @@ class MapBottomSheets {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 15,
                         color: AppColors.textPrimary,
                       ),
                     ),
@@ -962,10 +974,10 @@ class MapBottomSheets {
                       subtitle,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w400,
-                        color: Colors.grey.shade600,
+                        color: AppColors.textSecondary,
                       ),
                     ),
                   ],
@@ -980,8 +992,10 @@ class MapBottomSheets {
                     price,
                     style: TextStyle(
                       fontWeight: FontWeight.w800,
-                      fontSize: 14,
-                      color: isSelected ? safirColor : AppColors.textPrimary,
+                      fontSize: 15,
+                      color: isSelected
+                          ? safirColor
+                          : AppColors.textPrimary,
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -990,7 +1004,7 @@ class MapBottomSheets {
                     opacity: isSelected ? 1 : 0,
                     child: Icon(
                       Icons.check_circle_rounded,
-                      size: 18,
+                      size: 19,
                       color: safirColor,
                     ),
                   ),
@@ -1016,12 +1030,12 @@ class MapBottomSheets {
         borderRadius: BorderRadius.circular(12),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
-          height: 40,
+          height: 44,
           padding: const EdgeInsets.symmetric(horizontal: 6),
           decoration: BoxDecoration(
             color: isActive
                 ? AppColors.primaryBrand.withOpacity(0.10)
-                : const Color(0xFFF5F6F8),
+                : AppColors.backgroundLight,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
               color: isActive ? AppColors.primaryBrand : Colors.transparent,
@@ -1033,7 +1047,7 @@ class MapBottomSheets {
               Icon(
                 icon,
                 size: 16,
-                color: isActive ? AppColors.primaryBrand : Colors.grey.shade700,
+                color: isActive ? AppColors.primaryBrand : AppColors.textSecondary,
               ),
               const SizedBox(width: 5),
               Flexible(
@@ -1045,7 +1059,7 @@ class MapBottomSheets {
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                     color:
-                        isActive ? AppColors.primaryBrand : Colors.grey.shade800,
+                        isActive ? AppColors.primaryBrand : AppColors.textPrimary,
                   ),
                 ),
               ),
@@ -1198,8 +1212,8 @@ class _Step2SheetState extends State<_Step2Sheet> {
       },
       child: Container(
         decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          color: AppColors.cardBgLight,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
           boxShadow: [
             BoxShadow(
               color: Colors.black12,
@@ -1218,10 +1232,10 @@ class _Step2SheetState extends State<_Step2Sheet> {
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(0, 10, 0, 8),
                 child: Container(
-                  width: 42,
-                  height: 5,
+                  width: 40,
+                  height: 4,
                   decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
+                    color: AppColors.handle,
                     borderRadius: BorderRadius.circular(10),
                   ),
                 ),
@@ -1251,7 +1265,7 @@ class _Step2SheetState extends State<_Step2Sheet> {
                         isSelected:
                             w.selectedVehicleType == visible[i].index,
                         safirColor: w.safirColor,
-                        cardBgColor: AppColors.cardBgLight,
+                        cardBgColor: AppColors.cardBackground,
                         onTap: () {
                           HapticFeedback.selectionClick();
                           w.onVehicleSelected(
@@ -1312,23 +1326,23 @@ class _Step2SheetState extends State<_Step2Sheet> {
                   const SizedBox(height: 12),
                   SizedBox(
                     width: double.infinity,
-                    height: 52,
+                    height: 54,
                     child: ElevatedButton(
                       onPressed: w.onRequestTrip,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primaryBrand,
-                        foregroundColor: Colors.white,
+                        backgroundColor: AppColors.primaryButton,
+                        foregroundColor: AppColors.buttonText,
                         elevation: 0,
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
+                          borderRadius: BorderRadius.circular(16),
                         ),
                       ),
                       child: Text(
                         'btn_request_safir'.tr(),
                         style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
+                          color: AppColors.buttonText,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
                         ),
                       ),
                     ),
@@ -1447,7 +1461,7 @@ class _PaymentSheetState extends State<_PaymentSheet> {
 
       messenger.showSnackBar(
         SnackBar(
-          backgroundColor: Colors.red.shade700,
+          backgroundColor: AppColors.danger,
           content: Text(
             '$failedMsg (${e.code})',
           ),
@@ -1458,7 +1472,7 @@ class _PaymentSheetState extends State<_PaymentSheet> {
 
       messenger.showSnackBar(
         SnackBar(
-          backgroundColor: Colors.red.shade700,
+          backgroundColor: AppColors.danger,
           content: Text(failedMsg),
         ),
       );
@@ -1488,10 +1502,10 @@ class _PaymentSheetState extends State<_PaymentSheet> {
           final bool isAwaiting = status == 'awaiting_driver_confirmation';
 
           final Color bannerColor = isPaid
-              ? const Color(0xFF16A34A)
+              ? AppColors.successDark
               : isAwaiting
-                  ? const Color(0xFF2563EB)
-                  : Colors.amber.shade800;
+                  ? AppColors.originBlue
+                  : AppColors.warningIcon;
 
           final IconData bannerIcon = isPaid
               ? Icons.check_circle_rounded
@@ -1526,7 +1540,7 @@ class _PaymentSheetState extends State<_PaymentSheet> {
                   width: 40,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: Colors.grey[300],
+                    color: AppColors.handle,
                     borderRadius: BorderRadius.circular(10),
                   ),
                 ),
@@ -1536,7 +1550,7 @@ class _PaymentSheetState extends State<_PaymentSheet> {
                       ? Icons.verified_rounded
                       : Icons.account_balance_wallet_rounded,
                   size: 48,
-                  color: isPaid ? const Color(0xFF16A34A) : AppColors.primaryBrand,
+                  color: isPaid ? AppColors.successDark : AppColors.primaryBrand,
                 ),
                 const SizedBox(height: 12),
                 Text(
@@ -1576,7 +1590,7 @@ class _PaymentSheetState extends State<_PaymentSheet> {
                           style: const TextStyle(
                             fontSize: 12,
                             height: 1.5,
-                            color: Colors.black87,
+                            color: AppColors.textPrimary,
                           ),
                         ),
                       ),
@@ -1590,11 +1604,11 @@ class _PaymentSheetState extends State<_PaymentSheet> {
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: isPaid
-                          ? const Color(0xFF16A34A)
+                          ? AppColors.successDark
                           : AppColors.primaryBrand,
-                      disabledBackgroundColor: Colors.grey.shade300,
-                      foregroundColor: Colors.white,
-                      disabledForegroundColor: Colors.grey.shade600,
+                      disabledBackgroundColor: AppColors.handle,
+                      foregroundColor: AppColors.buttonText,
+                      disabledForegroundColor: AppColors.textSecondary,
                       elevation: 0,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(14),
@@ -1607,7 +1621,7 @@ class _PaymentSheetState extends State<_PaymentSheet> {
                             height: 22,
                             child: CircularProgressIndicator(
                               strokeWidth: 2.4,
-                              color: Colors.white,
+                              color: AppColors.buttonText,
                             ),
                           )
                         : Text(
