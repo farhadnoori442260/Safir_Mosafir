@@ -66,9 +66,7 @@ class SmartLocationSheet extends StatefulWidget {
 
 class _SmartLocationSheetState
     extends State<SmartLocationSheet> {
-  static const Color destinationColor = Color(0xFF169365);
-  static const Color gpsWarningColor = Color(0xFFD97706);
-  static const Color gpsWarningTextColor = Color(0xFF92400E);
+  static const Color destinationColor = AppColors.primaryButton;
 
   bool _showGpsWarningText = false;
 
@@ -344,6 +342,14 @@ class _SmartLocationSheetState
     return double.tryParse(value?.toString() ?? '');
   }
 
+  // کلمه‌هایی که یعنی «بخش اداری» (شهر، منطقه، استان...) و نه خیابان
+  static const List<String> _adminKeywords = <String>[
+    'شهرستان', 'شهر', 'منطقه', 'استان', 'ولایت', 'ولسوالی',
+    'ناحیه', 'کشور', 'ایران', 'افغانستان',
+  ];
+
+  /// آدرس را به «عنوان» (جای مشخص: خیابان/محله) و «زیرعنوان» (شهر، منطقه)
+  /// تقسیم می‌کند. قبلاً عنوان همیشه اولین بخش بود، یعنی معمولاً فقط «تهران».
   Map<String, String> _splitAddress(
     String fullAddress,
   ) {
@@ -385,13 +391,47 @@ class _SmartLocationSheetState
       };
     }
 
-    final List<String> parts =
-        cleanAddress.split(RegExp(r'[،,-]'));
+    final List<String> parts = cleanAddress
+        .split(RegExp(r'[،,]'))
+        .map((String e) => e.trim())
+        .where((String e) => e.isNotEmpty)
+        .toList();
 
     if (parts.length > 1) {
+      final List<String> specific = <String>[];
+      final List<String> admin = <String>[];
+
+      for (int i = 0; i < parts.length; i++) {
+        final String p = parts[i];
+
+        bool isAdmin = _adminKeywords.any(p.contains);
+
+        // نام شهر تنها (مثلاً «تهران») که در بخش دیگری هم تکرار شده
+        if (!isAdmin && i == 0) {
+          for (int j = 1; j < parts.length; j++) {
+            if (parts[j].contains(p)) {
+              isAdmin = true;
+              break;
+            }
+          }
+        }
+
+        (isAdmin ? admin : specific).add(p);
+      }
+
+      if (specific.isNotEmpty) {
+        return <String, String>{
+          'title': specific.first,
+          'subtitle': <String>[
+            ...specific.skip(1),
+            ...admin,
+          ].join('، '),
+        };
+      }
+
       return <String, String>{
-        'title': parts.first.trim(),
-        'subtitle': parts.skip(1).join('، ').trim(),
+        'title': parts.first,
+        'subtitle': parts.skip(1).join('، '),
       };
     }
 
@@ -497,12 +537,12 @@ class _SmartLocationSheetState
               ),
               decoration: BoxDecoration(
                 color: showWarning
-                    ? const Color(0xFFFFF7ED)
-                    : Colors.white,
+                    ? AppColors.warningBg
+                    : AppColors.cardBgLight,
                 borderRadius: BorderRadius.circular(26),
                 border: Border.all(
                   color: showWarning
-                      ? const Color(0xFFF59E0B)
+                      ? AppColors.warning
                       : Colors.transparent,
                   width: 1,
                 ),
@@ -527,7 +567,7 @@ class _SmartLocationSheetState
                               'gps-warning-icon',
                             ),
                             size: 21,
-                            color: gpsWarningColor,
+                            color: AppColors.warningIcon,
                           )
                         : const Icon(
                             Icons.my_location_rounded,
@@ -553,7 +593,7 @@ class _SmartLocationSheetState
                                   'اختلال در موقعیت مکانی',
                                 ),
                                 style: const TextStyle(
-                                  color: gpsWarningTextColor,
+                                  color: AppColors.warningText,
                                   fontSize: 12,
                                   fontWeight:
                                       FontWeight.w800,
@@ -563,7 +603,7 @@ class _SmartLocationSheetState
                               const Icon(
                                 Icons.keyboard_arrow_up_rounded,
                                 size: 18,
-                                color: gpsWarningColor,
+                                color: AppColors.warningIcon,
                               ),
                             ],
                           )
@@ -599,26 +639,23 @@ class _SmartLocationSheetState
           _setExpanded(false);
         }
       },
-      // کانتینر بیرونی ثابت است (قبلاً AnimatedContainer بود که هیچ چیزی
-      // را انیمیت نمی‌کرد و فقط با اندازه‌ی فرزند درگیر می‌شد).
       child: Container(
         padding: const EdgeInsets.only(
           left: 16,
           right: 16,
-          top: 4,
+          top: 0,
           bottom: 16,
         ),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.cardBgLight,
           borderRadius: const BorderRadius.vertical(
-            top: Radius.circular(26),
+            top: Radius.circular(28),
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.08),
-              blurRadius: 16,
-              spreadRadius: 1,
-              offset: const Offset(0, -4),
+              color: Colors.black.withOpacity(0.10),
+              blurRadius: 24,
+              offset: const Offset(0, -6),
             ),
           ],
         ),
@@ -626,17 +663,15 @@ class _SmartLocationSheetState
           mainAxisSize: MainAxisSize.min,
           children: [
             _buildDrawerHandle(),
-            const SizedBox(height: 4),
-            _buildSearchBox(
-              context: context,
+            _buildAddressCard(
               isOriginStep: isOriginStep,
+              activeAddressData: activeAddressData,
               searchHint: searchHint,
               hasSelectedAddress: hasSelectedAddress,
               currentMarkerColor: currentMarkerColor,
             ),
-            // ✅ فقط یک AnimatedSize؛ محتوای باز و دکمهٔ حالت بسته داخل
-            // همین یک انیمیشن جابه‌جا می‌شوند. قبلاً دو AnimatedSize مستقل
-            // هم‌زمان کوچک/بزرگ می‌شدند و ارتفاع کشو می‌لرزید.
+            // فقط یک AnimatedSize؛ محتوای باز و دکمهٔ حالت بسته داخل همین
+            // یک انیمیشن جابه‌جا می‌شوند (جلوی لرزش کشو را می‌گیرد).
             AnimatedSize(
               duration: const Duration(milliseconds: 260),
               curve: Curves.easeOutCubic,
@@ -644,12 +679,7 @@ class _SmartLocationSheetState
               child: _expanded
                   ? KeyedSubtree(
                       key: const ValueKey<String>('drawer-expanded'),
-                      child: _buildExpandedContent(
-                        context: context,
-                        isOriginStep: isOriginStep,
-                        activeAddressData: activeAddressData,
-                        currentMarkerColor: currentMarkerColor,
-                      ),
+                      child: _buildExpandedContent(),
                     )
                   : KeyedSubtree(
                       key: const ValueKey<String>('drawer-collapsed'),
@@ -665,22 +695,21 @@ class _SmartLocationSheetState
     );
   }
 
+  /// دستگیره‌ی کشو: یک خط گرد ساده (به‌جای فلش)
   Widget _buildDrawerHandle() {
     return GestureDetector(
       onTap: _toggleExpanded,
       behavior: HitTestBehavior.opaque,
       child: SizedBox(
         width: double.infinity,
-        height: 34,
+        height: 28,
         child: Center(
-          child: Directionality(
-            textDirection: ui.TextDirection.ltr,
-            child: Icon(
-              _expanded
-                  ? Icons.keyboard_arrow_down_rounded
-                  : Icons.keyboard_arrow_up_rounded,
-              size: 27,
-              color: const Color(0xFFD1D5DB),
+          child: Container(
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: AppColors.handle,
+              borderRadius: BorderRadius.circular(4),
             ),
           ),
         ),
@@ -688,67 +717,126 @@ class _SmartLocationSheetState
     );
   }
 
-  Widget _buildSearchBox({
-    required BuildContext context,
+  /// کارت آدرس (فقط یکی): برچسب مرحله، نام مکان، و شهر/منطقه.
+  /// در حالت بسته فقط نام مکان نشان داده می‌شود.
+  Widget _buildAddressCard({
     required bool isOriginStep,
+    required Map<String, String> activeAddressData,
     required String searchHint,
     required bool hasSelectedAddress,
     required Color currentMarkerColor,
   }) {
-    return GestureDetector(
-      onTap: () {
-        HapticFeedback.lightImpact();
-
-        if (isOriginStep) {
-          widget.onSearchOriginTap(
-            widget.currentAddress,
+    final String stepLabel = isOriginStep
+        ? _translatedOrFallback('sheet_origin_label', 'مبدأ')
+        : _translatedOrFallback(
+            'sheet_destination_label',
+            'مقصد',
           );
-        } else {
-          widget.onSearchDestinationTap();
-        }
-      },
-      child: Container(
-        height: 54,
-        padding: const EdgeInsets.symmetric(
-          horizontal: 14,
-        ),
-        decoration: BoxDecoration(
-          color: AppColors.cardBackground,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: AppColors.borderLight,
+
+    final String title = hasSelectedAddress
+        ? (activeAddressData['title'] ?? searchHint)
+        : searchHint;
+
+    final String subtitle = activeAddressData['subtitle'] ?? '';
+    final bool showSubtitle =
+        _expanded && hasSelectedAddress && subtitle.isNotEmpty;
+
+    return Material(
+      color: AppColors.backgroundLight,
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: () {
+          HapticFeedback.lightImpact();
+
+          if (isOriginStep) {
+            widget.onSearchOriginTap(widget.currentAddress);
+          } else {
+            widget.onSearchDestinationTap();
+          }
+        },
+        child: Ink(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 12,
+            vertical: 11,
           ),
-        ),
-        child: Row(
-          children: [
-            _buildLocationMarker(
-              currentMarkerColor,
-              isOriginStep,
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                searchHint,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: hasSelectedAddress
-                      ? AppColors.textPrimary
-                      : AppColors.textSecondary,
-                  fontSize: 14,
-                  fontWeight: hasSelectedAddress
-                      ? FontWeight.w700
-                      : FontWeight.w500,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: AppColors.fieldBorder),
+          ),
+          child: AnimatedSize(
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOutCubic,
+            alignment: Alignment.topCenter,
+            child: Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: currentMarkerColor.withOpacity(0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Center(
+                    child: _buildLocationMarker(
+                      currentMarkerColor,
+                      isOriginStep,
+                    ),
+                  ),
                 ),
-              ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment:
+                        CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        stepLabel,
+                        style: const TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: hasSelectedAddress
+                              ? AppColors.textPrimary
+                              : AppColors.textSecondary,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      if (showSubtitle) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          subtitle,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                const Icon(
+                  Icons.search_rounded,
+                  color: AppColors.iconSecondary,
+                  size: 22,
+                ),
+              ],
             ),
-            const SizedBox(width: 8),
-            const Icon(
-              Icons.search_rounded,
-              color: AppColors.iconSecondary,
-              size: 22,
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -775,7 +863,7 @@ class _SmartLocationSheetState
           width: 5,
           height: 5,
           decoration: const BoxDecoration(
-            color: Colors.white,
+            color: AppColors.buttonText,
             shape: BoxShape.circle,
           ),
         ),
@@ -783,40 +871,28 @@ class _SmartLocationSheetState
     );
   }
 
-  Widget _buildExpandedContent({
-    required BuildContext context,
-    required bool isOriginStep,
-    required Map<String, String> activeAddressData,
-    required Color currentMarkerColor,
-  }) {
+  Widget _buildExpandedContent() {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const SizedBox(height: 13),
-        _buildDividerBar(),
-        const SizedBox(height: 13),
-        _SearchResultTile(
-          title: activeAddressData['title'] ?? '',
-          subtitle:
-              activeAddressData['subtitle'] ?? '',
-          markerColor: currentMarkerColor,
-          onTap: () {
-            HapticFeedback.lightImpact();
-
-            if (isOriginStep) {
-              widget.onSearchOriginTap(
-                activeAddressData['title'] ?? '',
-              );
-            } else {
-              widget.onSearchDestinationTap();
-            }
-          },
+        const SizedBox(height: 16),
+        Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: Text(
+            _translatedOrFallback(
+              'saved_places_section',
+              'مکان‌های منتخب',
+            ),
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
         ),
-        const SizedBox(height: 12),
-        _buildDividerBar(),
-        const SizedBox(height: 12),
+        const SizedBox(height: 10),
         _buildSavedAddressesSection(),
-        const SizedBox(height: 8),
+        const SizedBox(height: 6),
       ],
     );
   }
@@ -827,7 +903,7 @@ class _SmartLocationSheetState
 
     if (collection == null || _savedError) {
       return SizedBox(
-        height: 58,
+        height: 46,
         child: _AddFavoriteChip(
           title: _translatedOrFallback(
             'add_favorite_place',
@@ -840,7 +916,7 @@ class _SmartLocationSheetState
 
     if (!_savedLoaded) {
       return const SizedBox(
-        height: 58,
+        height: 46,
         child: Center(
           child: SizedBox(
             width: 22,
@@ -889,7 +965,7 @@ class _SmartLocationSheetState
     ];
 
     return SizedBox(
-      height: 58,
+      height: 46,
       child: Directionality(
         textDirection: ui.TextDirection.rtl,
         child: ListView.separated(
@@ -993,17 +1069,6 @@ class _SmartLocationSheetState
     }
   }
 
-  Widget _buildDividerBar() {
-    return Container(
-      height: 5,
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: AppColors.backgroundLight,
-        borderRadius: BorderRadius.circular(5),
-      ),
-    );
-  }
-
   Widget _buildConfirmButton(
     BuildContext context,
     bool isOriginStep,
@@ -1019,10 +1084,10 @@ class _SmartLocationSheetState
           );
 
     return Padding(
-      padding: const EdgeInsets.only(top: 13),
+      padding: const EdgeInsets.only(top: 14),
       child: SizedBox(
         width: double.infinity,
-        height: 51,
+        height: 54,
         child: ElevatedButton(
           onPressed: () {
             HapticFeedback.mediumImpact();
@@ -1033,109 +1098,16 @@ class _SmartLocationSheetState
             foregroundColor: AppColors.buttonText,
             elevation: 0,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(16),
             ),
           ),
           child: Text(
             buttonText,
             style: const TextStyle(
               color: AppColors.buttonText,
-              fontSize: 15,
+              fontSize: 16,
               fontWeight: FontWeight.w800,
             ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _SearchResultTile extends StatelessWidget {
-  const _SearchResultTile({
-    required this.title,
-    required this.subtitle,
-    required this.onTap,
-    required this.markerColor,
-  });
-
-  final String title;
-  final String subtitle;
-  final VoidCallback onTap;
-  final Color markerColor;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(15),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            vertical: 5,
-            horizontal: 4,
-          ),
-          child: Row(
-            crossAxisAlignment:
-                CrossAxisAlignment.center,
-            children: [
-              Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.location_on_outlined,
-                    color: markerColor,
-                    size: 27,
-                  ),
-                  const SizedBox(height: 2),
-                  Container(
-                    width: 14,
-                    height: 2.5,
-                    decoration: BoxDecoration(
-                      color: markerColor.withOpacity(0.8),
-                      borderRadius:
-                          BorderRadius.circular(3),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(width: 11),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: AppColors.textPrimary,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      subtitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              const Icon(
-                Icons.chevron_left_rounded,
-                color: AppColors.iconSecondary,
-                size: 21,
-              ),
-            ],
           ),
         ),
       ),
@@ -1154,38 +1126,34 @@ class _AddFavoriteChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // دکمه‌ی فرعی: ساده و بی‌رنگ تا حواس را از انتخاب مبدأ و مقصد پرت نکند
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         child: Container(
-          height: 56,
-          padding: const EdgeInsets.symmetric(
-            horizontal: 13,
-          ),
+          height: 46,
+          padding: const EdgeInsets.symmetric(horizontal: 14),
           decoration: BoxDecoration(
-            color: AppColors.primaryBrand.withOpacity(0.09),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: AppColors.primaryBrand.withOpacity(0.20),
-            ),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppColors.fieldBorder),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               const Icon(
                 Icons.add_rounded,
-                color: AppColors.primaryBrand,
-                size: 21,
+                color: AppColors.iconSecondary,
+                size: 20,
               ),
-              const SizedBox(width: 7),
+              const SizedBox(width: 6),
               Text(
                 title,
                 style: const TextStyle(
-                  color: AppColors.primaryBrand,
+                  color: AppColors.textSecondary,
                   fontSize: 13,
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ],
@@ -1223,9 +1191,9 @@ class _FavoriteAddressChip extends StatelessWidget {
   Color get _color {
     switch (type) {
       case 'home':
-        return const Color(0xFF2563EB);
+        return AppColors.originBlue;
       case 'work':
-        return const Color(0xFFF59E0B);
+        return AppColors.warning;
       default:
         return AppColors.primaryBrand;
     }
@@ -1237,15 +1205,13 @@ class _FavoriteAddressChip extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         child: Container(
-          height: 56,
-          padding: const EdgeInsets.symmetric(
-            horizontal: 11,
-          ),
+          height: 46,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
           decoration: BoxDecoration(
             color: _color.withOpacity(0.10),
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(14),
             border: Border.all(
               color: _color.withOpacity(0.18),
             ),
@@ -1271,7 +1237,7 @@ class _FavoriteAddressChip extends StatelessWidget {
                 const SizedBox(width: 7),
                 Container(
                   width: 1,
-                  height: 22,
+                  height: 20,
                   color: _color.withOpacity(0.20),
                 ),
                 const SizedBox(width: 4),
@@ -1382,9 +1348,9 @@ class _FavoriteDetailsPageState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.cardBgLight,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.cardBgLight,
         elevation: 0,
         scrolledUnderElevation: 0,
         foregroundColor: AppColors.textPrimary,
