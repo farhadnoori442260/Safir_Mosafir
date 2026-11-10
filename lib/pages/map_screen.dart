@@ -1497,7 +1497,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
       _driverTraveledLine = await _mapController!.addLine(
         LineOptions(
           geometry: grey,
-          lineColor: "#B0B7C3",
+          lineColor: AppColors.routeTraveledHex,
           lineWidth: 5.5,
         ),
       );
@@ -1505,7 +1505,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
       _driverRouteLine = await _mapController!.addLine(
         LineOptions(
           geometry: remaining,
-          lineColor: "#0066FF",
+          lineColor: AppColors.routeLineHex,
           lineWidth: 5.5,
         ),
       );
@@ -1555,7 +1555,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
         _driverTempLine = await _mapController!.addLine(
           LineOptions(
             geometry: geometry,
-            lineColor: "#0066FF",
+            lineColor: AppColors.routeLineHex,
             lineWidth: 4.0,
             lineOpacity: 0.4,
           ),
@@ -2331,7 +2331,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
             await _mapController!.addLine(
               LineOptions(
                 geometry: _routePolylinePoints,
-                lineColor: "#0066FF",
+                lineColor: AppColors.routeLineHex,
                 lineWidth: 5.5,
               ),
             );
@@ -2974,9 +2974,9 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF7ED),
+        color: AppColors.warningBg,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFF59E0B)),
+        border: Border.all(color: AppColors.warning),
         boxShadow: const [
           BoxShadow(
             color: Colors.black12,
@@ -2988,17 +2988,17 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(
+          Icon(
             Icons.warning_amber_rounded,
             size: 20,
-            color: Color(0xFFD97706),
+            color: AppColors.warningIcon,
           ),
           const SizedBox(width: 8),
           Flexible(
             child: Text(
               text,
-              style: const TextStyle(
-                color: Color(0xFF92400E),
+              style: TextStyle(
+                color: AppColors.warningText,
                 fontSize: 12,
                 fontWeight: FontWeight.w800,
               ),
@@ -3018,7 +3018,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
       child: Container(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.cardBgLight,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(26)),
           boxShadow: [
             BoxShadow(
@@ -3035,7 +3035,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
             children: [
               Row(
                 children: [
-                  const Icon(Icons.star_rounded,
+                  Icon(Icons.star_rounded,
                       color: AppColors.primaryBrand, size: 22),
                   const SizedBox(width: 10),
                   Expanded(
@@ -3045,7 +3045,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
                           : _pickerAddress,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
                         color: AppColors.textPrimary,
@@ -3112,10 +3112,12 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
     final double statusBarHeight = MediaQuery.of(context).padding.top;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: const SystemUiOverlayStyle(
-        statusBarColor: Colors.white,
-        statusBarIconBrightness: Brightness.dark,
-        statusBarBrightness: Brightness.light,
+      value: SystemUiOverlayStyle(
+        statusBarColor: AppColors.cardBgLight,
+        statusBarIconBrightness:
+            AppColors.isDark ? Brightness.light : Brightness.dark,
+        statusBarBrightness:
+            AppColors.isDark ? Brightness.dark : Brightness.light,
       ),
       child: Scaffold(
         resizeToAvoidBottomInset: false,
@@ -3128,13 +3130,16 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
                 onPointerUp: (_) => _onMapPointerReleased(),
                 onPointerCancel: (_) => _onMapPointerReleased(),
                 child: MapLibreMap(
-                  initialCameraPosition: CameraPosition(
-                    target: widget.targetLocation ??
-                        widget.presetOrigin ??
-                        _currentUserLatLng,
-                    zoom: 15.0,
-                  ),
-                  styleString: 'assets/map/style.json',
+                  // با عوض شدن تم، نقشه با استایل مناسب دوباره ساخته می‌شود
+                  key: ValueKey('safir_map_${AppColors.isDark}'),
+                  initialCameraPosition: _mapController?.cameraPosition ??
+                      CameraPosition(
+                        target: widget.targetLocation ??
+                            widget.presetOrigin ??
+                            _currentUserLatLng,
+                        zoom: 15.0,
+                      ),
+                  styleString: AppColors.mapStyleAsset,
                   myLocationEnabled: _currentStep < 3,
                   // دنبال‌کردن خودکار GPS با درگ کاربر دعوا می‌کرد و نقشه می‌پرید؛
                   // دوربین فقط با GPS اولیه و دکمه‌ی موقعیت جابه‌جا می‌شود.
@@ -3267,7 +3272,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
                             Container(
                               width: 2.0,
                               height: 18,
-                              color: const Color(0xFF333333),
+                              color: AppColors.textPrimary,
                             ),
                           ],
                         ),
@@ -3290,8 +3295,8 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
                     child: Container(
                       width: 48,
                       height: 48,
-                      decoration: const BoxDecoration(
-                        color: Colors.white,
+                      decoration: BoxDecoration(
+                        color: AppColors.cardBgLight,
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
@@ -3305,7 +3310,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
                         _currentStep == 0
                             ? (widget.isPickerOnly ? Icons.close_rounded : Icons.home_outlined)
                             : Icons.arrow_back,
-                        color: Colors.grey[800],
+                        color: AppColors.textPrimary,
                         size: 26,
                       ),
                     ),
@@ -3316,8 +3321,8 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
                     child: Container(
                       width: 48,
                       height: 48,
-                      decoration: const BoxDecoration(
-                        color: Colors.white,
+                      decoration: BoxDecoration(
+                        color: AppColors.cardBgLight,
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
@@ -3333,7 +3338,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
                         children: [
                           Icon(
                             Icons.person_outline,
-                            color: Colors.grey[800],
+                            color: AppColors.textPrimary,
                             size: 26,
                           ),
                           if (_hasNotification)
