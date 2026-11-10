@@ -7,17 +7,20 @@ import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:safir_passengers/global/global_var.dart';
+import 'package:safir_passengers/theme/app_colors.dart';
 import 'package:safir_passengers/pages/settings_screen.dart';
 import 'package:safir_passengers/pages/trips_history_page.dart';
 import 'package:safir_passengers/pages/saved_addresses_screen.dart';
 import 'package:safir_passengers/pages/sub_screens.dart';
 import 'package:safir_passengers/pages/user_profile_screen.dart';
 
-const Color primaryAccent = Color(0xFF1B7A57);
-const Color darkTextColor = Color(0xFF0F172A);
-const Color secondaryTextColor = Color(0xFF64748B);
-const Color pageBackground = Color(0xFFF7F9F8);
-const Color menuIconBackground = Color(0xFFEFF5F1);
+// این پنج نام ممکن است در فایل‌های دیگر import شده باشند؛
+// نام‌ها نگه داشته شده‌اند ولی حالا به AppColors وصل‌اند (رنگ جدا ندارند).
+const Color primaryAccent = AppColors.primaryBrand;
+const Color darkTextColor = AppColors.textPrimary;
+const Color secondaryTextColor = AppColors.textSecondary;
+const Color pageBackground = AppColors.backgroundLight;
+const Color menuIconBackground = AppColors.cardBackground;
 
 Future<void> _makeSupportCall(BuildContext context) async {
   String phone = '+93700000000';
@@ -66,7 +69,7 @@ Future<void> _makeSupportCall(BuildContext context) async {
       content: Text(
         'can_not_make_call'.tr(args: [phone]),
       ),
-      backgroundColor: Colors.red.shade700,
+      backgroundColor: AppColors.danger,
     ),
   );
 }
@@ -177,14 +180,14 @@ class _DiscountCodeSheetState
         messenger.showSnackBar(
           SnackBar(
             content: Text(successMessage),
-            backgroundColor: const Color(0xFF16A34A),
+            backgroundColor: AppColors.successDark,
           ),
         );
       } else {
         messenger.showSnackBar(
           SnackBar(
             content: Text(invalidMessage),
-            backgroundColor: Colors.red.shade700,
+            backgroundColor: AppColors.danger,
           ),
         );
       }
@@ -216,7 +219,7 @@ class _DiscountCodeSheetState
           MediaQuery.of(context).viewInsets.bottom + 20,
         ),
         decoration: const BoxDecoration(
-          color: Colors.white,
+          color: AppColors.cardBgLight,
           borderRadius: BorderRadius.vertical(
             top: Radius.circular(28),
           ),
@@ -230,14 +233,14 @@ class _DiscountCodeSheetState
               children: [
                 _buildHeaderIcon(
                   Icons.local_offer_outlined,
-                  primaryAccent,
+                  AppColors.primaryBrand,
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
                     'discount_code'.tr(),
                     style: const TextStyle(
-                      color: darkTextColor,
+                      color: AppColors.textPrimary,
                       fontSize: 17,
                       fontWeight: FontWeight.w800,
                     ),
@@ -247,7 +250,7 @@ class _DiscountCodeSheetState
                   onPressed: () => Navigator.pop(context),
                   icon: const Icon(
                     Icons.close_rounded,
-                    color: secondaryTextColor,
+                    color: AppColors.textSecondary,
                   ),
                 ),
               ],
@@ -260,7 +263,7 @@ class _DiscountCodeSheetState
               textCapitalization:
                   TextCapitalization.characters,
               style: const TextStyle(
-                color: darkTextColor,
+                color: AppColors.textPrimary,
                 fontSize: 15,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 1.2,
@@ -268,16 +271,16 @@ class _DiscountCodeSheetState
               decoration: InputDecoration(
                 hintText: 'enter_discount_code'.tr(),
                 hintStyle: const TextStyle(
-                  color: Color(0xFF9CA3AF),
+                  color: AppColors.textSecondary,
                   fontSize: 13,
                   fontWeight: FontWeight.w400,
                 ),
                 prefixIcon: const Icon(
                   Icons.confirmation_number_outlined,
-                  color: secondaryTextColor,
+                  color: AppColors.textSecondary,
                 ),
                 filled: true,
-                fillColor: pageBackground,
+                fillColor: AppColors.backgroundLight,
                 contentPadding:
                     const EdgeInsets.symmetric(
                   horizontal: 16,
@@ -286,13 +289,13 @@ class _DiscountCodeSheetState
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(16),
                   borderSide: const BorderSide(
-                    color: Color(0xFFE2E8F0),
+                    color: AppColors.fieldBorder,
                   ),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(16),
                   borderSide: const BorderSide(
-                    color: primaryAccent,
+                    color: AppColors.primaryBrand,
                     width: 1.5,
                   ),
                 ),
@@ -306,8 +309,8 @@ class _DiscountCodeSheetState
                 onPressed:
                     _isLoading ? null : _checkCode,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: primaryAccent,
-                  foregroundColor: Colors.white,
+                  backgroundColor: AppColors.primaryBrand,
+                  foregroundColor: AppColors.buttonText,
                   elevation: 0,
                   shape: RoundedRectangleBorder(
                     borderRadius:
@@ -320,7 +323,7 @@ class _DiscountCodeSheetState
                         height: 21,
                         child: CircularProgressIndicator(
                           strokeWidth: 2.3,
-                          color: Colors.white,
+                          color: AppColors.buttonText,
                         ),
                       )
                     : Text(
@@ -486,10 +489,10 @@ class _ProfileAnimatedMenuState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: pageBackground,
+      backgroundColor: AppColors.backgroundLight,
       appBar: AppBar(
-        backgroundColor: pageBackground,
-        surfaceTintColor: pageBackground,
+        backgroundColor: AppColors.backgroundLight,
+        surfaceTintColor: AppColors.backgroundLight,
         elevation: 0,
         scrolledUnderElevation: 0,
         automaticallyImplyLeading: false,
@@ -500,14 +503,14 @@ class _ProfileAnimatedMenuState
           },
           icon: const Icon(
             Icons.arrow_back_ios_new_rounded,
-            color: darkTextColor,
+            color: AppColors.textPrimary,
             size: 19,
           ),
         ),
         title: Text(
           _localizedKey('profile', 'پروفایل'),
           style: const TextStyle(
-            color: darkTextColor,
+            color: AppColors.textPrimary,
             fontSize: 18,
             fontWeight: FontWeight.w800,
           ),
@@ -669,7 +672,7 @@ class _ProfileAnimatedMenuState
         Directionality.of(context) == TextDirection.rtl;
 
     return Material(
-      color: Colors.white,
+      color: AppColors.cardBgLight,
       borderRadius: BorderRadius.circular(24),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
@@ -688,27 +691,44 @@ class _ProfileAnimatedMenuState
         child: Container(
           padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
-            border: Border.all(
-              color: const Color(0xFFE5EBE7),
+            gradient: const LinearGradient(
+              begin: AlignmentDirectional.topStart,
+              end: AlignmentDirectional.bottomEnd,
+              colors: [
+                AppColors.cardBackground,
+                AppColors.cardBgLight,
+              ],
             ),
+            border: Border.all(color: AppColors.fieldBorder),
             borderRadius: BorderRadius.circular(24),
           ),
           child: Row(
             children: [
-              SizedBox(
-                width: 58,
-                height: 58,
-                child: ClipOval(
-                  child: Image.asset(
-                    'assets/images/default_profile.png',
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) {
-                      return const Icon(
-                        Icons.person_rounded,
-                        color: primaryAccent,
-                        size: 30,
-                      );
-                    },
+              // آواتار با حلقه‌ی سبز ملایم
+              Container(
+                padding: const EdgeInsets.all(3),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: AppColors.primaryBrand.withOpacity(0.35),
+                    width: 2,
+                  ),
+                ),
+                child: SizedBox(
+                  width: 60,
+                  height: 60,
+                  child: ClipOval(
+                    child: Image.asset(
+                      'assets/images/default_profile.png',
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) {
+                        return const Icon(
+                          Icons.person_rounded,
+                          color: AppColors.primaryBrand,
+                          size: 32,
+                        );
+                      },
+                    ),
                   ),
                 ),
               ),
@@ -736,14 +756,14 @@ class _ProfileAnimatedMenuState
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
-                            color: darkTextColor,
-                            fontSize: 15,
+                            color: AppColors.textPrimary,
+                            fontSize: 17,
                             fontWeight: FontWeight.w800,
                           ),
                         );
                       },
                     ),
-                    const SizedBox(height: 5),
+                    const SizedBox(height: 4),
                     FutureBuilder<String>(
                       future: _displayPhone(),
                       builder: (
@@ -754,8 +774,8 @@ class _ProfileAnimatedMenuState
                           snapshot.data ?? '---',
                           textDirection: TextDirection.ltr,
                           style: const TextStyle(
-                            color: secondaryTextColor,
-                            fontSize: 15,
+                            color: AppColors.textSecondary,
+                            fontSize: 14,
                             fontWeight: FontWeight.w500,
                           ),
                         );
@@ -768,8 +788,8 @@ class _ProfileAnimatedMenuState
                 isRTL
                     ? Icons.chevron_left_rounded
                     : Icons.chevron_right_rounded,
-                color: const Color(0xFF94A3B8),
-                size: 23,
+                color: AppColors.iconSecondary,
+                size: 24,
               ),
             ],
           ),
@@ -781,14 +801,14 @@ class _ProfileAnimatedMenuState
   Widget _buildSectionTitle(String title) {
     return Padding(
       padding: const EdgeInsetsDirectional.only(
-        start: 5,
+        start: 6,
         bottom: 10,
       ),
       child: Text(
         title,
         style: const TextStyle(
-          color: darkTextColor,
-          fontSize: 13,
+          color: AppColors.textSecondary,
+          fontSize: 12,
           fontWeight: FontWeight.w800,
         ),
       ),
@@ -796,18 +816,31 @@ class _ProfileAnimatedMenuState
   }
 
   Widget _buildMenuGroup(List<Widget> children) {
+    // بین آیتم‌ها خط جداکننده‌ی ظریف
+    final List<Widget> rows = <Widget>[];
+
+    for (int i = 0; i < children.length; i++) {
+      if (i > 0) {
+        rows.add(
+          const Divider(
+            height: 1,
+            thickness: 1,
+            indent: 70,
+            color: AppColors.fieldBorder,
+          ),
+        );
+      }
+      rows.add(children[i]);
+    }
+
     return Container(
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.cardBgLight,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: const Color(0xFFE5EBE7),
-        ),
+        border: Border.all(color: AppColors.fieldBorder),
       ),
-      child: Column(
-        children: children,
-      ),
+      child: Column(children: rows),
     );
   }
 
@@ -826,25 +859,25 @@ class _ProfileAnimatedMenuState
         onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.symmetric(
-            horizontal: 13,
-            vertical: 11,
+            horizontal: 14,
+            vertical: 13,
           ),
           child: Row(
             children: [
               Container(
-                width: 40,
-                height: 40,
+                width: 42,
+                height: 42,
                 decoration: BoxDecoration(
-                  color: menuIconBackground,
-                  borderRadius: BorderRadius.circular(13),
+                  color: AppColors.cardBackground,
+                  borderRadius: BorderRadius.circular(14),
                 ),
                 child: Icon(
                   icon,
-                  color: Colors.black,
-                  size: 20,
+                  color: AppColors.primaryBrand,
+                  size: 21,
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment:
@@ -855,9 +888,9 @@ class _ProfileAnimatedMenuState
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        color: darkTextColor,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w800,
+                        color: AppColors.textPrimary,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                     const SizedBox(height: 3),
@@ -866,9 +899,9 @@ class _ProfileAnimatedMenuState
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        color: secondaryTextColor,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
+                        color: AppColors.textSecondary,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w400,
                       ),
                     ),
                   ],
@@ -879,8 +912,8 @@ class _ProfileAnimatedMenuState
                 isRTL
                     ? Icons.chevron_left_rounded
                     : Icons.chevron_right_rounded,
-                color: const Color(0xFFB0BAC5),
-                size: 20,
+                color: AppColors.handle,
+                size: 22,
               ),
             ],
           ),
@@ -896,7 +929,7 @@ Widget _buildSheetHandle() {
       width: 40,
       height: 4,
       decoration: BoxDecoration(
-        color: const Color(0xFFD1D5DB),
+        color: AppColors.handle,
         borderRadius: BorderRadius.circular(20),
       ),
     ),
