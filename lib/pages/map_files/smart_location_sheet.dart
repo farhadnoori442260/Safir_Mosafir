@@ -66,7 +66,7 @@ class SmartLocationSheet extends StatefulWidget {
 
 class _SmartLocationSheetState
     extends State<SmartLocationSheet> {
-  static const Color destinationColor = AppColors.primaryButton;
+  static Color get destinationColor => AppColors.primaryButton;
 
   bool _showGpsWarningText = false;
 
@@ -561,7 +561,7 @@ class _SmartLocationSheetState
                       );
                     },
                     child: showWarning
-                        ? const Icon(
+                        ? Icon(
                             Icons.warning_amber_rounded,
                             key: ValueKey<String>(
                               'gps-warning-icon',
@@ -569,7 +569,7 @@ class _SmartLocationSheetState
                             size: 21,
                             color: AppColors.warningIcon,
                           )
-                        : const Icon(
+                        : Icon(
                             Icons.my_location_rounded,
                             key: ValueKey<String>(
                               'gps-location-icon',
@@ -592,7 +592,7 @@ class _SmartLocationSheetState
                                   'gps_disruption',
                                   'اختلال در موقعیت مکانی',
                                 ),
-                                style: const TextStyle(
+                                style: TextStyle(
                                   color: AppColors.warningText,
                                   fontSize: 12,
                                   fontWeight:
@@ -600,7 +600,7 @@ class _SmartLocationSheetState
                                 ),
                               ),
                               const SizedBox(width: 5),
-                              const Icon(
+                              Icon(
                                 Icons.keyboard_arrow_up_rounded,
                                 size: 18,
                                 color: AppColors.warningIcon,
@@ -793,7 +793,7 @@ class _SmartLocationSheetState
                     children: [
                       Text(
                         stepLabel,
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: AppColors.textSecondary,
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
@@ -818,7 +818,7 @@ class _SmartLocationSheetState
                           subtitle,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: AppColors.textSecondary,
                             fontSize: 12,
                             fontWeight: FontWeight.w500,
@@ -829,7 +829,7 @@ class _SmartLocationSheetState
                   ),
                 ),
                 const SizedBox(width: 8),
-                const Icon(
+                Icon(
                   Icons.search_rounded,
                   color: AppColors.iconSecondary,
                   size: 22,
@@ -862,7 +862,7 @@ class _SmartLocationSheetState
         child: Container(
           width: 5,
           height: 5,
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             color: AppColors.buttonText,
             shape: BoxShape.circle,
           ),
@@ -883,7 +883,7 @@ class _SmartLocationSheetState
               'saved_places_section',
               'مکان‌های منتخب',
             ),
-            style: const TextStyle(
+            style: TextStyle(
               color: AppColors.textSecondary,
               fontSize: 12,
               fontWeight: FontWeight.w700,
@@ -915,7 +915,7 @@ class _SmartLocationSheetState
     }
 
     if (!_savedLoaded) {
-      return const SizedBox(
+      return SizedBox(
         height: 46,
         child: Center(
           child: SizedBox(
@@ -1103,7 +1103,7 @@ class _SmartLocationSheetState
           ),
           child: Text(
             buttonText,
-            style: const TextStyle(
+            style: TextStyle(
               color: AppColors.buttonText,
               fontSize: 16,
               fontWeight: FontWeight.w800,
@@ -1142,7 +1142,7 @@ class _AddFavoriteChip extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(
+              Icon(
                 Icons.add_rounded,
                 color: AppColors.iconSecondary,
                 size: 20,
@@ -1150,7 +1150,7 @@ class _AddFavoriteChip extends StatelessWidget {
               const SizedBox(width: 6),
               Text(
                 title,
-                style: const TextStyle(
+                style: TextStyle(
                   color: AppColors.textSecondary,
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
@@ -1429,7 +1429,7 @@ class _FavoriteDetailsPageState
                       focusedBorder: OutlineInputBorder(
                         borderRadius:
                             BorderRadius.circular(10),
-                        borderSide: const BorderSide(
+                        borderSide: BorderSide(
                           color: AppColors.primaryBrand,
                           width: 1.5,
                         ),
@@ -1452,7 +1452,7 @@ class _FavoriteDetailsPageState
                       widget.address,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 14,
                         color: AppColors.textPrimary,
                       ),
