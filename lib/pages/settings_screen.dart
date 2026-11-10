@@ -7,7 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../widgets/urban_list_tile.dart';
+import 'package:safir_passengers/theme/app_colors.dart';
 
 class SettingsScreen extends StatefulWidget {
   final String currentLanguage;
@@ -25,12 +25,6 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  final Color primaryAccent = const Color(0xFF0066FF);
-  final Color darkTextColor = const Color(0xFF0F172A);
-  final Color successColor = const Color(0xFF22C55E);
-  final Color borderLightColor = const Color(0xFFF1F5F9);
-  final Color appBarBorderColor = const Color(0xFFCBD5E1);
-
   bool _enableNotifications = true;
   bool _enableSoundEffects = true;
   bool _isLoadingCache = false;
@@ -158,8 +152,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             StateSetter setDialogState,
           ) {
             return AlertDialog(
-              backgroundColor: Colors.white,
-              surfaceTintColor: Colors.white,
+              backgroundColor: AppColors.cardBgLight,
+              surfaceTintColor: AppColors.cardBgLight,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20),
               ),
@@ -167,7 +161,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 children: [
                   Icon(
                     Icons.language_rounded,
-                    color: darkTextColor,
+                    color: AppColors.textPrimary,
                   ),
                   const SizedBox(width: 10),
                   Text(
@@ -178,7 +172,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
-                      color: darkTextColor,
+                      color: AppColors.textPrimary,
                     ),
                   ),
                 ],
@@ -203,7 +197,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   Divider(
                     height: 1,
-                    color: borderLightColor,
+                    color: AppColors.fieldBorder,
                   ),
                   _buildLanguageRadio(
                     title: _localized(
@@ -222,7 +216,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   Divider(
                     height: 1,
-                    color: borderLightColor,
+                    color: AppColors.fieldBorder,
                   ),
                   _buildLanguageRadio(
                     title: _localized(
@@ -249,7 +243,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   child: Text(
                     _localized('cancel', 'انصراف'),
                     style: TextStyle(
-                      color: Colors.grey.shade600,
+                      color: AppColors.textSecondary,
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
                     ),
@@ -257,8 +251,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: primaryAccent,
-                    foregroundColor: Colors.white,
+                    backgroundColor: AppColors.primaryBrand,
+                    foregroundColor: AppColors.buttonText,
                     elevation: 0,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10),
@@ -303,7 +297,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
       value: value,
       groupValue: groupValue,
-      activeColor: primaryAccent,
+      activeColor: AppColors.primaryBrand,
       contentPadding: EdgeInsets.zero,
       onChanged: onChanged,
     );
@@ -321,7 +315,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
           await getTemporaryDirectory();
 
       if (await tempDir.exists()) {
-        await tempDir.delete(recursive: true);
+        // محتوای پوشه پاک می‌شود، نه خود پوشه (حذف خود پوشه ممکن است
+        // نوشتن بعدیِ فایل‌های موقت پلاگین‌ها را خراب کند)
+        await for (final FileSystemEntity entity in tempDir.list()) {
+          try {
+            await entity.delete(recursive: true);
+          } catch (_) {}
+        }
       }
 
       if (!mounted) return;
@@ -331,7 +331,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           'cache_cleared_msg',
           'حافظه موقت با موفقیت پاکسازی شد',
         ),
-        backgroundColor: successColor,
+        backgroundColor: AppColors.success,
       );
     } catch (error) {
       debugPrint('خطا در پاکسازی کش: $error');
@@ -343,7 +343,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           'error_occurred',
           'پاکسازی حافظه موقت انجام نشد',
         ),
-        backgroundColor: Colors.red.shade700,
+        backgroundColor: AppColors.danger,
       );
     } finally {
       if (mounted) {
@@ -361,8 +361,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       context: context,
       builder: (BuildContext dialogContext) {
         return AlertDialog(
-          backgroundColor: Colors.white,
-          surfaceTintColor: Colors.white,
+          backgroundColor: AppColors.cardBgLight,
+          surfaceTintColor: AppColors.cardBgLight,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
           ),
@@ -372,7 +372,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               'پاکسازی حافظه موقت',
             ),
             style: TextStyle(
-              color: darkTextColor,
+              color: AppColors.textPrimary,
               fontSize: 14,
               fontWeight: FontWeight.w600,
             ),
@@ -395,7 +395,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               child: Text(
                 _localized('cancel', 'انصراف'),
                 style: TextStyle(
-                  color: Colors.grey.shade600,
+                  color: AppColors.textSecondary,
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                 ),
@@ -403,8 +403,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: primaryAccent,
-                foregroundColor: Colors.white,
+                backgroundColor: AppColors.primaryBrand,
+                foregroundColor: AppColors.buttonText,
                 elevation: 0,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
@@ -439,8 +439,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
         return Directionality(
           textDirection: ui.TextDirection.rtl,
           child: AlertDialog(
-            backgroundColor: Colors.white,
-            surfaceTintColor: Colors.white,
+            backgroundColor: AppColors.cardBgLight,
+            surfaceTintColor: AppColors.cardBgLight,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(20),
             ),
@@ -468,13 +468,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   width: 38,
                   height: 38,
                   decoration: BoxDecoration(
-                    color: primaryAccent.withOpacity(0.10),
+                    color: AppColors.primaryBrand.withOpacity(0.10),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(
                     icon,
                     size: 21,
-                    color: primaryAccent,
+                    color: AppColors.primaryBrand,
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -482,7 +482,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   child: Text(
                     title,
                     style: TextStyle(
-                      color: darkTextColor,
+                      color: AppColors.textPrimary,
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
                     ),
@@ -499,7 +499,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   style: const TextStyle(
                     fontSize: 13,
                     height: 1.75,
-                    color: Color(0xFF334155),
+                    color: AppColors.textPrimary,
                     fontWeight: FontWeight.w400,
                   ),
                 ),
@@ -513,7 +513,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 child: Text(
                   _localized('close', 'بستن'),
                   style: TextStyle(
-                    color: primaryAccent,
+                    color: AppColors.primaryBrand,
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
                   ),
@@ -621,16 +621,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ? ui.TextDirection.rtl
           : ui.TextDirection.ltr,
       child: Scaffold(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.backgroundLight,
         appBar: AppBar(
-          backgroundColor: Colors.white,
-          surfaceTintColor: Colors.white,
+          backgroundColor: AppColors.backgroundLight,
+          surfaceTintColor: AppColors.backgroundLight,
           elevation: 0,
           scrolledUnderElevation: 0,
           title: Text(
             _localized('settings_title', 'تنظیمات'),
             style: TextStyle(
-              color: darkTextColor,
+              color: AppColors.textPrimary,
               fontWeight: FontWeight.w600,
               fontSize: 14,
             ),
@@ -641,19 +641,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
               isRtl
                   ? Icons.arrow_back_ios_new_rounded
                   : Icons.arrow_back_ios_rounded,
-              color: darkTextColor,
+              color: AppColors.textPrimary,
               size: 20,
             ),
             onPressed: () {
               Navigator.pop(context);
             },
-          ),
-          bottom: PreferredSize(
-            preferredSize: const Size.fromHeight(1),
-            child: Container(
-              color: appBarBorderColor,
-              height: 1,
-            ),
           ),
         ),
         body: ListView(
@@ -669,11 +662,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
             _buildCardGroup([
-              UrbanListTile(
-                leading: Icon(
-                  Icons.language_rounded,
-                  color: darkTextColor,
-                ),
+              _SettingsTile(
+                leading: Icon(Icons.language_rounded),
                 title: Text(
                   _localized(
                     'app_language_label',
@@ -682,7 +672,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   style: TextStyle(
                     fontWeight: FontWeight.w600,
                     fontSize: 14,
-                    color: darkTextColor,
+                    color: AppColors.textPrimary,
                   ),
                 ),
                 subtitle: Text(
@@ -691,14 +681,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     'زبان فعلی',
                   )}: ${_getLanguageName(currentLangCode)}',
                   style: const TextStyle(
-                    fontSize: 14,
-                    color: Color(0xFF64748B),
+                    fontSize: 12,
+                    color: AppColors.textSecondary,
                     fontWeight: FontWeight.w400,
                   ),
                 ),
                 trailing: Icon(
                   chevronIcon,
-                  color: const Color(0xFF94A3B8),
+                  color: AppColors.handle,
                 ),
                 onTap: _showLanguageDialog,
               ),
@@ -722,8 +712,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               Divider(
                 height: 1,
-                indent: 56,
-                color: borderLightColor,
+                indent: 70,
+                color: AppColors.fieldBorder,
               ),
               _buildSettingSwitchTile(
                 icon: Icons.volume_up_outlined,
@@ -743,19 +733,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
             _buildCardGroup([
-              UrbanListTile(
+              _SettingsTile(
                 leading: _isLoadingCache
                     ? SizedBox(
                         width: 20,
                         height: 20,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          color: primaryAccent,
+                          color: AppColors.primaryBrand,
                         ),
                       )
                     : Icon(
                         Icons.cleaning_services_outlined,
-                        color: darkTextColor,
+                        color: AppColors.textPrimary,
                       ),
                 title: Text(
                   _localized(
@@ -765,7 +755,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   style: TextStyle(
                     fontWeight: FontWeight.w600,
                     fontSize: 14,
-                    color: darkTextColor,
+                    color: AppColors.textPrimary,
                   ),
                 ),
                 subtitle: Text(
@@ -774,14 +764,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     'آزادسازی فضای اشغال‌شده توسط عکس‌ها و نقشه‌ها',
                   ),
                   style: const TextStyle(
-                    fontSize: 14,
-                    color: Color(0xFF64748B),
+                    fontSize: 12,
+                    color: AppColors.textSecondary,
                     fontWeight: FontWeight.w400,
                   ),
                 ),
                 trailing: Icon(
                   chevronIcon,
-                  color: const Color(0xFF94A3B8),
+                  color: AppColors.handle,
                 ),
                 onTap: _isLoadingCache
                     ? null
@@ -793,153 +783,141 @@ class _SettingsScreenState extends State<SettingsScreen> {
               _localized('about_safir_header', 'درباره سفیر'),
             ),
             _buildCardGroup([
-              UrbanListTile(
-                leading: Icon(
-                  Icons.local_taxi_rounded,
-                  color: darkTextColor,
-                ),
+              _SettingsTile(
+                leading: Icon(Icons.local_taxi_rounded),
                 title: Text(
                   _localized('services_safir_title', 'خدمات سفیر'),
                   style: TextStyle(
                     fontWeight: FontWeight.w600,
                     fontSize: 14,
-                    color: darkTextColor,
+                    color: AppColors.textPrimary,
                   ),
                 ),
                 subtitle: Text(
                   _localized('services_safir_sub', 'امکانات و خدمات مسافر و راننده'),
                   style: const TextStyle(
                     fontSize: 12,
-                    color: Color(0xFF64748B),
+                    color: AppColors.textSecondary,
                   ),
                 ),
                 trailing: Icon(
                   chevronIcon,
-                  color: const Color(0xFF94A3B8),
+                  color: AppColors.handle,
                 ),
                 onTap: _showServicesDialog,
               ),
               Divider(
                 height: 1,
-                indent: 56,
-                color: borderLightColor,
+                indent: 70,
+                color: AppColors.fieldBorder,
               ),
-              UrbanListTile(
-                leading: Icon(
-                  Icons.description_outlined,
-                  color: darkTextColor,
-                ),
+              _SettingsTile(
+                leading: Icon(Icons.description_outlined),
                 title: Text(
                   _localized('terms_conditions_title', 'شرایط و قوانین استفاده'),
                   style: TextStyle(
                     fontWeight: FontWeight.w600,
                     fontSize: 14,
-                    color: darkTextColor,
+                    color: AppColors.textPrimary,
                   ),
                 ),
                 subtitle: Text(
                   _localized('terms_conditions_sub', 'حقوق، مسئولیت‌ها و قوانین سفر'),
                   style: const TextStyle(
                     fontSize: 12,
-                    color: Color(0xFF64748B),
+                    color: AppColors.textSecondary,
                   ),
                 ),
                 trailing: Icon(
                   chevronIcon,
-                  color: const Color(0xFF94A3B8),
+                  color: AppColors.handle,
                 ),
                 onTap: _showTermsDialog,
               ),
               Divider(
                 height: 1,
-                indent: 56,
-                color: borderLightColor,
+                indent: 70,
+                color: AppColors.fieldBorder,
               ),
-              UrbanListTile(
-                leading: Icon(
-                  Icons.privacy_tip_outlined,
-                  color: darkTextColor,
-                ),
+              _SettingsTile(
+                leading: Icon(Icons.privacy_tip_outlined),
                 title: Text(
                   _localized('privacy_policy_title', 'حریم خصوصی و داده‌ها'),
                   style: TextStyle(
                     fontWeight: FontWeight.w600,
                     fontSize: 14,
-                    color: darkTextColor,
+                    color: AppColors.textPrimary,
                   ),
                 ),
                 subtitle: Text(
                   _localized('privacy_policy_sub', 'نحوهٔ دریافت، استفاده و نگهداری اطلاعات'),
                   style: const TextStyle(
                     fontSize: 12,
-                    color: Color(0xFF64748B),
+                    color: AppColors.textSecondary,
                   ),
                 ),
                 trailing: Icon(
                   chevronIcon,
-                  color: const Color(0xFF94A3B8),
+                  color: AppColors.handle,
                 ),
                 onTap: _showPrivacyDialog,
               ),
               Divider(
                 height: 1,
-                indent: 56,
-                color: borderLightColor,
+                indent: 70,
+                color: AppColors.fieldBorder,
               ),
-              UrbanListTile(
+              _SettingsTile(
                 leading: Icon(
                   Icons.delete_forever_outlined,
-                  color: Colors.red.shade600,
                 ),
                 title: Text(
                   _localized('delete_account_title', 'حذف حساب و داده‌ها'),
                   style: TextStyle(
                     fontWeight: FontWeight.w600,
                     fontSize: 14,
-                    color: darkTextColor,
+                    color: AppColors.textPrimary,
                   ),
                 ),
                 subtitle: Text(
                   _localized('delete_account_sub', 'راهنمای ثبت درخواست حذف حساب'),
                   style: const TextStyle(
                     fontSize: 12,
-                    color: Color(0xFF64748B),
+                    color: AppColors.textSecondary,
                   ),
                 ),
                 trailing: Icon(
                   chevronIcon,
-                  color: const Color(0xFF94A3B8),
+                  color: AppColors.handle,
                 ),
+                accent: AppColors.danger,
                 onTap: _showDeleteAccountDialog,
               ),
               Divider(
                 height: 1,
-                indent: 56,
-                color: borderLightColor,
+                indent: 70,
+                color: AppColors.fieldBorder,
               ),
-              UrbanListTile(
-                leading: Icon(
-                  Icons.info_outline_rounded,
-                  color: darkTextColor,
-                ),
+              _SettingsTile(
+                leading: Icon(Icons.info_outline_rounded),
                 title: Text(
                   _localized('about_app_title', 'دربارهٔ اپلیکیشن'),
                   style: TextStyle(
                     fontWeight: FontWeight.w600,
                     fontSize: 14,
-                    color: darkTextColor,
+                    color: AppColors.textPrimary,
                   ),
                 ),
                 subtitle: Text(
                   _localized('about_app_sub', 'معرفی سفیر و نسخهٔ برنامه'),
                   style: const TextStyle(
                     fontSize: 12,
-                    color: Color(0xFF64748B),
+                    color: AppColors.textSecondary,
                   ),
                 ),
                 trailing: Icon(
                   chevronIcon,
-                  color: const Color(0xFF94A3B8),
+                  color: AppColors.handle,
                 ),
                 onTap: _showAboutDialog,
               ),
@@ -957,22 +935,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
     required bool value,
     required ValueChanged<bool> onChanged,
   }) {
-    return UrbanListTile(
-      leading: Icon(
-        icon,
-        color: darkTextColor,
-      ),
+    return _SettingsTile(
+      leading: Icon(icon),
       title: Text(
         title,
         style: TextStyle(
           fontWeight: FontWeight.w600,
           fontSize: 14,
-          color: darkTextColor,
+          color: AppColors.textPrimary,
         ),
       ),
       trailing: _ModernSwitch(
         value: value,
-        activeColor: primaryAccent,
+        activeColor: AppColors.primaryBrand,
         onChanged: onChanged,
       ),
       onTap: () {
@@ -990,10 +965,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       child: Text(
         title,
         style: TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.w600,
-          color: darkTextColor,
-          letterSpacing: 0.2,
+          fontSize: 12,
+          fontWeight: FontWeight.w800,
+          color: AppColors.textSecondary,
         ),
       ),
     );
@@ -1002,19 +976,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget _buildCardGroup(List<Widget> children) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.cardBgLight,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: borderLightColor,
-          width: 1.5,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.02),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        border: Border.all(color: AppColors.fieldBorder),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(16),
@@ -1054,12 +1018,12 @@ class _ModernSwitch extends StatelessWidget {
           decoration: BoxDecoration(
             color: value
                 ? activeColor
-                : const Color(0xFFE2E8F0),
+                : AppColors.fieldBorder,
             borderRadius: BorderRadius.circular(30),
             border: Border.all(
               color: value
                   ? activeColor
-                  : const Color(0xFFCBD5E1),
+                  : AppColors.borderLight,
             ),
           ),
           child: AnimatedAlign(
@@ -1073,11 +1037,11 @@ class _ModernSwitch extends StatelessWidget {
               width: 19,
               height: 19,
               decoration: const BoxDecoration(
-                color: Colors.white,
+                color: AppColors.buttonText,
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
-                    color: Color(0x22000000),
+                    color: Colors.black12,
                     blurRadius: 3,
                     offset: Offset(0, 1),
                   ),
@@ -1093,5 +1057,74 @@ class _ModernSwitch extends StatelessWidget {
   String _localizedKey(String key, String fallback) {
     final String value = key.tr();
     return value.isEmpty || value == key ? fallback : value;
+  }
+}
+/// ردیف تنظیمات: آیکون در کادر رنگی، عنوان، زیرعنوان، و جزء انتهایی.
+/// هم‌شکل با آیتم‌های منوی پروفایل (animated_menus.dart).
+class _SettingsTile extends StatelessWidget {
+  const _SettingsTile({
+    required this.leading,
+    required this.title,
+    this.subtitle,
+    this.trailing,
+    this.onTap,
+    this.accent = AppColors.primaryBrand,
+  });
+
+  final Widget leading;
+  final Widget title;
+  final Widget? subtitle;
+  final Widget? trailing;
+  final VoidCallback? onTap;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 14,
+            vertical: 12,
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: accent.withOpacity(0.10),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: IconTheme(
+                  data: IconThemeData(color: accent, size: 21),
+                  child: leading,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    title,
+                    if (subtitle != null) ...[
+                      const SizedBox(height: 3),
+                      subtitle!,
+                    ],
+                  ],
+                ),
+              ),
+              if (trailing != null) ...[
+                const SizedBox(width: 8),
+                trailing!,
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
