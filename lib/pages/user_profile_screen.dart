@@ -8,20 +8,11 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:safir_passengers/global/global_var.dart';
 import 'package:safir_passengers/authentication/register_screen.dart';
+import 'package:safir_passengers/theme/app_colors.dart';
 
-class AppColors {
-  static const Color primaryBrand = Color(0xFF0066FF);
-  static const Color primaryButton = Color(0xFF0066FF);
-  static const Color primaryButtonPressed = Color(0xFF4348D6);
-  static const Color buttonText = Colors.white;
-  static const Color textPrimary = Color(0xFF26293D);
-  static const Color textSecondary = Color(0xFF9AA0A6);
-  static const Color appBarDivider = Color(0xFFD6DADF);
-  static const Color sectionDivider = Color(0xFFF1F5F9);
-  static const Color fieldBorder = Color(0xFFE2E8F0);
-  static const Color wheelGreen = Color(0xFF39B169);
-  static const Color cardBorder = Color(0xFFE8ECEF);
-}
+// فایل‌هایی که قبلاً AppColors را از همین فایل می‌گرفتند، حالا همان AppColors
+// اصلی پروژه را می‌گیرند (دیگر کلاس جداگانه‌ی آبی وجود ندارد).
+export 'package:safir_passengers/theme/app_colors.dart';
 
 String toEnglishDigits(String input) {
   const english = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
@@ -146,7 +137,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         return Container(
           padding: const EdgeInsets.all(24),
           decoration: const BoxDecoration(
-            color: Colors.white,
+            color: AppColors.cardBgLight,
             borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
           ),
           child: Column(
@@ -156,7 +147,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
+                  color: AppColors.handle,
                   borderRadius: BorderRadius.circular(10),
                 ),
               ),
@@ -193,7 +184,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                   onPressed: () => Navigator.pop(context),
                   child: Text(
                     "got_it_btn".tr().isEmpty ? "متوجه شدم" : "got_it_btn".tr(),
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 15),
+                    style: const TextStyle(color: AppColors.buttonText, fontWeight: FontWeight.w600, fontSize: 15),
                   ),
                 ),
               ),
@@ -218,22 +209,24 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     bool? confirm = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        backgroundColor: AppColors.cardBgLight,
+        surfaceTintColor: AppColors.cardBgLight,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
         content: Text(content, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w400)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
-            child: Text("cancel".tr().isEmpty ? "انصراف" : "cancel".tr(), style: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.w600)),
+            child: Text("cancel".tr().isEmpty ? "انصراف" : "cancel".tr(), style: TextStyle(color: AppColors.textSecondary, fontWeight: FontWeight.w600)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: isSwitchAccount ? AppColors.primaryBrand : Colors.red,
+              backgroundColor: isSwitchAccount ? AppColors.primaryBrand : AppColors.danger,
               elevation: 0,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
             onPressed: () => Navigator.pop(dialogContext, true),
-            child: Text("confirm".tr().isEmpty ? "تأیید" : "confirm".tr(), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+            child: Text("confirm".tr().isEmpty ? "تأیید" : "confirm".tr(), style: const TextStyle(color: AppColors.buttonText, fontWeight: FontWeight.w600)),
           ),
         ],
       ),
@@ -264,12 +257,37 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     }
   }
 
+  /// آیکون داخل کادر رنگی نرم (هم‌شکل با منوی پروفایل)
+  Widget _tileIcon(IconData icon, Color color) {
+    return Container(
+      width: 38,
+      height: 38,
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.10),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Icon(icon, color: color, size: 20),
+    );
+  }
+
+  /// فلش جهت‌دار (در فارسی به چپ، در انگلیسی به راست)
+  Widget _chevron() {
+    return Icon(
+      Directionality.of(context) == ui.TextDirection.rtl
+          ? Icons.chevron_left_rounded
+          : Icons.chevron_right_rounded,
+      color: AppColors.handle,
+      size: 22,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.backgroundLight,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.backgroundLight,
+        surfaceTintColor: AppColors.backgroundLight,
         elevation: 0,
         scrolledUnderElevation: 0,
         title: Text(
@@ -278,7 +296,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         ),
         centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 19, color: AppColors.textPrimary),
           onPressed: () => Navigator.pop(context),
         ),
       ),
@@ -299,8 +317,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             border: Border.all(
-                              color: const Color(0xFFE5E5E5),
-                              width: 1,
+                              color: AppColors.primaryBrand.withOpacity(0.35),
+                              width: 2,
                             ),
                           ),
                           child: ClipOval(
@@ -308,8 +326,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                               'assets/images/default_profile.png',
                               fit: BoxFit.contain,
                               errorBuilder: (context, error, stackTrace) => Container(
-                                color: const Color(0xFFF3F4F6),
-                                child: Icon(Icons.person, size: 52, color: Colors.grey.shade400),
+                                color: AppColors.backgroundLight,
+                                child: Icon(Icons.person, size: 52, color: AppColors.iconSecondary),
                               ),
                             ),
                           ),
@@ -318,7 +336,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                         Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.star_rounded, color: Colors.amber, size: 19),
+                            const Icon(Icons.star_rounded, color: AppColors.warning, size: 19),
                             const SizedBox(width: 4),
                             Text(
                               formatNumberByLocale(context, _userRating),
@@ -337,16 +355,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                     child: Container(
                       padding: const EdgeInsets.all(18),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: AppColors.cardBgLight,
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: AppColors.cardBorder, width: 1.1),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.012),
-                            blurRadius: 8,
-                            offset: const Offset(0, 3),
-                          )
-                        ],
+                        border: Border.all(color: AppColors.fieldBorder),
                       ),
                       child: Column(
                         children: [
@@ -359,9 +370,16 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                               ),
                               GestureDetector(
                                 onTap: _openEditProfileDrawer,
-                                child: Text(
-                                  "edit".tr().isEmpty ? "ویرایش" : "edit".tr(),
-                                  style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: AppColors.primaryBrand),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.cardBackground,
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: Text(
+                                    "edit".tr().isEmpty ? "ویرایش" : "edit".tr(),
+                                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.primaryBrand),
+                                  ),
                                 ),
                               ),
                             ],
@@ -413,16 +431,16 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                               "badge_polite_title".tr().isEmpty ? "مسافر بااخلاق" : "badge_polite_title".tr(),
                               "badge_polite_desc".tr().isEmpty ? "رانندگان سفیر رفتار محترمانه و صمیمانه شما در طول سفر را تحسین کرده‌اند." : "badge_polite_desc".tr(),
                               Icons.sentiment_very_satisfied_rounded,
-                              const Color(0xFF10B981),
+                              AppColors.success,
                             ),
                             borderRadius: BorderRadius.circular(16),
                             child: Container(
                               padding: const EdgeInsets.all(14),
                               margin: const EdgeInsetsDirectional.only(end: 6),
                               decoration: BoxDecoration(
-                                color: const Color(0xFFF8FAFC),
+                                color: AppColors.cardBgLight,
                                 borderRadius: BorderRadius.circular(16),
-                                border: Border.all(color: const Color(0xFFE2E8F0), width: 1),
+                                border: Border.all(color: AppColors.fieldBorder),
                               ),
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
@@ -430,13 +448,13 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                   Container(
                                     padding: const EdgeInsets.all(10),
                                     decoration: BoxDecoration(
-                                      color: const Color(0xFF10B981).withOpacity(0.12),
+                                      color: AppColors.success.withOpacity(0.12),
                                       shape: BoxShape.circle,
                                     ),
                                     child: const Icon(
                                       Icons.sentiment_very_satisfied_rounded,
                                       size: 26,
-                                      color: Color(0xFF10B981),
+                                      color: AppColors.success,
                                     ),
                                   ),
                                   const SizedBox(height: 8),
@@ -461,16 +479,16 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                               "badge_punctual_title".tr().isEmpty ? "مسافر وقت‌شناس" : "badge_punctual_title".tr(),
                               "badge_punctual_desc".tr().isEmpty ? "حضور به موقع شما در مبدأ باعث سفری سریع‌تر و روان‌تر می‌شود." : "badge_punctual_desc".tr(),
                               Icons.access_time_filled_rounded,
-                              AppColors.primaryBrand,
+                              AppColors.originBlue,
                             ),
                             borderRadius: BorderRadius.circular(16),
                             child: Container(
                               padding: const EdgeInsets.all(14),
                               margin: const EdgeInsetsDirectional.only(start: 6),
                               decoration: BoxDecoration(
-                                color: const Color(0xFFF8FAFC),
+                                color: AppColors.cardBgLight,
                                 borderRadius: BorderRadius.circular(16),
-                                border: Border.all(color: const Color(0xFFE2E8F0), width: 1),
+                                border: Border.all(color: AppColors.fieldBorder),
                               ),
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
@@ -478,13 +496,13 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                   Container(
                                     padding: const EdgeInsets.all(10),
                                     decoration: BoxDecoration(
-                                      color: AppColors.primaryBrand.withOpacity(0.12),
+                                      color: AppColors.originBlue.withOpacity(0.12),
                                       shape: BoxShape.circle,
                                     ),
                                     child: const Icon(
                                       Icons.access_time_filled_rounded,
                                       size: 26,
-                                      color: AppColors.primaryBrand,
+                                      color: AppColors.originBlue,
                                     ),
                                   ),
                                   const SizedBox(height: 8),
@@ -535,16 +553,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: AppColors.cardBgLight,
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: AppColors.cardBorder, width: 1.1),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.012),
-                            blurRadius: 8,
-                            offset: const Offset(0, 3),
-                          )
-                        ],
+                        border: Border.all(color: AppColors.fieldBorder),
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -570,38 +581,31 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                     padding: const EdgeInsets.symmetric(horizontal: 20.0),
                     child: Container(
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: AppColors.cardBgLight,
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: AppColors.cardBorder, width: 1.1),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.012),
-                            blurRadius: 8,
-                            offset: const Offset(0, 3),
-                          )
-                        ],
+                        border: Border.all(color: AppColors.fieldBorder),
                       ),
                       child: Column(
                         children: [
                           ListTile(
                             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
-                            leading: const Icon(Icons.switch_account_outlined, color: AppColors.primaryBrand, size: 21),
+                            leading: _tileIcon(Icons.switch_account_outlined, AppColors.primaryBrand),
                             title: Text(
                               "switch_account_title".tr().isEmpty ? "تغییر حساب کاربری" : "switch_account_title".tr(),
                               style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
                             ),
-                            trailing: const Icon(Icons.arrow_forward_ios, size: 13, color: AppColors.textSecondary),
+                            trailing: _chevron(),
                             onTap: () => _handleLogout(isSwitchAccount: true),
                           ),
-                          const Divider(height: 1, color: AppColors.cardBorder, indent: 16, endIndent: 16),
+                          const Divider(height: 1, color: AppColors.fieldBorder, indent: 70, endIndent: 16),
                           ListTile(
                             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
-                            leading: const Icon(Icons.logout_rounded, color: Colors.redAccent, size: 21),
+                            leading: _tileIcon(Icons.logout_rounded, AppColors.danger),
                             title: Text(
                               "exit".tr().isEmpty ? "خروج" : "exit".tr(),
-                              style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: Colors.redAccent),
+                              style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: AppColors.danger),
                             ),
-                            trailing: const Icon(Icons.arrow_forward_ios, size: 13, color: Colors.grey),
+                            trailing: _chevron(),
                             onTap: () => _handleLogout(isSwitchAccount: false),
                           ),
                         ],
@@ -839,7 +843,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           content: Text(
             '${_tr('profile_update_error', 'خطا در به‌روزرسانی اطلاعات')}: $e',
           ),
-          backgroundColor: Colors.red,
+          backgroundColor: AppColors.danger,
         ),
       );
     } finally {
@@ -854,7 +858,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.cardBgLight,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -1001,7 +1005,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.cardBgLight,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
@@ -1039,7 +1043,17 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   const SizedBox(height: 8),
                   SizedBox(
                     height: 180,
-                    child: Row(
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Container(
+                          height: 42,
+                          decoration: BoxDecoration(
+                            color: AppColors.cardBackground,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        Row(
                       children: [
                         Expanded(
                           child: ListWheelScrollView.useDelegate(
@@ -1157,6 +1171,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         ),
                       ],
                     ),
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 20),
                   SizedBox(
@@ -1208,7 +1224,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.cardBgLight,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
@@ -1308,10 +1324,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       resizeToAvoidBottomInset: true,
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.cardBgLight,
       appBar: AppBar(
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.white,
+        backgroundColor: AppColors.cardBgLight,
+        surfaceTintColor: AppColors.cardBgLight,
         elevation: 0,
         scrolledUnderElevation: 0,
         centerTitle: true,
@@ -1330,13 +1346,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           ),
           onPressed: () => Navigator.maybePop(context),
         ),
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(1),
-          child: Container(
-            height: 1,
-            color: AppColors.appBarDivider,
-          ),
-        ),
+
       ),
       bottomNavigationBar: AnimatedPadding(
   duration: const Duration(milliseconds: 150),
@@ -1350,19 +1360,19 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         : MediaQuery.of(context).padding.bottom + 12,
   ),
   child: Container(
-    height: 48,
+    height: 52,
     width: double.infinity,
     decoration: const BoxDecoration(
-      color: Colors.white,
+      color: AppColors.cardBgLight,
     ),
     child: ElevatedButton(
       style: ElevatedButton.styleFrom(
         backgroundColor: _isChanged
             ? AppColors.primaryButton
-            : Colors.grey.shade300,
+            : AppColors.handle,
         elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(14),
         ),
       ),
       onPressed: _isChanged && !_isSaving ? _updateUserData : null,
@@ -1378,7 +1388,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           : Text(
               _tr('save_changes_btn', 'ذخیره'),
               style: TextStyle(
-                color: _isChanged ? AppColors.buttonText : Colors.grey.shade600,
+                color: _isChanged ? AppColors.buttonText : AppColors.textSecondary,
                 fontSize: 15,
                 fontWeight: FontWeight.w600,
               ),
@@ -1412,8 +1422,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         border: Border.all(
-                          color: const Color(0xFFE5E5E5),
-                          width: 0.8,
+                          color: AppColors.primaryBrand.withOpacity(0.35),
+                          width: 2,
                         ),
                       ),
                       child: ClipOval(
@@ -1422,11 +1432,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           fit: BoxFit.contain,
                           errorBuilder: (context, error, stackTrace) {
                             return Container(
-                              color: const Color(0xFFF3F4F6),
+                              color: AppColors.backgroundLight,
                               child: Icon(
                                 Icons.person,
                                 size: 52,
-                                color: Colors.grey.shade400,
+                                color: AppColors.iconSecondary,
                               ),
                             );
                           },
@@ -1496,7 +1506,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   Container(
                     height: 8,
                     width: double.infinity,
-                    color: AppColors.sectionDivider,
+                    color: AppColors.backgroundLight,
                   ),
                   const SizedBox(height: 20),
                   Padding(
@@ -1564,7 +1574,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     final OutlineInputBorder normalBorder = OutlineInputBorder(
       borderRadius: BorderRadius.circular(10),
       borderSide: const BorderSide(
-        color: Color(0xFF9E9E9E),
+        color: AppColors.fieldBorder,
         width: 1.0,
       ),
     );
@@ -1600,18 +1610,18 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           floatingLabelAlignment: FloatingLabelAlignment.start,
           alignLabelWithHint: false,
           labelStyle: const TextStyle(
-            color: Color(0xFF9E9E9E),
+            color: AppColors.textSecondary,
             fontSize: 12.5,
             fontWeight: FontWeight.w400,
           ),
           floatingLabelStyle: const TextStyle(
-            color: Color(0xFF757575),
+            color: AppColors.textSecondary,
             fontSize: 12,
             fontWeight: FontWeight.w500,
-            backgroundColor: Colors.white,
+            backgroundColor: AppColors.backgroundLight,
           ),
           hintStyle: const TextStyle(
-            color: Color(0xFFBDBDBD),
+            color: AppColors.handle,
             fontSize: 13,
             fontWeight: FontWeight.w400,
           ),
@@ -1620,7 +1630,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             vertical: 22,
           ),
           filled: true,
-          fillColor: Colors.white,
+          fillColor: AppColors.backgroundLight,
           border: normalBorder,
           enabledBorder: normalBorder,
           disabledBorder: normalBorder,
@@ -1641,7 +1651,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     final OutlineInputBorder normalBorder = OutlineInputBorder(
       borderRadius: BorderRadius.circular(10),
       borderSide: const BorderSide(
-        color: Color(0xFF9E9E9E),
+        color: AppColors.fieldBorder,
         width: 1.0,
       ),
       gapPadding: 4,
@@ -1663,22 +1673,22 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 ? FloatingLabelBehavior.always
                 : FloatingLabelBehavior.never,
             labelStyle: const TextStyle(
-              color: Color(0xFF9E9E9E),
+              color: AppColors.textSecondary,
               fontSize: 12.5,
               fontWeight: FontWeight.w400,
             ),
             floatingLabelStyle: const TextStyle(
-              color: Color(0xFF757575),
+              color: AppColors.textSecondary,
               fontSize: 12,
               fontWeight: FontWeight.w500,
-              backgroundColor: Colors.white,
+              backgroundColor: AppColors.backgroundLight,
             ),
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,
               vertical: 22,
             ),
             filled: true,
-            fillColor: Colors.white,
+            fillColor: AppColors.backgroundLight,
             border: normalBorder,
             enabledBorder: normalBorder,
           ),
@@ -1691,7 +1701,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   style: TextStyle(
                     color: hasValue
                         ? AppColors.textPrimary
-                        : const Color(0xFFBDBDBD),
+                        : const AppColors.handle,
                     fontSize: hasValue ? 13.5 : 12.5,
                     fontWeight: FontWeight.w400,
                   ),
@@ -1700,7 +1710,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               const SizedBox(width: 8),
               const Icon(
                 Icons.keyboard_arrow_down_rounded,
-                color: Color(0xFF9E9E9E),
+                color: AppColors.iconSecondary,
                 size: 20,
               ),
             ],
