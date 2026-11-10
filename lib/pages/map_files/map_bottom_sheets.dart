@@ -122,7 +122,7 @@ class MapBottomSheets {
         final String currency = 'currency_afg'.tr();
 
         return Container(
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             color: AppColors.cardBgLight,
             borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
             boxShadow: [
@@ -160,7 +160,7 @@ class MapBottomSheets {
                     const SizedBox(height: 12),
                     Text(
                       'searching_driver_msg'.tr(),
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
                         color: AppColors.textPrimary,
@@ -173,7 +173,7 @@ class MapBottomSheets {
               if (onBidPricePressed != null) ...[
               OutlinedButton.icon(
                 style: OutlinedButton.styleFrom(
-                  side: const BorderSide(
+                  side: BorderSide(
                     color: AppColors.primaryBrand,
                     width: 1.2,
                   ),
@@ -186,14 +186,14 @@ class MapBottomSheets {
                   HapticFeedback.lightImpact();
                   onBidPricePressed?.call();
                 },
-                icon: const Icon(
+                icon: Icon(
                   Icons.arrow_back_ios_new,
                   size: 14,
                   color: AppColors.primaryBrand,
                 ),
                 label: Text(
                   'new_bid_offer'.tr(),
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.primaryBrand,
                     fontWeight: FontWeight.w600,
                     fontSize: 14,
@@ -204,7 +204,7 @@ class MapBottomSheets {
               ],
               Text(
                 'opt_ride_options'.tr(),
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                   color: AppColors.textPrimary,
@@ -213,7 +213,7 @@ class MapBottomSheets {
               const SizedBox(height: 12),
               Row(
                 children: [
-                  const Icon(
+                  Icon(
                     Icons.circle,
                     size: 12,
                     color: AppColors.originBlue,
@@ -224,7 +224,7 @@ class MapBottomSheets {
                       originAddress.isEmpty ? 'origin'.tr() : originAddress,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w400,
                         color: AppColors.textPrimary,
@@ -241,7 +241,7 @@ class MapBottomSheets {
               ),
               Row(
                 children: [
-                  const Icon(
+                  Icon(
                     Icons.square,
                     size: 12,
                     color: AppColors.primaryBrand,
@@ -254,7 +254,7 @@ class MapBottomSheets {
                           : destinationAddress,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w400,
                         color: AppColors.textPrimary,
@@ -266,7 +266,7 @@ class MapBottomSheets {
               const SizedBox(height: 12),
               Row(
                 children: [
-                  const Icon(
+                  Icon(
                     Icons.payments_outlined,
                     size: 18,
                     color: AppColors.iconSecondary,
@@ -274,7 +274,7 @@ class MapBottomSheets {
                   const SizedBox(width: 8),
                   Text(
                     '${fareAmount.toStringAsFixed(0)} $currency',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
                       color: AppColors.textPrimary,
@@ -319,7 +319,7 @@ class MapBottomSheets {
                 },
                 child: Text(
                   'cancel_request_title'.tr(),
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.textPrimary,
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
@@ -395,7 +395,7 @@ class MapBottomSheets {
                     children: [
                       Text(
                         'cancel_request_title'.tr(),
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w600,
                           color: AppColors.textPrimary,
@@ -425,7 +425,7 @@ class MapBottomSheets {
                   const SizedBox(height: 8),
                   Text(
                     'select_cancel_reason_title'.tr(),
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w400,
                       color: AppColors.textPrimary,
@@ -438,7 +438,7 @@ class MapBottomSheets {
                     return RadioListTile<String>(
                       title: Text(
                         titleText,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w400,
                           color: AppColors.textPrimary,
@@ -524,7 +524,7 @@ class MapBottomSheets {
                                 },
                           child: Text(
                             'confirm_cancel_btn'.tr(),
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: AppColors.buttonText,
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
@@ -537,7 +537,7 @@ class MapBottomSheets {
                         onPressed: () => Navigator.pop(context),
                         child: Text(
                           'cancel'.tr(),
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: AppColors.textPrimary,
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
@@ -637,7 +637,7 @@ class MapBottomSheets {
           };
 
           return Container(
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               color: AppColors.cardBgLight,
               borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
               boxShadow: [
@@ -678,7 +678,7 @@ class MapBottomSheets {
                           isOnTrip,
                           estimatedArrivalTime,
                         ),
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
                           color: AppColors.textPrimary,
@@ -687,7 +687,7 @@ class MapBottomSheets {
                     ],
                   ),
                 ),
-                const Divider(height: 1, thickness: 0.8, color: AppColors.fieldBorder),
+                Divider(height: 1, thickness: 0.8, color: AppColors.fieldBorder),
                 DriverInfoCard(
                   driverData: driverData,
                   onCallPressed: () {
@@ -722,7 +722,7 @@ class MapBottomSheets {
                     child: OutlinedButton.icon(
                       style: OutlinedButton.styleFrom(
                         backgroundColor: AppColors.dangerSoft,
-                        side: const BorderSide(color: AppColors.danger, width: 1.2),
+                        side: BorderSide(color: AppColors.danger, width: 1.2),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
                       onPressed: () {
@@ -736,10 +736,10 @@ class MapBottomSheets {
                           );
                         }
                       },
-                      icon: const Icon(Icons.cancel_outlined, color: AppColors.danger, size: 20),
+                      icon: Icon(Icons.cancel_outlined, color: AppColors.danger, size: 20),
                       label: Text(
                         'cancel_current_trip_btn'.tr(),
-                        style: const TextStyle(color: AppColors.danger, fontSize: 14, fontWeight: FontWeight.w600),
+                        style: TextStyle(color: AppColors.danger, fontSize: 14, fontWeight: FontWeight.w600),
                       ),
                     ),
                   ),
@@ -963,7 +963,7 @@ class MapBottomSheets {
                       title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontWeight: FontWeight.w800,
                         fontSize: 15,
                         color: AppColors.textPrimary,
@@ -974,7 +974,7 @@ class MapBottomSheets {
                       subtitle,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w400,
                         color: AppColors.textSecondary,
@@ -1211,7 +1211,7 @@ class _Step2SheetState extends State<_Step2Sheet> {
         }
       },
       child: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           color: AppColors.cardBgLight,
           borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
           boxShadow: [
@@ -1339,7 +1339,7 @@ class _Step2SheetState extends State<_Step2Sheet> {
                       ),
                       child: Text(
                         'btn_request_safir'.tr(),
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: AppColors.buttonText,
                           fontSize: 16,
                           fontWeight: FontWeight.w800,
@@ -1555,7 +1555,7 @@ class _PaymentSheetState extends State<_PaymentSheet> {
                 const SizedBox(height: 12),
                 Text(
                   _payTr(context, 'payment_settlement_title'),
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
                     color: AppColors.textPrimary,
@@ -1565,7 +1565,7 @@ class _PaymentSheetState extends State<_PaymentSheet> {
                 Text(
                   '${_payTr(context, 'payable_amount_label')}: '
                   '${_formatAmount(widget.amount)} ${'currency_afg'.tr()}',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                     color: AppColors.primaryBrand,
@@ -1587,7 +1587,7 @@ class _PaymentSheetState extends State<_PaymentSheet> {
                       Expanded(
                         child: Text(
                           bannerText,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 12,
                             height: 1.5,
                             color: AppColors.textPrimary,
@@ -1616,7 +1616,7 @@ class _PaymentSheetState extends State<_PaymentSheet> {
                     ),
                     onPressed: onPressed,
                     child: _sending
-                        ? const SizedBox(
+                        ? SizedBox(
                             width: 22,
                             height: 22,
                             child: CircularProgressIndicator(
