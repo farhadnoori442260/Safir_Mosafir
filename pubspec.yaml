@@ -95,6 +95,7 @@ flutter:
     - assets/audio/fa/driver_accepted.mp3
     - assets/audio/fa/driver_arrived.mp3
     - assets/map/style.json
+    - assets/map/style_dark.json
     - assets/fonts/
 
   fonts:
