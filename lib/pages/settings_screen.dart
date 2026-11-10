@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:safir_passengers/theme/app_colors.dart';
+import 'package:safir_passengers/theme/theme_controller.dart';
 
 class SettingsScreen extends StatefulWidget {
   final String currentLanguage;
@@ -496,7 +497,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 child: Text(
                   content,
                   textAlign: TextAlign.justify,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
                     height: 1.75,
                     color: AppColors.textPrimary,
@@ -680,7 +681,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     'current_language_prefix',
                     'زبان فعلی',
                   )}: ${_getLanguageName(currentLangCode)}',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
                     color: AppColors.textSecondary,
                     fontWeight: FontWeight.w400,
@@ -693,6 +694,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 onTap: _showLanguageDialog,
               ),
             ]),
+            const SizedBox(height: 24),
+            _buildSectionHeader(
+              _localized('appearance_header', 'ظاهر برنامه'),
+            ),
+            _buildCardGroup([_buildThemeSelector()]),
             const SizedBox(height: 24),
             _buildSectionHeader(
               _localized(
@@ -763,7 +769,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     'clear_cache_subtitle',
                     'آزادسازی فضای اشغال‌شده توسط عکس‌ها و نقشه‌ها',
                   ),
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
                     color: AppColors.textSecondary,
                     fontWeight: FontWeight.w400,
@@ -795,7 +801,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 subtitle: Text(
                   _localized('services_safir_sub', 'امکانات و خدمات مسافر و راننده'),
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
                     color: AppColors.textSecondary,
                   ),
@@ -823,7 +829,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 subtitle: Text(
                   _localized('terms_conditions_sub', 'حقوق، مسئولیت‌ها و قوانین سفر'),
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
                     color: AppColors.textSecondary,
                   ),
@@ -851,7 +857,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 subtitle: Text(
                   _localized('privacy_policy_sub', 'نحوهٔ دریافت، استفاده و نگهداری اطلاعات'),
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
                     color: AppColors.textSecondary,
                   ),
@@ -881,7 +887,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 subtitle: Text(
                   _localized('delete_account_sub', 'راهنمای ثبت درخواست حذف حساب'),
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
                     color: AppColors.textSecondary,
                   ),
@@ -910,7 +916,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 subtitle: Text(
                   _localized('about_app_sub', 'معرفی سفیر و نسخهٔ برنامه'),
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
                     color: AppColors.textSecondary,
                   ),
@@ -953,6 +959,76 @@ class _SettingsScreenState extends State<SettingsScreen> {
       onTap: () {
         onChanged(!value);
       },
+    );
+  }
+
+  /// انتخاب تم: خودکار (سیستم) / روشن / تاریک
+  Widget _buildThemeSelector() {
+    final mode = ThemeController.instance.mode;
+    final options = <MapEntry<ThemeMode, List<Object>>>[
+      MapEntry(ThemeMode.system,
+          [Icons.brightness_auto_rounded, _localized('theme_system', 'خودکار')]),
+      MapEntry(ThemeMode.light,
+          [Icons.light_mode_rounded, _localized('theme_light', 'روشن')]),
+      MapEntry(ThemeMode.dark,
+          [Icons.dark_mode_rounded, _localized('theme_dark', 'تاریک')]),
+    ];
+    return Padding(
+      padding: const EdgeInsets.all(12),
+      child: Container(
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: AppColors.backgroundLight,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Row(
+          children: [
+            for (final o in options)
+              Expanded(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    ThemeController.instance.setMode(o.key);
+                  },
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    decoration: BoxDecoration(
+                      color: mode == o.key
+                          ? AppColors.primaryButton
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(11),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          o.value[0] as IconData,
+                          size: 18,
+                          color: mode == o.key
+                              ? AppColors.buttonText
+                              : AppColors.textSecondary,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          o.value[1] as String,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: mode == o.key
+                                ? AppColors.buttonText
+                                : AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -1036,7 +1112,7 @@ class _ModernSwitch extends StatelessWidget {
               duration: const Duration(milliseconds: 180),
               width: 19,
               height: 19,
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 color: AppColors.buttonText,
                 shape: BoxShape.circle,
                 boxShadow: [
@@ -1068,7 +1144,7 @@ class _SettingsTile extends StatelessWidget {
     this.subtitle,
     this.trailing,
     this.onTap,
-    this.accent = AppColors.primaryBrand,
+    this.accent,
   });
 
   final Widget leading;
@@ -1076,10 +1152,11 @@ class _SettingsTile extends StatelessWidget {
   final Widget? subtitle;
   final Widget? trailing;
   final VoidCallback? onTap;
-  final Color accent;
+  final Color? accent;
 
   @override
   Widget build(BuildContext context) {
+    final Color accent = this.accent ?? AppColors.primaryBrand;
     return Material(
       color: Colors.transparent,
       child: InkWell(
