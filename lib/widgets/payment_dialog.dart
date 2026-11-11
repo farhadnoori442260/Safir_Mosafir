@@ -1,9 +1,11 @@
-import 'package:easy_localization/easy_localization.dart';
+import 'package:easy_localization/easy_localization.dart' hide TextDirection;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 // ایمپورت ثوابت و پالت رنگی اختصاصی سفیر
 import 'package:safir_passengers/theme/app_colors.dart'; // آدرس فایل رنگ‌ها را در صورت نیاز اصلاح کنید
 
+/// پرداخت نقدی پایان سفر. با تأیید، مقدار "paid" به صفحهٔ نقشه برمی‌گردد.
 class PaymentDialog extends StatefulWidget {
   final String fareAmount;
 
@@ -17,115 +19,165 @@ class PaymentDialog extends StatefulWidget {
 }
 
 class _PaymentDialogState extends State<PaymentDialog> {
+  /// ترجمه با متن جایگزین (اگر کلید نبود، خود کلید نشان داده نشود)
+  String _t(String key, String fallback, {List<String>? args}) {
+    final String v = args == null ? key.tr() : key.tr(args: args);
+    return (v.trim().isEmpty || v == key) ? fallback : v;
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Directionality(
-      textDirection: TextDirection.rtl, // راست‌چین کردن دیالوگ برای زبان‌های دری و پشتو
-      child: Dialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16), // لبه‌های گرد مدرن مطابق دیزاین سفیر
-        ),
-        backgroundColor: Colors.white,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // آیکون رسید یا پول با پس‌زمینه کارت روشن (#EAF6F1)
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: const BoxDecoration(
-                  color: AppColors.cardLightBg, // #EAF6F1
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.account_balance_wallet_rounded,
-                  color: AppColors.primaryBrand, // #145A41
-                  size: 32,
-                ),
+    final String currency = _t('currency_afghani', 'افغانی');
+
+    return Dialog(
+      backgroundColor: AppColors.cardBgLight,
+      surfaceTintColor: Colors.transparent,
+      elevation: 0,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 28),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(26),
+        side: BorderSide(color: AppColors.fieldBorder),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(22, 26, 22, 22),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // نشانهٔ پایان سفر
+            Container(
+              width: 68,
+              height: 68,
+              decoration: BoxDecoration(
+                color: AppColors.success.withOpacity(0.14),
+                shape: BoxShape.circle,
               ),
-              const SizedBox(height: 16),
-              
-              Text(
-                'cash_payment_to_driver'.tr(),
-                style: const TextStyle(
-                  color: Colors.black87,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
+              child: Icon(
+                Icons.payments_rounded,
+                color: AppColors.successDark,
+                size: 34,
               ),
-              const SizedBox(height: 12),
-              
-              Divider(height: 1, color: Colors.grey.withOpacity(0.25), thickness: 1.0),
-              const SizedBox(height: 20),
-              
-              // نمایش کرایه به افغانی با رنگ برند سفیر (#145A41)
-              Row(
+            ),
+            const SizedBox(height: 16),
+
+            Text(
+              _t('trip_finished_title', 'سفر شما به پایان رسید'),
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              _t('cash_payment_to_driver', 'پرداخت نقدی به راننده'),
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 17,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 18),
+
+            // کارت مبلغ
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 16),
+              decoration: BoxDecoration(
+                color: AppColors.backgroundLight,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: AppColors.fieldBorder),
+              ),
+              child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.baseline,
                 textBaseline: TextBaseline.alphabetic,
                 children: [
-                  Text(
-                    widget.fareAmount,
-                    style: const TextStyle(
-                      color: AppColors.primaryBrand, // #145A41
-                      fontSize: 38,
-                      fontWeight: FontWeight.bold,
+                  Flexible(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        widget.fareAmount,
+                        style: TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: 40,
+                          fontWeight: FontWeight.w800,
+                          height: 1.1,
+                        ),
+                      ),
                     ),
                   ),
-                  const SizedBox(width: 6),
+                  const SizedBox(width: 8),
                   Text(
-                    'currency_afghani'.tr(),
-                    style: const TextStyle(
-                      color: Colors.black54,
+                    currency,
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
                       fontSize: 16,
-                      fontWeight: FontWeight.w500,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
-              
-              // متن راهنما برای مسافر
-              Text(
-                'cash_payment_instruction'.tr(args: [widget.fareAmount]),
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Colors.black54,
-                  fontSize: 13,
-                  height: 1.5,
+            ),
+            const SizedBox(height: 14),
+
+            // راهنما برای مسافر
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  Icons.info_outline_rounded,
+                  size: 18,
+                  color: AppColors.textSecondary,
                 ),
-              ),
-              const SizedBox(height: 28),
-              
-              // دکمه تایید و اتمام سفر با رنگ اصلی دکمه (#1B7A57)
-              SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: ElevatedButton(
-                  onPressed: () {
-                    Navigator.pop(context, "paid"); // ارسال سیگنال پرداخت به نقشه اصلی
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primaryButton, // #1B7A57
-                    foregroundColor: AppColors.buttonPressed, // #0F4A35
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    elevation: 0,
-                  ),
+                const SizedBox(width: 8),
+                Expanded(
                   child: Text(
-                    'confirm_and_end_trip'.tr(),
-                    style: const TextStyle(
-                      color: AppColors.buttonText, // #FFFFFF
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
+                    _t(
+                      'cash_payment_instruction',
+                      'لطفاً مبلغ ${widget.fareAmount} $currency را به‌صورت نقد به راننده بپردازید.',
+                      args: [widget.fareAmount],
+                    ),
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 13,
+                      height: 1.6,
                     ),
                   ),
                 ),
+              ],
+            ),
+            const SizedBox(height: 22),
+
+            // تأیید پرداخت و پایان سفر
+            SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: ElevatedButton(
+                onPressed: () {
+                  HapticFeedback.mediumImpact();
+                  Navigator.pop(context, 'paid'); // ارسال سیگنال پرداخت به نقشه اصلی
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primaryButton,
+                  foregroundColor: AppColors.buttonText,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+                child: Text(
+                  _t('confirm_and_end_trip', 'تأیید و پایان سفر'),
+                  style: TextStyle(
+                    color: AppColors.buttonText,
+                    fontSize: 15.5,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
