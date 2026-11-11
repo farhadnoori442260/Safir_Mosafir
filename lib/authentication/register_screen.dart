@@ -1,3 +1,5 @@
+import 'dart:ui' as ui;
+
 import 'package:easy_localization/easy_localization.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -403,7 +405,7 @@ class _RegisterScreenState
                   ),
                   child: Directionality(
                     // شماره همیشه چپ‌به‌راست: +93 | 0781234567
-                    textDirection: TextDirection.ltr,
+                    textDirection: ui.TextDirection.ltr,
                     child: Row(
                       children: [
                         Container(
@@ -780,6 +782,7 @@ class _RegisterScreenState
     }
   }
 }
+
 /// نشانهٔ «G» گوگل بدون نیاز به اینترنت.
 /// (قبلاً از یک SVG اینترنتی با Image.network استفاده می‌شد که SVG را نمایش
 /// نمی‌دهد و همیشه آیکن قرمز جایگزین دیده می‌شد.)
