@@ -10,6 +10,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:safir_passengers/global/global_var.dart';
 import 'package:safir_passengers/theme/app_colors.dart';
 import 'package:safir_passengers/services/promo_service.dart';
+import 'package:safir_passengers/services/support_service.dart';
 import 'package:safir_passengers/services/referral_service.dart';
 import 'package:safir_passengers/pages/settings_screen.dart';
 import 'package:safir_passengers/pages/trips_history_page.dart';
@@ -18,7 +19,7 @@ import 'package:safir_passengers/pages/sub_screens.dart';
 import 'package:safir_passengers/pages/user_profile_screen.dart';
 
 // این پنج نام ممکن است در فایل‌های دیگر import شده باشند؛
-// نام‌ها نگه داشته شده‌اند ولی حالا به AppColors وصل‌اند.
+// نام‌ها نگه داشته شده‌اند ولی حالا به AppColors وصل‌اند (رنگ جدا ندارند).
 Color get primaryAccent => AppColors.primaryBrand;
 Color get darkTextColor => AppColors.textPrimary;
 Color get secondaryTextColor => AppColors.textSecondary;
@@ -31,28 +32,15 @@ String _mt(String key, String fallback, {List<String>? args}) {
   return (v.trim().isEmpty || v == key) ? fallback : v;
 }
 
-void _snack(
-  BuildContext context,
-  String message, {
-  Color? color,
-  SnackBarAction? action,
-}) {
+void _snack(BuildContext context, String message,
+    {Color? color, SnackBarAction? action}) {
   if (!context.mounted) return;
-
-  _snackOn(
-    ScaffoldMessenger.of(context),
-    message,
-    color: color,
-    action: action,
-  );
+  _snackOn(ScaffoldMessenger.of(context), message,
+      color: color, action: action);
 }
 
-void _snackOn(
-  ScaffoldMessengerState m,
-  String message, {
-  Color? color,
-  SnackBarAction? action,
-}) {
+void _snackOn(ScaffoldMessengerState m, String message,
+    {Color? color, SnackBarAction? action}) {
   m.hideCurrentSnackBar();
   m.showSnackBar(
     SnackBar(
@@ -70,59 +58,8 @@ void _snackOn(
   );
 }
 
-Future<void> _makeSupportCall(BuildContext context) async {
-  String phone = '+93700000000';
-
-  try {
-    final DocumentSnapshot<Map<String, dynamic>> snapshot =
-        await FirebaseFirestore.instance
-            .collection('admin_settings')
-            .doc('support')
-            .get();
-
-    final Map<String, dynamic>? data = snapshot.data();
-    final String? firestorePhone = data?['support_phone']?.toString();
-
-    if (firestorePhone != null && firestorePhone.trim().isNotEmpty) {
-      phone = firestorePhone.trim();
-    }
-  } catch (e) {
-    debugPrint('خطا در دریافت شماره پشتیبانی از Firestore: $e');
-  }
-
-  final Uri launchUri = Uri(
-    scheme: 'tel',
-    path: phone,
-  );
-
-  // مستقیم تلاش می‌کنیم؛ canLaunchUrl روی اندروید ۱۱+
-  // بدون queries در Manifest همیشه false می‌دهد.
-  try {
-    final bool opened = await launchUrl(launchUri);
-    if (opened) return;
-  } catch (e) {
-    debugPrint('خطا در بازکردن شماره تماس: $e');
-  }
-
-  if (!context.mounted) return;
-
-  _snack(
-    context,
-    _mt(
-      'can_not_make_call',
-      'امکان تماس نبود: $phone',
-      args: [phone],
-    ),
-    color: AppColors.danger,
-    action: SnackBarAction(
-      label: _mt('copy', 'کپی شماره'),
-      textColor: AppColors.buttonText,
-      onPressed: () => Clipboard.setData(
-        ClipboardData(text: phone),
-      ),
-    ),
-  );
-}
+Future<void> _makeSupportCall(BuildContext context) =>
+    SupportService.call(context);
 
 Future<void> _shareInviteCode(BuildContext context) async {
   final String shareMessage = ReferralService.shareMessage;
@@ -132,13 +69,10 @@ Future<void> _shareInviteCode(BuildContext context) async {
   } catch (e) {
     debugPrint('خطا در اشتراک‌گذاری کد دعوت: $e');
 
-    // متن فنی خطا به کاربر نشان داده نمی‌شود.
+    // متن فنی خطا به کاربر نشان داده نمی‌شود
     _snack(
       context,
-      _mt(
-        'share_failed',
-        'اشتراک‌گذاری انجام نشد، دوباره تلاش کنید',
-      ),
+      _mt('share_failed', 'اشتراک‌گذاری انجام نشد، دوباره تلاش کنید'),
       color: AppColors.danger,
     );
   }
@@ -158,10 +92,12 @@ class _DiscountCodeSheet extends StatefulWidget {
   const _DiscountCodeSheet();
 
   @override
-  State<_DiscountCodeSheet> createState() => _DiscountCodeSheetState();
+  State<_DiscountCodeSheet> createState() =>
+      _DiscountCodeSheetState();
 }
 
-class _DiscountCodeSheetState extends State<_DiscountCodeSheet> {
+class _DiscountCodeSheetState
+    extends State<_DiscountCodeSheet> {
   final TextEditingController _discountController =
       TextEditingController();
 
@@ -176,26 +112,20 @@ class _DiscountCodeSheetState extends State<_DiscountCodeSheet> {
   Future<void> _checkCode() async {
     if (_isLoading) return;
 
-    final String code = _discountController.text.trim().toUpperCase();
+    final String code =
+        _discountController.text.trim().toUpperCase();
 
-    // قبل از بسته شدن شیت گرفته می‌شود
-    // تا بعد از pop هم پیام نشان داده شود.
-    final ScaffoldMessengerState hostMessenger =
-        ScaffoldMessenger.of(context);
+    // قبل از بسته شدن شیت گرفته می‌شود تا بعد از pop هم پیام نشان داده شود
+    final ScaffoldMessengerState hostMessenger = ScaffoldMessenger.of(context);
 
     if (code.isEmpty) {
       HapticFeedback.lightImpact();
-      _snackOn(
-        hostMessenger,
-        _mt('enter_discount_code', 'کد تخفیف را وارد کنید'),
-      );
+      _snackOn(hostMessenger, _mt('enter_discount_code', 'کد تخفیف را وارد کنید'));
       return;
     }
 
-    final String successMessage = _mt(
-      'discount_applied_success',
-      'کد تخفیف ثبت شد',
-    );
+    final String successMessage =
+        _mt('discount_applied_success', 'کد تخفیف ثبت شد');
 
     setState(() => _isLoading = true);
 
@@ -207,8 +137,7 @@ class _DiscountCodeSheetState extends State<_DiscountCodeSheet> {
       setState(() => _isLoading = false);
 
       if (result.isValid) {
-        // کد برای سفر بعدی نگه داشته می‌شود
-        // و روی نقشه خودکار اعمال می‌شود.
+        // کد برای سفر بعدی نگه داشته می‌شود و روی نقشه خودکار اعمال می‌شود
         await PromoService.savePending(code);
 
         HapticFeedback.mediumImpact();
@@ -221,11 +150,7 @@ class _DiscountCodeSheetState extends State<_DiscountCodeSheet> {
         );
       } else {
         HapticFeedback.heavyImpact();
-        _snackOn(
-          hostMessenger,
-          result.message,
-          color: AppColors.danger,
-        );
+        _snackOn(hostMessenger, result.message, color: AppColors.danger);
       }
     } catch (e) {
       if (!mounted) return;
@@ -235,10 +160,7 @@ class _DiscountCodeSheetState extends State<_DiscountCodeSheet> {
       debugPrint('Discount check error: $e');
       _snackOn(
         hostMessenger,
-        _mt(
-          'discount_check_failed',
-          'بررسی کد انجام نشد، دوباره تلاش کنید',
-        ),
+        _mt('discount_check_failed', 'بررسی کد انجام نشد، دوباره تلاش کنید'),
         color: AppColors.danger,
       );
     }
@@ -269,7 +191,7 @@ class _DiscountCodeSheetState extends State<_DiscountCodeSheet> {
               children: [
                 _buildHeaderIcon(
                   Icons.local_offer_rounded,
-                  AppColors.warningIcon,
+                  AppColors.accentOrange,
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -296,7 +218,8 @@ class _DiscountCodeSheetState extends State<_DiscountCodeSheet> {
               controller: _discountController,
               autofocus: true,
               textDirection: TextDirection.ltr,
-              textCapitalization: TextCapitalization.characters,
+              textCapitalization:
+                  TextCapitalization.characters,
               style: TextStyle(
                 color: AppColors.textPrimary,
                 fontSize: 15,
@@ -312,11 +235,12 @@ class _DiscountCodeSheetState extends State<_DiscountCodeSheet> {
                 ),
                 prefixIcon: Icon(
                   Icons.confirmation_number_outlined,
-                  color: AppColors.warningIcon,
+                  color: AppColors.accentOrange,
                 ),
                 filled: true,
                 fillColor: AppColors.backgroundLight,
-                contentPadding: const EdgeInsets.symmetric(
+                contentPadding:
+                    const EdgeInsets.symmetric(
                   horizontal: 16,
                   vertical: 15,
                 ),
@@ -340,13 +264,15 @@ class _DiscountCodeSheetState extends State<_DiscountCodeSheet> {
               width: double.infinity,
               height: 50,
               child: ElevatedButton(
-                onPressed: _isLoading ? null : _checkCode,
+                onPressed:
+                    _isLoading ? null : _checkCode,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primaryBrand,
                   foregroundColor: AppColors.buttonText,
                   elevation: 0,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius:
+                        BorderRadius.circular(16),
                   ),
                 ),
                 child: _isLoading
@@ -385,12 +311,13 @@ class ProfileAnimatedMenu extends StatefulWidget {
   final ValueChanged<String>? onLanguageChanged;
 
   @override
-  State<ProfileAnimatedMenu> createState() => _ProfileAnimatedMenuState();
+  State<ProfileAnimatedMenu> createState() =>
+      _ProfileAnimatedMenuState();
 }
 
-class _ProfileAnimatedMenuState extends State<ProfileAnimatedMenu> {
-  // یک بار ساخته می‌شوند تا با هر rebuild
-  // (مثلاً تغییر تم) دوباره از شبکه نخوانند.
+class _ProfileAnimatedMenuState
+    extends State<ProfileAnimatedMenu> {
+  // یک بار ساخته می‌شوند تا با هر rebuild (مثلاً تغییر تم) دوباره از شبکه نخوانند
   late Future<String> _nameFuture;
   late Future<String> _phoneFuture;
 
@@ -412,15 +339,21 @@ class _ProfileAnimatedMenuState extends State<ProfileAnimatedMenu> {
       return globalName;
     }
 
-    final User? currentUser = FirebaseAuth.instance.currentUser;
-    final String? authName = currentUser?.displayName?.trim();
+    final User? currentUser =
+        FirebaseAuth.instance.currentUser;
+
+    final String? authName =
+        currentUser?.displayName?.trim();
 
     if (authName != null && authName.isNotEmpty) {
       return authName;
     }
 
     if (currentUser == null) {
-      return _localizedKey('user_default', 'کاربر سفیر');
+      return _localizedKey(
+        'user_default',
+        'کاربر سفیر',
+      );
     }
 
     try {
@@ -430,7 +363,8 @@ class _ProfileAnimatedMenuState extends State<ProfileAnimatedMenu> {
               .doc(currentUser.uid)
               .get();
 
-      final Map<String, dynamic>? data = snapshot.data();
+      final Map<String, dynamic>? data =
+          snapshot.data();
 
       final String firestoreName = (data?['name'] ??
               data?['full_name'] ??
@@ -447,7 +381,10 @@ class _ProfileAnimatedMenuState extends State<ProfileAnimatedMenu> {
       debugPrint('خطا در دریافت نام مسافر: $e');
     }
 
-    return _localizedKey('user_default', 'کاربر سفیر');
+    return _localizedKey(
+      'user_default',
+      'کاربر سفیر',
+    );
   }
 
   Future<String> _displayPhone() async {
@@ -457,8 +394,11 @@ class _ProfileAnimatedMenuState extends State<ProfileAnimatedMenu> {
       return globalPhone;
     }
 
-    final User? currentUser = FirebaseAuth.instance.currentUser;
-    final String? authPhone = currentUser?.phoneNumber?.trim();
+    final User? currentUser =
+        FirebaseAuth.instance.currentUser;
+
+    final String? authPhone =
+        currentUser?.phoneNumber?.trim();
 
     if (authPhone != null && authPhone.isNotEmpty) {
       return authPhone;
@@ -475,7 +415,8 @@ class _ProfileAnimatedMenuState extends State<ProfileAnimatedMenu> {
               .doc(currentUser.uid)
               .get();
 
-      final Map<String, dynamic>? data = snapshot.data();
+      final Map<String, dynamic>? data =
+          snapshot.data();
 
       final String firestorePhone = (data?['phone'] ??
               data?['phoneNumber'] ??
@@ -498,7 +439,9 @@ class _ProfileAnimatedMenuState extends State<ProfileAnimatedMenu> {
   String _localizedKey(String key, String fallback) {
     final String value = key.tr();
 
-    return value.trim().isEmpty || value == key ? fallback : value;
+    return value.trim().isEmpty || value == key
+        ? fallback
+        : value;
   }
 
   void _openSettings() {
@@ -507,8 +450,10 @@ class _ProfileAnimatedMenuState extends State<ProfileAnimatedMenu> {
       MaterialPageRoute(
         builder: (_) => SettingsScreen(
           currentLanguage:
-              widget.currentLanguage ?? context.locale.languageCode,
-          onLanguageChanged: widget.onLanguageChanged ?? (_) {},
+              widget.currentLanguage ??
+              context.locale.languageCode,
+          onLanguageChanged:
+              widget.onLanguageChanged ?? (_) {},
         ),
       ),
     );
@@ -548,7 +493,12 @@ class _ProfileAnimatedMenuState extends State<ProfileAnimatedMenu> {
       body: SafeArea(
         child: ListView(
           physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(16, 6, 16, 28),
+          padding: const EdgeInsets.fromLTRB(
+            16,
+            6,
+            16,
+            28,
+          ),
           children: [
             _buildProfileHeader(),
             const SizedBox(height: 24),
@@ -561,8 +511,11 @@ class _ProfileAnimatedMenuState extends State<ProfileAnimatedMenu> {
             _buildMenuGroup([
               _buildMenuItem(
                 icon: Icons.route_rounded,
-                accent: AppColors.primaryBrand,
-                title: _localizedKey('trips_history', 'سفرها'),
+                accent: AppColors.accentTeal,
+                title: _localizedKey(
+                  'trips_history',
+                  'سفرها',
+                ),
                 subtitle: _localizedKey(
                   'trips_history_sub',
                   'مشاهده سفرهای قبلی',
@@ -571,7 +524,8 @@ class _ProfileAnimatedMenuState extends State<ProfileAnimatedMenu> {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => const TripsHistoryPage(),
+                      builder: (_) =>
+                          const TripsHistoryPage(),
                     ),
                   );
                 },
@@ -591,14 +545,15 @@ class _ProfileAnimatedMenuState extends State<ProfileAnimatedMenu> {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => const SavedAddressesScreen(),
+                      builder: (_) =>
+                          const SavedAddressesScreen(),
                     ),
                   );
                 },
               ),
               _buildMenuItem(
                 icon: Icons.person_add_alt_1_rounded,
-                accent: AppColors.originBlue,
+                accent: AppColors.accentPurple,
                 title: _localizedKey(
                   'invite_friends',
                   'دعوت از دوستان',
@@ -613,8 +568,11 @@ class _ProfileAnimatedMenuState extends State<ProfileAnimatedMenu> {
               ),
               _buildMenuItem(
                 icon: Icons.chat_bubble_rounded,
-                accent: AppColors.warning,
-                title: _localizedKey('messages', 'پیام‌ها'),
+                accent: AppColors.originBlue,
+                title: _localizedKey(
+                  'messages',
+                  'پیام‌ها',
+                ),
                 subtitle: _localizedKey(
                   'messages_sub',
                   'پیام‌ها و اطلاعیه‌ها',
@@ -623,7 +581,8 @@ class _ProfileAnimatedMenuState extends State<ProfileAnimatedMenu> {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => const MessagesScreen(),
+                      builder: (_) =>
+                          const MessagesScreen(),
                     ),
                   );
                 },
@@ -641,7 +600,10 @@ class _ProfileAnimatedMenuState extends State<ProfileAnimatedMenu> {
               _buildMenuItem(
                 icon: Icons.settings_rounded,
                 accent: AppColors.textSecondary,
-                title: _localizedKey('settings', 'تنظیمات'),
+                title: _localizedKey(
+                  'settings',
+                  'تنظیمات',
+                ),
                 subtitle: _localizedKey(
                   'settings_sub',
                   'زبان و تنظیمات برنامه',
@@ -650,8 +612,11 @@ class _ProfileAnimatedMenuState extends State<ProfileAnimatedMenu> {
               ),
               _buildMenuItem(
                 icon: Icons.local_offer_rounded,
-                accent: AppColors.warningIcon,
-                title: _localizedKey('discount_code', 'کد تخفیف'),
+                accent: AppColors.accentOrange,
+                title: _localizedKey(
+                  'discount_code',
+                  'کد تخفیف',
+                ),
                 subtitle: _localizedKey(
                   'discount_code_sub',
                   'ثبت و استفاده از کد تخفیف',
@@ -662,7 +627,7 @@ class _ProfileAnimatedMenuState extends State<ProfileAnimatedMenu> {
               ),
               _buildMenuItem(
                 icon: Icons.support_agent_rounded,
-                accent: AppColors.success,
+                accent: AppColors.originBlue,
                 title: _localizedKey(
                   'support_contact',
                   'پشتیبانی و ارتباط با ما',
@@ -683,9 +648,6 @@ class _ProfileAnimatedMenuState extends State<ProfileAnimatedMenu> {
   }
 
   Widget _buildProfileHeader() {
-    final bool isRTL =
-        Directionality.of(context) == TextDirection.rtl;
-
     return Material(
       color: AppColors.cardBgLight,
       borderRadius: BorderRadius.circular(24),
@@ -706,21 +668,14 @@ class _ProfileAnimatedMenuState extends State<ProfileAnimatedMenu> {
         child: Container(
           padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: AlignmentDirectional.topStart,
-              end: AlignmentDirectional.bottomEnd,
-              colors: [
-                AppColors.cardBackground,
-                AppColors.cardBgLight,
-              ],
-            ),
+            color: AppColors.cardBgLight,
             border: Border.all(color: AppColors.fieldBorder),
             borderRadius: BorderRadius.circular(24),
             boxShadow: AppColors.isDark
                 ? null
                 : [
                     BoxShadow(
-                      color: AppColors.primaryBrand.withOpacity(0.10),
+                      color: AppColors.textPrimary.withOpacity(0.06),
                       blurRadius: 18,
                       offset: const Offset(0, 6),
                     ),
@@ -728,44 +683,38 @@ class _ProfileAnimatedMenuState extends State<ProfileAnimatedMenu> {
           ),
           child: Row(
             children: [
-              // عکس پروفایل با یک خط ظریف؛ بدون حلقهٔ سبز و فاصلهٔ دوتایی.
-              SizedBox(
-                width: 70,
-                height: 70,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    ClipOval(
-                      child: Image.asset(
-                        'assets/images/default_profile.png',
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) {
-                          return Icon(
-                            Icons.person_rounded,
-                            color: AppColors.primaryBrand,
-                            size: 32,
-                          );
-                        },
-                      ),
+              // آواتار: فقط یک خط جداکنندهٔ نازک دور عکس (بدون حلقهٔ دوم)
+              Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: AppColors.fieldBorder,
+                    width: 1.2,
+                  ),
+                ),
+                child: SizedBox(
+                  width: 62,
+                  height: 62,
+                  child: ClipOval(
+                    child: Image.asset(
+                      'assets/images/default_profile.png',
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) {
+                        return Icon(
+                          Icons.person_rounded,
+                          color: AppColors.textSecondary,
+                          size: 32,
+                        );
+                      },
                     ),
-                    IgnorePointer(
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: AppColors.fieldBorder,
-                            width: 1,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment:
+                      CrossAxisAlignment.start,
                   children: [
                     FutureBuilder<String>(
                       future: _nameFuture,
@@ -773,11 +722,12 @@ class _ProfileAnimatedMenuState extends State<ProfileAnimatedMenu> {
                         BuildContext context,
                         AsyncSnapshot<String> snapshot,
                       ) {
-                        final String name = snapshot.data ??
-                            _localizedKey(
-                              'user_default',
-                              'کاربر سفیر',
-                            );
+                        final String name =
+                            snapshot.data ??
+                                _localizedKey(
+                                  'user_default',
+                                  'کاربر سفیر',
+                                );
 
                         return Text(
                           name,
@@ -812,29 +762,22 @@ class _ProfileAnimatedMenuState extends State<ProfileAnimatedMenu> {
                     const SizedBox(height: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
+                          horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
-                        color: AppColors.primaryBrand.withOpacity(0.12),
+                        color: AppColors.backgroundLight,
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(
-                            Icons.edit_rounded,
-                            size: 12,
-                            color: AppColors.primaryBrand,
-                          ),
+                          Icon(Icons.edit_rounded,
+                              size: 12, color: AppColors.textSecondary),
                           const SizedBox(width: 4),
                           Text(
                             _localizedKey(
-                              'edit_profile_hint',
-                              'مشاهده و ویرایش پروفایل',
-                            ),
+                                'edit_profile_hint', 'مشاهده و ویرایش پروفایل'),
                             style: TextStyle(
-                              color: AppColors.primaryBrand,
+                              color: AppColors.textSecondary,
                               fontSize: 11.5,
                               fontWeight: FontWeight.w700,
                             ),
@@ -846,9 +789,7 @@ class _ProfileAnimatedMenuState extends State<ProfileAnimatedMenu> {
                 ),
               ),
               Icon(
-                isRTL
-                    ? Icons.chevron_left_rounded
-                    : Icons.chevron_right_rounded,
+                Icons.chevron_right_rounded,
                 color: AppColors.iconSecondary,
                 size: 24,
               ),
@@ -877,7 +818,7 @@ class _ProfileAnimatedMenuState extends State<ProfileAnimatedMenu> {
   }
 
   Widget _buildMenuGroup(List<Widget> children) {
-    // بین آیتم‌ها خط جداکنندهٔ ظریف.
+    // بین آیتم‌ها خط جداکننده‌ی ظریف
     final List<Widget> rows = <Widget>[];
 
     for (int i = 0; i < children.length; i++) {
@@ -921,9 +862,6 @@ class _ProfileAnimatedMenuState extends State<ProfileAnimatedMenu> {
     required String subtitle,
     required VoidCallback onTap,
   }) {
-    final bool isRTL =
-        Directionality.of(context) == TextDirection.rtl;
-
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -931,8 +869,8 @@ class _ProfileAnimatedMenuState extends State<ProfileAnimatedMenu> {
           HapticFeedback.selectionClick();
           onTap();
         },
-        splashColor: accent.withOpacity(0.10),
-        highlightColor: accent.withOpacity(0.06),
+        splashColor: AppColors.textPrimary.withOpacity(0.06),
+        highlightColor: AppColors.textPrimary.withOpacity(0.04),
         child: Padding(
           padding: const EdgeInsets.symmetric(
             horizontal: 14,
@@ -940,22 +878,22 @@ class _ProfileAnimatedMenuState extends State<ProfileAnimatedMenu> {
           ),
           child: Row(
             children: [
-              // آیکن رنگی بدون مربع و پس‌زمینه.
               SizedBox(
-                width: 42,
-                height: 42,
+                width: 36,
+                height: 36,
                 child: Center(
                   child: Icon(
                     icon,
                     color: accent,
-                    size: 22,
+                    size: 27,
                   ),
                 ),
               ),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment:
+                      CrossAxisAlignment.start,
                   children: [
                     Text(
                       title,
@@ -983,9 +921,7 @@ class _ProfileAnimatedMenuState extends State<ProfileAnimatedMenu> {
               ),
               const SizedBox(width: 8),
               Icon(
-                isRTL
-                    ? Icons.chevron_left_rounded
-                    : Icons.chevron_right_rounded,
+                Icons.chevron_right_rounded,
                 color: AppColors.handle,
                 size: 22,
               ),
@@ -1014,17 +950,13 @@ Widget _buildHeaderIcon(
   IconData icon,
   Color color,
 ) {
-  return Container(
-    width: 40,
-    height: 40,
-    decoration: BoxDecoration(
-      color: color.withOpacity(0.1),
-      borderRadius: BorderRadius.circular(13),
-    ),
+  return SizedBox(
+    width: 36,
+    height: 36,
     child: Icon(
       icon,
       color: color,
-      size: 21,
+      size: 27,
     ),
   );
 }
