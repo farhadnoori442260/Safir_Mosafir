@@ -2,6 +2,115 @@ import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:safir_passengers/theme/app_colors.dart';
 
+/// متن لیبل؛ اگر ترجمه نبود، متن جایگزین (نه خودِ کلید)
+String _labelText(BuildContext context, String? custom, String key, String fallback) {
+  if (custom != null && custom.trim().isNotEmpty) return custom.trim();
+  final String v = context.tr(key);
+  return (v.trim().isEmpty || v == key) ? fallback : v;
+}
+
+/// ساختار مشترک لیبل مبدأ و مقصد: حباب + ساقهٔ باریک + نقطهٔ پایین
+class _MapPinLabel extends StatelessWidget {
+  final String text;
+  final Color accent;
+  final bool squareMarker;
+
+  const _MapPinLabel({
+    required this.text,
+    required this.accent,
+    required this.squareMarker,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        // حباب؛ با عرض محدود تا آدرس طولانی سرریز نکند
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 200),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+            decoration: BoxDecoration(
+              color: AppColors.cardBgLight,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: AppColors.fieldBorder.withOpacity(0.8),
+                width: 0.8,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.textPrimary.withOpacity(
+                    AppColors.isDark ? 0.35 : 0.14,
+                  ),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 14,
+                  height: 14,
+                  decoration: BoxDecoration(
+                    color: accent,
+                    shape: squareMarker ? BoxShape.rectangle : BoxShape.circle,
+                    borderRadius:
+                        squareMarker ? BorderRadius.circular(3.5) : null,
+                  ),
+                  child: Center(
+                    child: Container(
+                      width: 5,
+                      height: 5,
+                      decoration: BoxDecoration(
+                        color: AppColors.cardBgLight,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 7),
+                Flexible(
+                  child: Text(
+                    text,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        // ساقه و نقطه هم‌رنگ نشانگر؛ در حالت تاریک هم دیده می‌شود
+        Container(
+          width: 2.5,
+          height: 10,
+          decoration: BoxDecoration(
+            color: accent,
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+        Container(
+          width: 5,
+          height: 5,
+          decoration: BoxDecoration(
+            color: accent,
+            shape: BoxShape.circle,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 // لیبل مبدأ
 class MapOriginLabel extends StatelessWidget {
   final String? labelText;
@@ -13,78 +122,10 @@ class MapOriginLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final String displayText =
-        (labelText != null && labelText!.trim().isNotEmpty)
-            ? labelText!
-            : context.tr('origin');
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 12,
-            vertical: 6,
-          ),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: const [
-              BoxShadow(
-                color: Colors.black12,
-                blurRadius: 8,
-                offset: Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 14,
-                height: 14,
-                decoration: const BoxDecoration(
-                  color: AppColors.originBlue,
-                  shape: BoxShape.circle,
-                ),
-                child: Center(
-                  child: Container(
-                    width: 5,
-                    height: 5,
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 6),
-              Text(
-                displayText,
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-            ],
-          ),
-        ),
-        Container(
-          width: 2.5,
-          height: 10,
-          color: Colors.grey.shade800,
-        ),
-        Container(
-          width: 4,
-          height: 4,
-          decoration: BoxDecoration(
-            color: Colors.grey.shade900,
-            shape: BoxShape.circle,
-          ),
-        ),
-      ],
+    return _MapPinLabel(
+      text: _labelText(context, labelText, 'origin', 'مبدأ'),
+      accent: AppColors.originBlue,
+      squareMarker: false,
     );
   }
 }
@@ -105,78 +146,10 @@ class MapDestinationLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final String displayText =
-        (labelText != null && labelText!.trim().isNotEmpty)
-            ? labelText!
-            : context.tr('destination');
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 12,
-            vertical: 6,
-          ),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: const [
-              BoxShadow(
-                color: Colors.black12,
-                blurRadius: 8,
-                offset: Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 14,
-                height: 14,
-                decoration: BoxDecoration(
-                  color: AppColors.primaryBrand,
-                  borderRadius: BorderRadius.circular(3),
-                ),
-                child: Center(
-                  child: Container(
-                    width: 5,
-                    height: 5,
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 6),
-              Text(
-                displayText,
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-            ],
-          ),
-        ),
-        Container(
-          width: 2.5,
-          height: 10,
-          color: Colors.grey.shade800,
-        ),
-        Container(
-          width: 4,
-          height: 4,
-          decoration: BoxDecoration(
-            color: Colors.grey.shade900,
-            shape: BoxShape.circle,
-          ),
-        ),
-      ],
+    return _MapPinLabel(
+      text: _labelText(context, labelText, 'destination', 'مقصد'),
+      accent: AppColors.primaryBrand,
+      squareMarker: true,
     );
   }
 }
