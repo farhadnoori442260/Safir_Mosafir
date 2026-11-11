@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 
+/// پلاک موتر افغانستان.
+///
+/// پلاک یک شیء فیزیکی است و همیشه روشن با نوشتهٔ تیره دیده می‌شود
+/// (حتی در حالت تاریک)، پس رنگ‌های آن عمداً از تم تبعیت نمی‌کنند.
 class AfghanistanLicensePlate extends StatelessWidget {
   final String province;
   final String categoryLetter;
@@ -16,117 +20,135 @@ class AfghanistanLicensePlate extends StatelessWidget {
     this.isTemporary = false,
   });
 
+  // رنگ‌های ثابت پلاک
+  static const Color _plateBg = Color(0xFFFCFCFA);
+  static const Color _plateInk = Color(0xFF15171A);
+  static const Color _plateAccent = Color(0xFFC62828);
+  static const Color _plateMuted = Color(0xFF8A8F96);
+
   @override
   Widget build(BuildContext context) {
     // انتخاب شماره پلاک (ترجیحاً شماره فارسی و در غیر این صورت انگلیسی)
-    final String displayNum = farsiNumber.isNotEmpty
-        ? farsiNumber
-        : (englishNumber.isNotEmpty ? englishNumber : "---");
+    final String displayNum = farsiNumber.trim().isNotEmpty
+        ? farsiNumber.trim()
+        : (englishNumber.trim().isNotEmpty ? englishNumber.trim() : "---");
 
-    final String displayProvince = province.isNotEmpty ? province : "کابل";
-    final String displayCategory = categoryLetter.isNotEmpty ? categoryLetter : "ش";
+    final String displayProvince =
+        province.trim().isNotEmpty ? province.trim() : "کابل";
+    final String displayCategory =
+        categoryLetter.trim().isNotEmpty ? categoryLetter.trim() : "ش";
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFAFAFA),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(
-          color: Colors.black87,
-          width: 1.5,
-        ),
-        boxShadow: const [
-          BoxShadow(
-            color: Colors.black12,
-            blurRadius: 3,
-            offset: Offset(0, 1),
+    final Widget content = isTemporary
+        ? Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                "موقت",
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  color: _plateAccent,
+                ),
+              ),
+              const SizedBox(width: 8),
+              _number(displayNum),
+            ],
+          )
+        : Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // حرف دستهٔ پلاک (مثلاً «ش»)
+              Text(
+                displayCategory,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                  color: _plateAccent,
+                ),
+              ),
+              _divider(),
+              // شمارهٔ پلاک
+              _number(displayNum),
+              _divider(),
+              // نام ولایت
+              Text(
+                displayProvince,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: _plateInk,
+                ),
+              ),
+            ],
+          );
+
+    return Semantics(
+      label: isTemporary
+          ? 'پلاک موقت $displayNum'
+          : 'پلاک $displayCategory $displayNum $displayProvince',
+      child: Directionality(
+        // ترتیب اجزای پلاک همیشه راست‌به‌چپ است، فارغ از زبان اپ
+        textDirection: TextDirection.rtl,
+        child: Container(
+          padding: const EdgeInsets.all(2),
+          decoration: BoxDecoration(
+            color: _plateBg,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: _plateInk, width: 1.6),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x33000000),
+                blurRadius: 4,
+                offset: Offset(0, 1.5),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: isTemporary
-          ? Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text(
-                  "موقت",
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.redAccent,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  displayNum,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w900,
-                    color: Colors.black,
-                    letterSpacing: 0.8,
-                  ),
-                ),
-              ],
-            )
-          : Row(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                // سمت راست (در حالت RTL سمت چپ): حرف دسته (مثلاً «ش»)
-                Text(
-                  displayCategory,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.redAccent,
-                  ),
-                ),
-
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 6),
-                  child: Text(
-                    "-",
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Colors.grey,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-
-                // مرکز: شماره پلاک
-                Text(
-                  displayNum,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w900,
-                    color: Colors.black,
-                    letterSpacing: 0.8,
-                  ),
-                ),
-
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 6),
-                  child: Text(
-                    "-",
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Colors.grey,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-
-                // سمت چپ (در حالت RTL سمت راست): نام ولایت (متغیر)
-                Text(
-                  displayProvince,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                  ),
-                ),
-              ],
+          // قاب داخلی نازک، شبیه پلاک واقعی
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(5),
+              border: Border.all(
+                color: _plateInk.withOpacity(0.28),
+                width: 0.8,
+              ),
             ),
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: content,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _number(String value) {
+    return Text(
+      value,
+      textDirection: TextDirection.ltr,
+      style: const TextStyle(
+        fontSize: 16,
+        fontWeight: FontWeight.w900,
+        color: _plateInk,
+        letterSpacing: 0.8,
+        height: 1.15,
+      ),
+    );
+  }
+
+  Widget _divider() {
+    return const Padding(
+      padding: EdgeInsets.symmetric(horizontal: 6),
+      child: Text(
+        "-",
+        style: TextStyle(
+          fontSize: 13,
+          color: _plateMuted,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
     );
   }
 }
