@@ -109,7 +109,7 @@ def fix_text(t, report, path):
             continue
         end = expr_end(t, m.end())
         body = t[m.end():end]
-        if re.search(r'AppColors\.|CargoSheets\.', body):
+        if re.search(r'AppColors\.|CargoSheets\.|IntercitySheets\.', body):
             spans.append((m.start(), m.end()))
     for a, b in reversed(spans):
         t = t[:a] + t[b:]
