@@ -2417,6 +2417,8 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
     MapBottomSheets.showPromoCode(
       context,
       PromoCodeSheet(
+        initialCode: _appliedPromoCode ?? '',
+        validator: _validatePromoCode,
         onApply: (code) {
           setState(() {
             _appliedPromoCode = code;
@@ -2424,6 +2426,84 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
         },
       ),
     );
+  }
+
+  String _promoTr(String key, String fallback) {
+    final String v = key.tr();
+    return (v.trim().isEmpty || v == key) ? fallback : v;
+  }
+
+  /// 🎟️ بررسی کد تخفیف در Firestore: مجموعهٔ promo_codes، شناسهٔ سند = خود کد (حروف بزرگ)
+  /// فیلدها: active (bool)، type ('percent' یا 'fixed')، value (عدد)،
+  /// expires_at (Timestamp، اختیاری)، max_uses و used_count (اختیاری)
+  Future<PromoValidation> _validatePromoCode(String rawCode) async {
+    final String code = rawCode.trim().toUpperCase();
+
+    try {
+      final DocumentSnapshot<Map<String, dynamic>> doc = await FirebaseFirestore
+          .instance
+          .collection('promo_codes')
+          .doc(code)
+          .get()
+          .timeout(const Duration(seconds: 8));
+
+      final Map<String, dynamic>? data = doc.data();
+
+      if (!doc.exists || data == null) {
+        return PromoValidation(
+          false,
+          _promoTr('promo_invalid', 'کد تخفیف نامعتبر است'),
+        );
+      }
+
+      final bool active = data['active'] != false;
+      final Object? expires = data['expires_at'];
+      final bool expired =
+          expires is Timestamp && expires.toDate().isBefore(DateTime.now());
+
+      if (!active || expired) {
+        return PromoValidation(
+          false,
+          _promoTr('promo_expired', 'مهلت این کد تخفیف تمام شده است'),
+        );
+      }
+
+      final num? maxUses = data['max_uses'] is num ? data['max_uses'] as num : null;
+      final num usedCount = data['used_count'] is num ? data['used_count'] as num : 0;
+
+      if (maxUses != null && usedCount >= maxUses) {
+        return PromoValidation(
+          false,
+          _promoTr('promo_used_up', 'ظرفیت استفادهٔ این کد تکمیل شده است'),
+        );
+      }
+
+      final String type = data['type']?.toString().toLowerCase() ?? '';
+      final num? value = data['value'] is num ? data['value'] as num : null;
+
+      String summary = _promoTr('promo_valid', 'کد تخفیف معتبر است');
+      if (value != null && value > 0) {
+        summary = type == 'percent'
+            ? '${value.toStringAsFixed(0)}٪ ${_promoTr('promo_discount_word', 'تخفیف')}'
+            : '${value.toStringAsFixed(0)} ${_promoTr('currency.afghani', 'افغانی')} ${_promoTr('promo_discount_word', 'تخفیف')}';
+      }
+
+      return PromoValidation(true, summary);
+    } on FirebaseException catch (e) {
+      debugPrint('Promo check Firebase error: ${e.code} ${e.message}');
+      return PromoValidation(
+        false,
+        e.code == 'permission-denied'
+            ? _promoTr('promo_check_failed', 'بررسی کد انجام نشد، دوباره تلاش کنید')
+            : _promoTr('promo_check_failed', 'بررسی کد انجام نشد، دوباره تلاش کنید'),
+      );
+    } catch (e) {
+      debugPrint('Promo check error: $e');
+      return PromoValidation(
+        false,
+        _promoTr('promo_check_failed', 'بررسی کد انجام نشد، دوباره تلاش کنید'),
+      );
+    }
   }
 
   Future<void> _playTripStatusSound(String tripStatus) async {
