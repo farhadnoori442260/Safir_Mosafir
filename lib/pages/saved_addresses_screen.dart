@@ -6,12 +6,14 @@ import 'package:flutter/material.dart';
 
 import 'package:safir_passengers/models/address_models.dart';
 import 'package:safir_passengers/pages/search_destination_place.dart';
+import 'package:safir_passengers/theme/app_colors.dart';
 
-const Color savedPrimaryAccent = Color(0xFF1B7A57);
-const Color savedDarkTextColor = Color(0xFF0F172A);
-const Color savedSecondaryTextColor = Color(0xFF64748B);
-const Color savedPageBackground = Color(0xFFF7F9F8);
-const Color savedIconBackground = Color(0xFFEFF5F1);
+// نام‌های قبلی برای سازگاری؛ حالا از AppColors (روشن/تاریک) می‌آیند.
+Color get savedPrimaryAccent => AppColors.primaryBrand;
+Color get savedDarkTextColor => AppColors.textPrimary;
+Color get savedSecondaryTextColor => AppColors.textSecondary;
+Color get savedPageBackground => AppColors.backgroundLight;
+Color get savedIconBackground => AppColors.cardBackground;
 
 /// پل بین صفحه‌ی آدرس‌ها و صفحه‌ی نقشه: وقتی کاربر روی آدرسی کلیک می‌کند،
 /// نقشه (اگر زنده باشد) آن را مقصد می‌کند و همه‌ی صفحه‌های روی خودش را می‌بندد.
@@ -222,8 +224,8 @@ void initState() {
                   20,
                   22,
                 ),
-                decoration: const BoxDecoration(
-                  color: Colors.white,
+                decoration: BoxDecoration(
+                  color: AppColors.cardBgLight,
                   borderRadius: BorderRadius.vertical(
                     top: Radius.circular(28),
                   ),
@@ -237,7 +239,7 @@ void initState() {
                           width: 42,
                           height: 4,
                           decoration: BoxDecoration(
-                            color: const Color(0xFFD1D5DB),
+                            color: AppColors.handle,
                             borderRadius:
                                 BorderRadius.circular(20),
                           ),
@@ -250,13 +252,13 @@ void initState() {
                             width: 42,
                             height: 42,
                             decoration: BoxDecoration(
-                              color: savedIconBackground,
+                              color: AppColors.cardBackground,
                               borderRadius:
                                   BorderRadius.circular(14),
                             ),
-                            child: const Icon(
+                            child: Icon(
                               Icons.bookmark_add_outlined,
-                              color: savedPrimaryAccent,
+                              color: AppColors.primaryBrand,
                               size: 22,
                             ),
                           ),
@@ -266,8 +268,8 @@ void initState() {
                               addressDocument == null
                                   ? 'saved_address_add'.tr()
                                   : 'saved_address_edit'.tr(),
-                              style: const TextStyle(
-                                color: savedDarkTextColor,
+                              style: TextStyle(
+                                color: AppColors.textPrimary,
                                 fontSize: 17,
                                 fontWeight: FontWeight.w800,
                               ),
@@ -277,9 +279,9 @@ void initState() {
                             onPressed: () {
                               Navigator.pop(sheetContext);
                             },
-                            icon: const Icon(
+                            icon: Icon(
                               Icons.close_rounded,
-                              color: savedSecondaryTextColor,
+                              color: AppColors.textSecondary,
                             ),
                           ),
                         ],
@@ -351,8 +353,8 @@ void initState() {
                       TextField(
                         controller: _titleController,
                         maxLength: 35,
-                        style: const TextStyle(
-                          color: savedDarkTextColor,
+                        style: TextStyle(
+                          color: AppColors.textPrimary,
                           fontSize: 14,
                           fontWeight: FontWeight.w700,
                         ),
@@ -362,12 +364,12 @@ void initState() {
                           hintText:
                               'saved_address_name_hint'.tr(),
                           counterText: '',
-                          prefixIcon: const Icon(
+                          prefixIcon: Icon(
                             Icons.edit_location_alt_outlined,
-                            color: savedSecondaryTextColor,
+                            color: AppColors.textSecondary,
                           ),
                           filled: true,
-                          fillColor: savedPageBackground,
+                          fillColor: AppColors.backgroundLight,
                           contentPadding:
                               const EdgeInsets.symmetric(
                             horizontal: 15,
@@ -376,15 +378,15 @@ void initState() {
                           enabledBorder: OutlineInputBorder(
                             borderRadius:
                                 BorderRadius.circular(15),
-                            borderSide: const BorderSide(
-                              color: Color(0xFFE2E8F0),
+                            borderSide: BorderSide(
+                              color: AppColors.fieldBorder,
                             ),
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius:
                                 BorderRadius.circular(15),
-                            borderSide: const BorderSide(
-                              color: savedPrimaryAccent,
+                            borderSide: BorderSide(
+                              color: AppColors.primaryBrand,
                               width: 1.4,
                             ),
                           ),
@@ -410,13 +412,13 @@ void initState() {
                             width: double.infinity,
                             padding: const EdgeInsets.all(14),
                             decoration: BoxDecoration(
-                              color: savedPageBackground,
+                              color: AppColors.backgroundLight,
                               borderRadius:
                                   BorderRadius.circular(15),
                               border: Border.all(
                                 color: selectedAddress == null
-                                    ? const Color(0xFFE2E8F0)
-                                    : savedPrimaryAccent,
+                                    ? AppColors.fieldBorder
+                                    : AppColors.primaryBrand,
                               ),
                             ),
                             child: Row(
@@ -426,10 +428,8 @@ void initState() {
                                   height: 38,
                                   decoration: BoxDecoration(
                                     color: selectedAddress == null
-                                        ? const Color(
-                                            0xFFE2E8F0,
-                                          )
-                                        : savedIconBackground,
+                                        ? AppColors.fieldBorder
+                                        : AppColors.cardBackground,
                                     borderRadius:
                                         BorderRadius.circular(12),
                                   ),
@@ -437,8 +437,8 @@ void initState() {
                                     Icons.location_on_outlined,
                                     color:
                                         selectedAddress == null
-                                            ? savedSecondaryTextColor
-                                            : savedPrimaryAccent,
+                                            ? AppColors.textSecondary
+                                            : AppColors.primaryBrand,
                                     size: 20,
                                   ),
                                 ),
@@ -451,8 +451,8 @@ void initState() {
                                       Text(
                                         'saved_address_location'
                                             .tr(),
-                                        style: const TextStyle(
-                                          color: savedDarkTextColor,
+                                        style: TextStyle(
+                                          color: AppColors.textPrimary,
                                           fontSize: 13,
                                           fontWeight:
                                               FontWeight.w800,
@@ -464,9 +464,9 @@ void initState() {
                                         maxLines: 2,
                                         overflow: TextOverflow
                                             .ellipsis,
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                           color:
-                                              savedSecondaryTextColor,
+                                              AppColors.textSecondary,
                                           fontSize: 11,
                                           height: 1.35,
                                           fontWeight:
@@ -477,9 +477,9 @@ void initState() {
                                   ),
                                 ),
                                 const SizedBox(width: 8),
-                                const Icon(
+                                Icon(
                                   Icons.chevron_left_rounded,
-                                  color: Color(0xFF94A3B8),
+                                  color: AppColors.iconSecondary,
                                 ),
                               ],
                             ),
@@ -506,8 +506,8 @@ void initState() {
                                 },
                           style: ElevatedButton.styleFrom(
                             backgroundColor:
-                                savedPrimaryAccent,
-                            foregroundColor: Colors.white,
+                                AppColors.primaryBrand,
+                            foregroundColor: AppColors.buttonText,
                             elevation: 0,
                             shape: RoundedRectangleBorder(
                               borderRadius:
@@ -515,13 +515,13 @@ void initState() {
                             ),
                           ),
                           child: _isSaving
-                              ? const SizedBox(
+                              ? SizedBox(
                                   width: 21,
                                   height: 21,
                                   child:
                                       CircularProgressIndicator(
                                     strokeWidth: 2.3,
-                                    color: Colors.white,
+                                    color: AppColors.buttonText,
                                   ),
                                 )
                               : Text(
@@ -677,20 +677,22 @@ Navigator.pop(sheetContext);
       context: context,
       builder: (BuildContext dialogContext) {
         return AlertDialog(
+          backgroundColor: AppColors.cardBgLight,
+          surfaceTintColor: AppColors.cardBgLight,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(22),
           ),
           title: Text(
             'saved_address_delete_title'.tr(),
-            style: const TextStyle(
-              color: savedDarkTextColor,
+            style: TextStyle(
+              color: AppColors.textPrimary,
               fontWeight: FontWeight.w800,
             ),
           ),
           content: Text(
             'saved_address_delete_message'.tr(),
-            style: const TextStyle(
-              color: savedSecondaryTextColor,
+            style: TextStyle(
+              color: AppColors.textSecondary,
               fontSize: 14,
               height: 1.45,
             ),
@@ -702,8 +704,8 @@ Navigator.pop(sheetContext);
               },
               child: Text(
                 'saved_address_cancel'.tr(),
-                style: const TextStyle(
-                  color: savedSecondaryTextColor,
+                style: TextStyle(
+                  color: AppColors.textSecondary,
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -713,8 +715,8 @@ Navigator.pop(sheetContext);
                 Navigator.pop(dialogContext, true);
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red.shade600,
-                foregroundColor: Colors.white,
+                backgroundColor: AppColors.danger,
+                foregroundColor: AppColors.buttonText,
                 elevation: 0,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -775,8 +777,8 @@ Navigator.pop(sheetContext);
       SnackBar(
         content: Text(message),
         backgroundColor: isError
-            ? Colors.red.shade700
-            : const Color(0xFF16A34A),
+            ? AppColors.danger
+            : AppColors.successDark,
       ),
     );
   }
@@ -803,11 +805,11 @@ Navigator.pop(sheetContext);
   Color _addressColor(String type) {
     switch (type) {
       case 'home':
-        return const Color(0xFF2563EB);
+        return AppColors.originBlue;
       case 'work':
-        return const Color(0xFFF59E0B);
+        return AppColors.warning;
       default:
-        return savedPrimaryAccent;
+        return AppColors.primaryBrand;
     }
   }
 
@@ -828,16 +830,16 @@ Navigator.pop(sheetContext);
         collection = _savedAddressesCollection;
 
     return Scaffold(
-      backgroundColor: savedPageBackground,
+      backgroundColor: AppColors.backgroundLight,
       appBar: AppBar(
-        backgroundColor: savedPageBackground,
-        surfaceTintColor: savedPageBackground,
+        backgroundColor: AppColors.backgroundLight,
+        surfaceTintColor: AppColors.backgroundLight,
         elevation: 0,
         scrolledUnderElevation: 0,
         title: Text(
           'saved_addresses_title'.tr(),
-          style: const TextStyle(
-            color: savedDarkTextColor,
+          style: TextStyle(
+            color: AppColors.textPrimary,
             fontSize: 18,
             fontWeight: FontWeight.w800,
           ),
@@ -847,17 +849,17 @@ Navigator.pop(sheetContext);
           onPressed: () {
             Navigator.pop(context);
           },
-          icon: const Icon(
+          icon: Icon(
             Icons.arrow_back_ios_new_rounded,
-            color: savedDarkTextColor,
+            color: AppColors.textPrimary,
             size: 19,
           ),
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _startAddFlow,
-        backgroundColor: savedPrimaryAccent,
-        foregroundColor: Colors.white,
+        backgroundColor: AppColors.primaryBrand,
+        foregroundColor: AppColors.buttonText,
         elevation: 2,
         icon: const Icon(Icons.add_location_alt_outlined),
         label: Text(
@@ -871,8 +873,8 @@ Navigator.pop(sheetContext);
           ? Center(
               child: Text(
                 'saved_address_login_required'.tr(),
-                style: const TextStyle(
-                  color: savedSecondaryTextColor,
+                style: TextStyle(
+                  color: AppColors.textSecondary,
                   fontSize: 14,
                 ),
               ),
@@ -891,9 +893,9 @@ Navigator.pop(sheetContext);
               ) {
                 if (snapshot.connectionState ==
                     ConnectionState.waiting) {
-                  return const Center(
+                  return Center(
                     child: CircularProgressIndicator(
-                      color: savedPrimaryAccent,
+                      color: AppColors.primaryBrand,
                     ),
                   );
                 }
@@ -910,8 +912,8 @@ Navigator.pop(sheetContext);
                       child: Text(
                         'saved_address_load_failed'.tr(),
                         textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          color: savedSecondaryTextColor,
+                        style: TextStyle(
+                          color: AppColors.textSecondary,
                           fontSize: 14,
                         ),
                       ),
@@ -1001,12 +1003,12 @@ Navigator.pop(sheetContext);
               width: 78,
               height: 78,
               decoration: BoxDecoration(
-                color: savedIconBackground,
+                color: AppColors.cardBackground,
                 borderRadius: BorderRadius.circular(25),
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.bookmark_border_rounded,
-                color: savedPrimaryAccent,
+                color: AppColors.primaryBrand,
                 size: 39,
               ),
             ),
@@ -1014,8 +1016,8 @@ Navigator.pop(sheetContext);
             Text(
               'saved_address_empty_title'.tr(),
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: savedDarkTextColor,
+              style: TextStyle(
+                color: AppColors.textPrimary,
                 fontSize: 16,
                 fontWeight: FontWeight.w800,
               ),
@@ -1024,8 +1026,8 @@ Navigator.pop(sheetContext);
             Text(
               'saved_address_empty_description'.tr(),
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: savedSecondaryTextColor,
+              style: TextStyle(
+                color: AppColors.textSecondary,
                 fontSize: 13,
                 height: 1.5,
                 fontWeight: FontWeight.w500,
@@ -1049,10 +1051,10 @@ Navigator.pop(sheetContext);
 
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.cardBgLight,
         borderRadius: BorderRadius.circular(19),
         border: Border.all(
-          color: const Color(0xFFE5EBE7),
+          color: AppColors.fieldBorder,
         ),
       ),
       child: Material(
@@ -1092,8 +1094,8 @@ Navigator.pop(sheetContext);
                         title,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: savedDarkTextColor,
+                        style: TextStyle(
+                          color: AppColors.textPrimary,
                           fontSize: 14,
                           fontWeight: FontWeight.w800,
                         ),
@@ -1105,8 +1107,8 @@ Navigator.pop(sheetContext);
                             : subtitle,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: savedSecondaryTextColor,
+                        style: TextStyle(
+                          color: AppColors.textSecondary,
                           fontSize: 11,
                           height: 1.35,
                           fontWeight: FontWeight.w500,
@@ -1116,9 +1118,11 @@ Navigator.pop(sheetContext);
                   ),
                 ),
                 PopupMenuButton<String>(
-                  icon: const Icon(
+                  color: AppColors.cardBgLight,
+                  surfaceTintColor: AppColors.cardBgLight,
+                  icon: Icon(
                     Icons.more_vert_rounded,
-                    color: savedSecondaryTextColor,
+                    color: AppColors.textSecondary,
                   ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14),
@@ -1136,13 +1140,17 @@ Navigator.pop(sheetContext);
                         value: 'edit',
                         child: Row(
                           children: [
-                            const Icon(
+                            Icon(
                               Icons.edit_outlined,
                               size: 19,
+                              color: AppColors.textPrimary,
                             ),
                             const SizedBox(width: 10),
                             Text(
                               'saved_address_edit'.tr(),
+                              style: TextStyle(
+                                color: AppColors.textPrimary,
+                              ),
                             ),
                           ],
                         ),
@@ -1151,16 +1159,16 @@ Navigator.pop(sheetContext);
                         value: 'delete',
                         child: Row(
                           children: [
-                            const Icon(
+                            Icon(
                               Icons.delete_outline_rounded,
-                              color: Colors.red,
+                              color: AppColors.danger,
                               size: 19,
                             ),
                             const SizedBox(width: 10),
                             Text(
                               'saved_address_delete'.tr(),
-                              style: const TextStyle(
-                                color: Colors.red,
+                              style: TextStyle(
+                                color: AppColors.danger,
                               ),
                             ),
                           ],
@@ -1194,13 +1202,13 @@ Navigator.pop(sheetContext);
           ),
           decoration: BoxDecoration(
             color: isSelected
-                ? savedPrimaryAccent.withOpacity(0.10)
-                : savedPageBackground,
+                ? AppColors.primaryBrand.withOpacity(0.10)
+                : AppColors.backgroundLight,
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
               color: isSelected
-                  ? savedPrimaryAccent
-                  : const Color(0xFFE2E8F0),
+                  ? AppColors.primaryBrand
+                  : AppColors.fieldBorder,
             ),
           ),
           child: Column(
@@ -1208,8 +1216,8 @@ Navigator.pop(sheetContext);
               Icon(
                 icon,
                 color: isSelected
-                    ? savedPrimaryAccent
-                    : savedSecondaryTextColor,
+                    ? AppColors.primaryBrand
+                    : AppColors.textSecondary,
                 size: 21,
               ),
               const SizedBox(height: 5),
@@ -1217,8 +1225,8 @@ Navigator.pop(sheetContext);
                 label,
                 style: TextStyle(
                   color: isSelected
-                      ? savedPrimaryAccent
-                      : savedSecondaryTextColor,
+                      ? AppColors.primaryBrand
+                      : AppColors.textSecondary,
                   fontSize: 11,
                   fontWeight: FontWeight.w800,
                 ),
