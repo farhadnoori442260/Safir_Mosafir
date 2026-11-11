@@ -1,3 +1,4 @@
+import 'dart:ui' as ui;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -601,7 +602,7 @@ class _RateDriverScreenState extends State<RateDriverScreen> {
               widget.plateNumber.isNotEmpty
                   ? widget.plateNumber
                   : _t('rate_driver_default_plate', '---'),
-              textDirection: TextDirection.ltr,
+              textDirection: ui.TextDirection.ltr,
               style: TextStyle(
                 fontWeight: FontWeight.w800,
                 fontSize: 13,
