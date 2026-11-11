@@ -421,9 +421,10 @@ class _SmartLocationSheetState
 
       if (specific.isNotEmpty) {
         return <String, String>{
-          'title': specific.first,
+          // عنوان: کوچه + خیابان اصلی (دو بخش اول)، زیرعنوان: محله و شهر
+          'title': specific.take(2).join('، '),
           'subtitle': <String>[
-            ...specific.skip(1),
+            ...specific.skip(2),
             ...admin,
           ].join('، '),
         };
@@ -802,7 +803,7 @@ class _SmartLocationSheetState
                       const SizedBox(height: 2),
                       Text(
                         title,
-                        maxLines: 1,
+                        maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           color: hasSelectedAddress
