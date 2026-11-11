@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -221,8 +222,10 @@ class _OTPScreenState extends State<OTPScreen> {
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 8),
                   child: Text(
-                    _t('otp_subtitle',
-                        'کد ۶ رقمی که با پیامک برایتان ارسال شد را وارد کنید'),
+                    _t(
+                      'otp_subtitle',
+                      'کد ۶ رقمی که با پیامک برایتان ارسال شد را وارد کنید',
+                    ),
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 13.5,
@@ -237,7 +240,7 @@ class _OTPScreenState extends State<OTPScreen> {
                 Center(
                   child: Text(
                     widget.phoneNumber.trim(),
-                    textDirection: TextDirection.ltr,
+                    textDirection: ui.TextDirection.ltr,
                     style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w800,
@@ -261,7 +264,7 @@ class _OTPScreenState extends State<OTPScreen> {
 
               // کادرهای کد؛ همیشه چپ‌به‌راست تا ترتیب ارقام به‌هم نریزد
               Directionality(
-                textDirection: TextDirection.ltr,
+                textDirection: ui.TextDirection.ltr,
                 child: Center(
                   child: Pinput(
                     length: 6,
@@ -270,19 +273,21 @@ class _OTPScreenState extends State<OTPScreen> {
                     showCursor: true,
                     enabled: !authRepo.isLoading,
                     inputFormatters: [_AsciiDigitsFormatter()],
-                    androidSmsAutofillMethod:
-                        AndroidSmsAutofillMethod.smsUserConsentApi,
                     defaultPinTheme: defaultPinTheme,
                     focusedPinTheme: defaultPinTheme.copyWith(
                       decoration: defaultPinTheme.decoration!.copyWith(
                         border: Border.all(
-                            color: AppColors.primaryBrand, width: 2),
+                          color: AppColors.primaryBrand,
+                          width: 2,
+                        ),
                       ),
                     ),
                     submittedPinTheme: defaultPinTheme.copyWith(
                       decoration: defaultPinTheme.decoration!.copyWith(
                         border: Border.all(
-                            color: AppColors.primaryBrand, width: 1.5),
+                          color: AppColors.primaryBrand,
+                          width: 1.5,
+                        ),
                         color: AppColors.primaryBrand.withOpacity(0.07),
                       ),
                     ),
@@ -330,8 +335,11 @@ class _OTPScreenState extends State<OTPScreen> {
                           ),
                         )
                       : authRepo.isSuccessful
-                          ? Icon(Icons.done_rounded,
-                              color: AppColors.buttonText, size: 28)
+                          ? Icon(
+                              Icons.done_rounded,
+                              color: AppColors.buttonText,
+                              size: 28,
+                            )
                           : Text(
                               _t('verify_btn', 'تأیید و ادامه'),
                               style: TextStyle(
@@ -353,8 +361,11 @@ class _OTPScreenState extends State<OTPScreen> {
                     ? Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.timer_outlined,
-                              size: 18, color: AppColors.textSecondary),
+                          Icon(
+                            Icons.timer_outlined,
+                            size: 18,
+                            color: AppColors.textSecondary,
+                          ),
                           const SizedBox(width: 6),
                           Text(
                             '${_t('otp_resend_in', 'ارسال مجدد کد تا')} $_timerText',
@@ -406,7 +417,8 @@ class _OTPScreenState extends State<OTPScreen> {
   }
 
   void verifyOTP({required String smsCode}) {
-    final authProvider = Provider.of<AuthenticationProvider>(context, listen: false);
+    final authProvider =
+        Provider.of<AuthenticationProvider>(context, listen: false);
 
     authProvider.verifyOTP(
       context: context,
@@ -431,7 +443,12 @@ class _OTPScreenState extends State<OTPScreen> {
 
             if (isBlocked) {
               if (!mounted) return;
-              Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const BlockedScreen()));
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const BlockedScreen(),
+                ),
+              );
               return;
             }
 
@@ -465,9 +482,20 @@ class _OTPScreenState extends State<OTPScreen> {
 
   void navigate({required bool isSingedIn}) {
     if (isSingedIn) {
-      Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (context) => const SafirHomeScreen()), (route) => false);
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const SafirHomeScreen(),
+        ),
+        (route) => false,
+      );
     } else {
-      Navigator.push(context, MaterialPageRoute(builder: (context) => const UserInformationScreen()));
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const UserInformationScreen(),
+        ),
+      );
     }
   }
 }
