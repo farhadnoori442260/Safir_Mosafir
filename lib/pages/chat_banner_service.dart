@@ -4,6 +4,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:easy_localization/easy_localization.dart';
+
+import 'package:safir_passengers/theme/app_colors.dart';
 
 // مسیر را مطابق پروژه‌ی خودتان تنظیم کنید
 import 'package:safir_passengers/pages/chat_page.dart';
@@ -219,17 +222,25 @@ class _ChatBanner extends StatefulWidget {
 
 class _ChatBannerState extends State<_ChatBanner>
     with SingleTickerProviderStateMixin {
-  static const Color green = Color(0xFF1B7A57);
-
   late final AnimationController _controller = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 280),
   )..forward();
 
+  // ✅ کلید ثابت: قبلاً UniqueKey داخل build ساخته می‌شد و با هر rebuild
+  // (مثلاً عوض شدن تم) ویجت از نو ساخته می‌شد.
+  final Key _dismissKey = UniqueKey();
+
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
+  }
+
+  String get _title {
+    if (widget.driverName.isNotEmpty) return widget.driverName;
+    final String v = 'driver_default_name'.tr();
+    return (v.isEmpty || v == 'driver_default_name') ? 'راننده' : v;
   }
 
   @override
@@ -250,66 +261,95 @@ class _ChatBannerState extends State<_ChatBanner>
             CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic),
           ),
           child: Dismissible(
-            key: UniqueKey(),
+            key: _dismissKey,
             direction: DismissDirection.up,
             onDismissed: (_) => widget.onDismiss(),
             child: Padding(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
               child: Material(
-                color: Colors.white,
-                elevation: 8,
-                shadowColor: Colors.black26,
-                borderRadius: BorderRadius.circular(16),
+                color: AppColors.cardBgLight,
+                elevation: 10,
+                shadowColor:
+                    Colors.black.withOpacity(AppColors.isDark ? 0.6 : 0.25),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                  side: BorderSide(color: AppColors.fieldBorder),
+                ),
+                clipBehavior: Clip.antiAlias,
                 child: InkWell(
-                  borderRadius: BorderRadius.circular(16),
                   onTap: widget.onTap,
                   child: Padding(
                     padding: const EdgeInsets.all(12),
                     child: Row(
                       children: [
-                        CircleAvatar(
-                          radius: 22,
-                          backgroundColor: const Color(0xFFE5F3EC),
-                          backgroundImage:
-                              hasPhoto ? NetworkImage(photo) : null,
-                          child: hasPhoto
-                              ? null
-                              : const Icon(Icons.person_rounded,
-                                  color: green),
+                        // آواتار با حلقهٔ برند
+                        Container(
+                          padding: const EdgeInsets.all(2),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color:
+                                  AppColors.primaryBrand.withOpacity(0.45),
+                              width: 2,
+                            ),
+                          ),
+                          child: CircleAvatar(
+                            radius: 21,
+                            backgroundColor: AppColors.cardBackground,
+                            backgroundImage:
+                                hasPhoto ? NetworkImage(photo) : null,
+                            child: hasPhoto
+                                ? null
+                                : Icon(
+                                    Icons.person_rounded,
+                                    color: AppColors.primaryBrand,
+                                  ),
+                          ),
                         ),
-                        const SizedBox(width: 10),
+                        const SizedBox(width: 12),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                widget.driverName.isNotEmpty
-                                    ? widget.driverName
-                                    : 'راننده',
+                                _title,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w800,
-                                  color: Color(0xFF17202A),
+                                  color: AppColors.textPrimary,
                                 ),
                               ),
-                              const SizedBox(height: 2),
+                              const SizedBox(height: 3),
                               Text(
                                 widget.message,
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 13,
-                                  color: Color(0xFF4A5568),
+                                  height: 1.35,
+                                  color: AppColors.textSecondary,
                                 ),
                               ),
                             ],
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        const Icon(Icons.chat_bubble_rounded,
-                            color: green, size: 22),
+                        const SizedBox(width: 10),
+                        // آیکن چت در کادر آبی (آبی = ارتباط/پیام در کل اپ)
+                        Container(
+                          width: 38,
+                          height: 38,
+                          decoration: BoxDecoration(
+                            color: AppColors.originBlue.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Icon(
+                            Icons.chat_bubble_rounded,
+                            color: AppColors.originBlue,
+                            size: 20,
+                          ),
+                        ),
                       ],
                     ),
                   ),
