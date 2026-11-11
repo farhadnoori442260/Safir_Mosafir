@@ -907,7 +907,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       title: title,
       trailing: _ModernSwitch(
         value: value,
-        activeColor: _buttonBlue,
+        activeColor: AppColors.primaryBrand,
         onChanged: onChanged,
       ),
       onTap: () => onChanged(!value),
