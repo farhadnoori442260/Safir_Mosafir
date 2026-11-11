@@ -1,17 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:safir_passengers/services/promo_service.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:safir_passengers/theme/app_colors.dart';
-
-/// نتیجهٔ بررسی یک کد تخفیف
-class PromoValidation {
-  final bool isValid;
-
-  /// پیام برای کاربر (خطا یا توضیح تخفیف، مثلاً «۱۰٪ تخفیف»)
-  final String message;
-
-  const PromoValidation(this.isValid, this.message);
-}
 
 class PromoCodeSheet extends StatefulWidget {
   final String initialCode;
