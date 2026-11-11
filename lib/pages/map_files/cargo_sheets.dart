@@ -13,6 +13,12 @@ class CargoSheets {
   static Color get labelGrey => AppColors.textSecondary;
   static Color get errorRed => AppColors.danger;
 
+  /// ترجمه با متن جایگزین (اگر کلید پیدا نشد، easy_localization خود کلید را برمی‌گرداند)
+  static String _trOr(String key, String fallback) {
+    final String v = key.tr();
+    return (v.isEmpty || v == key) ? fallback : v;
+  }
+
   /// 📦 ۱. صفحه کامل اطلاعات فرستنده (Sender Screen)
   static void showSenderDialog({
     required BuildContext context,
@@ -101,9 +107,12 @@ class CargoSheets {
     bool isLoading = false,
   }) {
     const List<_CargoVehicle> vehicles = <_CargoVehicle>[
-      _CargoVehicle('zaranj', 'زرنج', Icons.electric_rickshaw),
-      _CargoVehicle('suzuki', 'سوزوکی', Icons.local_shipping_outlined),
-      _CargoVehicle('mazda', 'مازدا', Icons.fire_truck_outlined),
+      _CargoVehicle('zaranj', 'زرنج', Icons.electric_rickshaw_rounded,
+          'capacity_zaranj', 'بار سبک'),
+      _CargoVehicle('suzuki', 'سوزوکی', Icons.local_shipping_rounded,
+          'capacity_pickup', 'بار متوسط'),
+      _CargoVehicle('mazda', 'مازدا', Icons.fire_truck_rounded,
+          'capacity_truck', 'بار سنگین'),
     ];
 
     final String senderText = 'cargo.sender'.tr();
@@ -148,147 +157,231 @@ class CargoSheets {
               ),
             ),
             const SizedBox(height: 12),
-            Text(
-              'cargo.select_vehicle'.tr(),
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textPrimary,
-              ),
+            // ── عنوان + مسافت
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'cargo.select_vehicle'.tr(),
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                ),
+                if (distanceInKm > 0)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.originBlue.withOpacity(0.10),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.route_rounded,
+                          size: 14,
+                          color: AppColors.originBlue,
+                        ),
+                        const SizedBox(width: 5),
+                        Text(
+                          '${distanceInKm.toStringAsFixed(1)} km',
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.originBlue,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
             ),
             const SizedBox(height: 12),
-            SizedBox(
-              height: 90,
-              child: Row(
-                children: vehicles.map((_CargoVehicle vehicle) {
-                  final bool isSelected = selectedVehicleType == vehicle.id ||
-                      selectedVehicleType.toLowerCase().contains(vehicle.id);
 
-                  return Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      child: InkWell(
-                        onTap: () => onVehicleSelected(vehicle.id),
-                        borderRadius: BorderRadius.circular(16),
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          padding: const EdgeInsets.symmetric(vertical: 10),
+            // ── لیست خودروها: هر ردیف نام، ظرفیت و قیمت همان خودرو
+            ...vehicles.map((_CargoVehicle vehicle) {
+              final bool isSelected = selectedVehicleType == vehicle.id ||
+                  selectedVehicleType.toLowerCase().contains(vehicle.id);
+
+              final double vehicleFare = isSelected
+                  ? currentFare
+                  : calculateFareForVehicle(vehicle.id, distanceInKm);
+
+              final String capacity =
+                  _trOr(vehicle.capacityKey, vehicle.capacityFallback);
+
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: InkWell(
+                  onTap: () => onVehicleSelected(vehicle.id),
+                  borderRadius: BorderRadius.circular(18),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? AppColors.cardBackground
+                          : AppColors.backgroundLight,
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(
+                        color: isSelected
+                            ? AppColors.primaryBrand
+                            : AppColors.fieldBorder,
+                        width: isSelected ? 1.6 : 1,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 46,
+                          height: 46,
                           decoration: BoxDecoration(
                             color: isSelected
-                                ? AppColors.cardBackground
-                                : AppColors.backgroundLight,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                              color: isSelected
-                                  ? AppColors.primaryBrand
-                                  : AppColors.fieldBorder,
-                              width: 1.5,
-                            ),
+                                ? AppColors.primaryBrand.withOpacity(0.14)
+                                : AppColors.cardBgLight,
+                            borderRadius: BorderRadius.circular(14),
                           ),
+                          child: Icon(
+                            vehicle.icon,
+                            size: 27,
+                            color: isSelected
+                                ? AppColors.primaryBrand
+                                : AppColors.textSecondary,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
                           child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            crossAxisAlignment: CrossAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Icon(
-                                vehicle.icon,
-                                size: 30,
-                                color: isSelected
-                                    ? AppColors.primaryBrand
-                                    : AppColors.textSecondary,
-                              ),
-                              const SizedBox(height: 6),
                               Text(
                                 vehicle.title,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                textAlign: TextAlign.center,
                                 style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: isSelected
-                                      ? FontWeight.w700
-                                      : FontWeight.w500,
-                                  color: isSelected
-                                      ? AppColors.primaryBrand
-                                      : AppColors.textPrimary,
+                                  fontSize: 14.5,
+                                  fontWeight: FontWeight.w800,
+                                  color: AppColors.textPrimary,
                                 ),
                               ),
+                              if (capacity.isNotEmpty) ...[
+                                const SizedBox(height: 2),
+                                Text(
+                                  capacity,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 11.5,
+                                    color: AppColors.textSecondary,
+                                  ),
+                                ),
+                              ],
                             ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        if (distanceInKm > 0)
+                          Text(
+                            vehicleFare.toStringAsFixed(0),
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w800,
+                              color: isSelected
+                                  ? AppColors.primaryBrand
+                                  : AppColors.textPrimary,
+                            ),
+                          ),
+                        const SizedBox(width: 10),
+                        AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          width: 22,
+                          height: 22,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: isSelected
+                                ? AppColors.primaryBrand
+                                : Colors.transparent,
+                            border: Border.all(
+                              color: isSelected
+                                  ? AppColors.primaryBrand
+                                  : AppColors.handle,
+                              width: 1.6,
+                            ),
+                          ),
+                          child: isSelected
+                              ? Icon(
+                                  Icons.check_rounded,
+                                  size: 15,
+                                  color: AppColors.buttonText,
+                                )
+                              : null,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            }),
+            const SizedBox(height: 6),
+
+            // ── پرداخت‌کننده: کنترل دوتایی تمام‌عرض
+            Text(
+              'cargo.payer_side'.tr(),
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: AppColors.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: AppColors.backgroundLight,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: AppColors.fieldBorder),
+              ),
+              child: Row(
+                children: [
+                  for (final String side in <String>[senderText, receiverText])
+                    Expanded(
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () => onPayerChanged(side),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: paymentPayer == side
+                                ? AppColors.primaryButton
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(11),
+                          ),
+                          child: Text(
+                            side,
+                            style: TextStyle(
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w800,
+                              color: paymentPayer == side
+                                  ? AppColors.buttonText
+                                  : AppColors.textSecondary,
+                            ),
                           ),
                         ),
                       ),
                     ),
-                  );
-                }).toList(),
+                ],
               ),
-            ),
-            Divider(height: 24, color: AppColors.fieldBorder),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'cargo.payer_side'.tr(),
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-                Row(
-                  children: [
-                    ChoiceChip(
-                      label: Text(
-                        senderText,
-                        style: TextStyle(
-                          fontSize: 13.5,
-                          fontWeight: FontWeight.w700,
-                          color: paymentPayer == senderText
-                              ? AppColors.primaryBrand
-                              : AppColors.textSecondary,
-                        ),
-                      ),
-                      selected: paymentPayer == senderText,
-                      showCheckmark: false,
-                      backgroundColor: AppColors.backgroundLight,
-                      selectedColor: AppColors.cardBackground,
-                      side: BorderSide(
-                        color: paymentPayer == senderText
-                            ? AppColors.primaryBrand
-                            : AppColors.fieldBorder,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      onSelected: (_) => onPayerChanged(senderText),
-                    ),
-                    const SizedBox(width: 8),
-                    ChoiceChip(
-                      label: Text(
-                        receiverText,
-                        style: TextStyle(
-                          fontSize: 13.5,
-                          fontWeight: FontWeight.w700,
-                          color: paymentPayer == receiverText
-                              ? AppColors.primaryBrand
-                              : AppColors.textSecondary,
-                        ),
-                      ),
-                      selected: paymentPayer == receiverText,
-                      showCheckmark: false,
-                      backgroundColor: AppColors.backgroundLight,
-                      selectedColor: AppColors.cardBackground,
-                      side: BorderSide(
-                        color: paymentPayer == receiverText
-                            ? AppColors.primaryBrand
-                            : AppColors.fieldBorder,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      onSelected: (_) => onPayerChanged(receiverText),
-                    ),
-                  ],
-                ),
-              ],
             ),
             Divider(height: 24, color: AppColors.fieldBorder),
             Row(
@@ -368,8 +461,16 @@ class _CargoVehicle {
   final String id;
   final String title;
   final IconData icon;
+  final String capacityKey;
+  final String capacityFallback;
 
-  const _CargoVehicle(this.id, this.title, this.icon);
+  const _CargoVehicle(
+    this.id,
+    this.title,
+    this.icon,
+    this.capacityKey,
+    this.capacityFallback,
+  );
 }
 
 /// صفحهٔ مشترک «اطلاعات فرستنده» و «اطلاعات گیرنده»
