@@ -9,6 +9,7 @@ import 'package:safir_passengers/appInfo/app_info.dart';
 import 'package:safir_passengers/global/global_var.dart';
 import 'package:safir_passengers/models/address_models.dart';
 import 'package:safir_passengers/models/predicted_places.dart';
+import 'package:safir_passengers/theme/app_colors.dart';
 import 'package:safir_passengers/widgets/place_prediction_tile.dart';
 
 class SearchDestinationPlace extends StatefulWidget {
@@ -209,14 +210,17 @@ class _SearchDestinationPlaceState
         destinationTextEditingController.text.isNotEmpty;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
+      backgroundColor: AppColors.backgroundLight,
       appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0.5,
+        backgroundColor: AppColors.cardBgLight,
+        surfaceTintColor: AppColors.cardBgLight,
+        elevation: 0,
+        scrolledUnderElevation: 0,
         leading: IconButton(
-          icon: const Icon(
-            Icons.arrow_back,
-            color: Colors.black87,
+          icon: Icon(
+            Icons.arrow_back_ios_new_rounded,
+            size: 19,
+            color: AppColors.textPrimary,
           ),
           onPressed: () {
             HapticFeedback.selectionClick();
@@ -228,10 +232,10 @@ class _SearchDestinationPlaceState
             context,
             'search_address_and_destination_title',
           ),
-          style: const TextStyle(
-            color: Colors.black87,
+          style: TextStyle(
+            color: AppColors.textPrimary,
             fontSize: 16,
-            fontWeight: FontWeight.bold,
+            fontWeight: FontWeight.w800,
           ),
         ),
         centerTitle: true,
@@ -239,8 +243,15 @@ class _SearchDestinationPlaceState
       body: Column(
         children: [
           Container(
-            color: Colors.white,
-            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppColors.cardBgLight,
+              borderRadius:
+                  const BorderRadius.vertical(bottom: Radius.circular(24)),
+              border: Border(
+                bottom: BorderSide(color: AppColors.fieldBorder),
+              ),
+            ),
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 18),
             child: Column(
               children: [
                 Row(
@@ -248,17 +259,25 @@ class _SearchDestinationPlaceState
                     Expanded(
                       child: Container(
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF3F4F6),
-                          borderRadius: BorderRadius.circular(10),
+                          color: AppColors.backgroundLight,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: AppColors.fieldBorder),
                         ),
                         child: TextField(
                           controller: pickupTextEditingController,
                           readOnly: true,
-                          style: const TextStyle(fontSize: 14),
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: AppColors.textSecondary,
+                          ),
                           decoration: InputDecoration(
                             hintText: getTranslation(
                               context,
                               'pickup_location_hint',
+                            ),
+                            hintStyle: TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 14,
                             ),
                             border: InputBorder.none,
                             contentPadding:
@@ -274,16 +293,16 @@ class _SearchDestinationPlaceState
                     Container(
                       width: 16,
                       height: 16,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFF2563EB),
+                      decoration: BoxDecoration(
+                        color: AppColors.originBlue,
                         shape: BoxShape.circle,
                       ),
                       child: Center(
                         child: Container(
                           width: 5,
                           height: 5,
-                          decoration: const BoxDecoration(
-                            color: Colors.white,
+                          decoration: BoxDecoration(
+                            color: AppColors.buttonText,
                             shape: BoxShape.circle,
                           ),
                         ),
@@ -297,8 +316,9 @@ class _SearchDestinationPlaceState
                     Expanded(
                       child: Container(
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF3F4F6),
-                          borderRadius: BorderRadius.circular(10),
+                          color: AppColors.backgroundLight,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: AppColors.fieldBorder),
                         ),
                         child: TextField(
                           controller:
@@ -308,18 +328,31 @@ class _SearchDestinationPlaceState
                             setState(() {});
                             _onSearchTextChanged(value);
                           },
-                          style: const TextStyle(fontSize: 14),
+                          cursorColor: AppColors.primaryBrand,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textPrimary,
+                          ),
                           decoration: InputDecoration(
                             hintText: getTranslation(
                               context,
                               'where_to_destination_hint',
                             ),
+                            hintStyle: TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
                             border: InputBorder.none,
+                            enabledBorder: InputBorder.none,
+                            focusedBorder: InputBorder.none,
                             suffixIcon: hasDestinationText
                                 ? IconButton(
-                                    icon: const Icon(
-                                      Icons.clear,
+                                    icon: Icon(
+                                      Icons.cancel_rounded,
                                       size: 18,
+                                      color: AppColors.iconSecondary,
                                     ),
                                     onPressed: () {
                                       destinationTextEditingController
@@ -345,7 +378,7 @@ class _SearchDestinationPlaceState
                       width: 16,
                       height: 16,
                       decoration: BoxDecoration(
-                        color: const Color(0xFF169365),
+                        color: AppColors.primaryButton,
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Center(
@@ -353,7 +386,7 @@ class _SearchDestinationPlaceState
                           width: 5,
                           height: 5,
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: AppColors.buttonText,
                             borderRadius: BorderRadius.circular(1),
                           ),
                         ),
@@ -365,11 +398,12 @@ class _SearchDestinationPlaceState
             ),
           ),
           if (isLoading)
-            const LinearProgressIndicator(
-              color: Color(0xFF169365),
-              backgroundColor: Color(0xFFE5E7EB),
+            LinearProgressIndicator(
+              minHeight: 2,
+              color: AppColors.primaryButton,
+              backgroundColor: AppColors.fieldBorder,
             ),
-          const SizedBox(height: 5),
+          const SizedBox(height: 6),
           Expanded(
             child: placesPredictedList.isNotEmpty
                 ? ListView.separated(
@@ -395,10 +429,12 @@ class _SearchDestinationPlaceState
                       BuildContext context,
                       int index,
                     ) {
-                      return const Divider(
+                      return Divider(
                         height: 1,
-                        color: Colors.black12,
-                        thickness: 0.5,
+                        indent: 68,
+                        endIndent: 16,
+                        color: AppColors.fieldBorder,
+                        thickness: 1,
                       );
                     },
                   )
@@ -409,12 +445,22 @@ class _SearchDestinationPlaceState
                         mainAxisAlignment:
                             MainAxisAlignment.center,
                         children: [
-                          Icon(
-                            Icons.location_on_outlined,
-                            size: 48,
-                            color: Colors.grey[400],
+                          Container(
+                            width: 84,
+                            height: 84,
+                            decoration: BoxDecoration(
+                              color: AppColors.cardBackground,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              destinationTextEditingController.text.isEmpty
+                                  ? Icons.search_rounded
+                                  : Icons.location_off_outlined,
+                              size: 38,
+                              color: AppColors.primaryBrand,
+                            ),
                           ),
-                          const SizedBox(height: 10),
+                          const SizedBox(height: 16),
                           Text(
                             destinationTextEditingController
                                     .text.isEmpty
@@ -428,8 +474,9 @@ class _SearchDestinationPlaceState
                                   ),
                             textAlign: TextAlign.center,
                             style: TextStyle(
-                              color: Colors.grey[600],
-                              fontSize: 13,
+                              color: AppColors.textSecondary,
+                              fontSize: 13.5,
+                              height: 1.5,
                             ),
                           ),
                         ],
