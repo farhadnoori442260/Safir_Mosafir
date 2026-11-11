@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:maplibre_gl/maplibre_gl.dart';
@@ -10,6 +11,7 @@ import 'package:provider/provider.dart';
 
 import 'package:safir_passengers/appInfo/app_info.dart';
 import 'package:safir_passengers/global/global_var.dart';
+import 'package:safir_passengers/theme/app_colors.dart';
 import 'package:safir_passengers/utils/time_helper.dart';
 
 class MapControllerLogic {
@@ -32,6 +34,36 @@ class MapControllerLogic {
       debugPrint('Pricing settings read error: $e');
       return <String, dynamic>{};
     }
+  }
+
+  /// ترجمه با متن جایگزین (چون .tr() وقتی کلید نیست خودِ کلید را برمی‌گرداند)
+  static String _lt(String key, String fallback) {
+    final String v = key.tr();
+    return (v.trim().isEmpty || v == key) ? fallback : v;
+  }
+
+  /// پیام کوتاه به کاربر؛ قبلاً خطاهای مسیر‌یابی بی‌صدا بلعیده می‌شدند
+  static void _notify(
+    BuildContext context,
+    String message, {
+    bool isError = true,
+  }) {
+    if (!context.mounted) return;
+    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: isError ? AppColors.danger : AppColors.primaryBrand,
+        content: Text(
+          message,
+          style: TextStyle(
+            color: AppColors.buttonText,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+    );
   }
 
   static double _toDouble(
@@ -86,7 +118,8 @@ class MapControllerLogic {
         break;
     }
 
-    return baseFare + (distanceInKm * perKmFare);
+    // گرد کردن تا مبلغ نمایش‌داده‌شده با مبلغ ذخیره‌شده در سفر یکی باشد
+    return (baseFare + (distanceInKm * perKmFare)).roundToDouble();
   }
 
   static Future<void> getOSRMRoute({
@@ -135,6 +168,9 @@ class MapControllerLogic {
         return;
       }
 
+      // تنظیمات قیمت همزمان با درخواست مسیر خوانده می‌شود (سریع‌تر)
+      final Future<Map<String, dynamic>> pricingFuture = _getPricingConfig();
+
       final Uri url = Uri.parse(
         'https://router.project-osrm.org/route/v1/driving/'
         '$pickupLng,$pickupLat;$destinationLng,$destinationLat'
@@ -149,6 +185,10 @@ class MapControllerLogic {
         debugPrint(
           'OSRM HTTP failed: ${response.statusCode}',
         );
+        _notify(
+          context,
+          _lt('route_error', 'مسیر پیدا نشد. اتصال اینترنت را بررسی کنید و دوباره تلاش کنید'),
+        );
         return;
       }
 
@@ -160,6 +200,10 @@ class MapControllerLogic {
 
       if (routes.isEmpty) {
         debugPrint('OSRM returned no route.');
+        _notify(
+          context,
+          _lt('route_not_found', 'برای این مبدأ و مقصد مسیری پیدا نشد'),
+        );
         return;
       }
 
@@ -190,23 +234,16 @@ class MapControllerLogic {
       final double distanceInKm =
           distanceInMeters / 1000.0;
 
-      final Map<String, dynamic> pricingConfig =
-          await _getPricingConfig();
+      final Map<String, dynamic> pricingConfig = await pricingFuture;
 
       final bool serviceIsActive =
           pricingConfig['is_service_active'] != false;
 
       if (!serviceIsActive) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                'سرویس سفیر موقتاً غیرفعال است.',
-              ),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
+        _notify(
+          context,
+          _lt('service_inactive', 'سرویس سفیر موقتاً غیرفعال است.'),
+        );
 
         return;
       }
@@ -226,9 +263,17 @@ class MapControllerLogic {
       );
     } on TimeoutException {
       debugPrint('OSRM request timed out.');
+      _notify(
+        context,
+        _lt('route_timeout', 'پاسخ سرور دیر شد. دوباره تلاش کنید'),
+      );
     } catch (error, stackTrace) {
       debugPrint('Error fetching OSRM route: $error');
       debugPrintStack(stackTrace: stackTrace);
+      _notify(
+        context,
+        _lt('route_error', 'مسیر پیدا نشد. اتصال اینترنت را بررسی کنید و دوباره تلاش کنید'),
+      );
     }
   }
 
