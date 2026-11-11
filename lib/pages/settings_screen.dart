@@ -21,8 +21,7 @@ class SettingsScreen extends StatefulWidget {
   });
 
   @override
-  State<SettingsScreen> createState() =>
-      _SettingsScreenState();
+  State<SettingsScreen> createState() => _SettingsScreenState();
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
@@ -30,76 +29,94 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _enableSoundEffects = true;
   bool _isLoadingCache = false;
 
+  Color get _blue => AppColors.isDark
+      ? const Color(0xFF78A7FF)
+      : const Color(0xFF3478DB);
+
+  Color get _purple => AppColors.isDark
+      ? const Color(0xFFB49AFF)
+      : const Color(0xFF8158CF);
+
+  Color get _orange => AppColors.isDark
+      ? const Color(0xFFF5B65B)
+      : const Color(0xFFC97A14);
+
+  Color get _red => AppColors.danger;
+
+  Color get _buttonBlue => const Color(0xFF306FD6);
+
   @override
   void initState() {
     super.initState();
     _loadSettings();
   }
 
+  String _localized(String key, String fallback) {
+    final String value = key.tr();
+    return value.trim().isEmpty || value == key
+        ? fallback
+        : value;
+  }
+
   Future<void> _loadSettings() async {
-    final SharedPreferences prefs =
-        await SharedPreferences.getInstance();
+    try {
+      final SharedPreferences prefs =
+          await SharedPreferences.getInstance();
 
-    if (!mounted) return;
+      if (!mounted) return;
 
-    setState(() {
-      _enableNotifications =
-          prefs.getBool('enable_notifications') ?? true;
-
-      _enableSoundEffects =
-          prefs.getBool('enable_sounds') ?? true;
-    });
+      setState(() {
+        _enableNotifications =
+            prefs.getBool('enable_notifications') ?? true;
+        _enableSoundEffects =
+            prefs.getBool('enable_sounds') ?? true;
+      });
+    } catch (e) {
+      debugPrint('خطا در دریافت تنظیمات: $e');
+    }
   }
 
   Future<void> _toggleNotification(bool value) async {
     HapticFeedback.selectionClick();
 
-    setState(() {
-      _enableNotifications = value;
-    });
+    setState(() => _enableNotifications = value);
 
-    final SharedPreferences prefs =
-        await SharedPreferences.getInstance();
+    try {
+      final SharedPreferences prefs =
+          await SharedPreferences.getInstance();
 
-    await prefs.setBool(
-      'enable_notifications',
-      value,
-    );
+      await prefs.setBool('enable_notifications', value);
+    } catch (e) {
+      debugPrint('خطا در ذخیره تنظیم اعلان‌ها: $e');
+    }
   }
 
   Future<void> _toggleSound(bool value) async {
     HapticFeedback.selectionClick();
 
-    setState(() {
-      _enableSoundEffects = value;
-    });
+    setState(() => _enableSoundEffects = value);
 
-    final SharedPreferences prefs =
-        await SharedPreferences.getInstance();
+    try {
+      final SharedPreferences prefs =
+          await SharedPreferences.getInstance();
 
-    await prefs.setBool(
-      'enable_sounds',
-      value,
-    );
+      await prefs.setBool('enable_sounds', value);
+    } catch (e) {
+      debugPrint('خطا در ذخیره تنظیم صدا: $e');
+    }
   }
 
-  Future<void> _applyLanguageChange(
-    String langCode,
-  ) async {
+  Future<void> _applyLanguageChange(String langCode) async {
     await context.setLocale(Locale(langCode));
 
     final SharedPreferences prefs =
         await SharedPreferences.getInstance();
 
-    await prefs.setString(
-      'selected_language',
-      langCode,
-    );
-
-    widget.onLanguageChanged?.call(langCode);
+    await prefs.setString('selected_language', langCode);
 
     if (!mounted) return;
 
+    widget.onLanguageChanged?.call(langCode);
     setState(() {});
   }
 
@@ -107,73 +124,69 @@ class _SettingsScreenState extends State<SettingsScreen> {
     switch (code) {
       case 'pa':
       case 'ps':
-        final String value = 'lang_pashto'.tr();
-
-        return value.isEmpty ? 'پښتو' : value;
-
+        return _localized('lang_pashto', 'پښتو');
       case 'en':
-        final String value = 'lang_english'.tr();
-
-        return value.isEmpty ? 'English' : value;
-
-      case 'fa':
-      case 'dr':
+        return _localized('lang_english', 'English');
       default:
-        final String value = 'lang_dari'.tr();
-
-        return value.isEmpty ? 'فارسی / دری' : value;
+        return _localized('lang_dari', 'فارسی / دری');
     }
   }
 
-  String _localized(String key, String fallback) {
-    final String value = key.tr();
-
-    return value.isEmpty || value == key
-        ? fallback
-        : value;
+  ButtonStyle get _dialogButtonStyle {
+    return ElevatedButton.styleFrom(
+      backgroundColor: _buttonBlue,
+      foregroundColor: Colors.white,
+      elevation: 0,
+      padding: const EdgeInsets.symmetric(
+        horizontal: 20,
+        vertical: 11,
+      ),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+    );
   }
 
   void _showLanguageDialog() {
-    final String currentLang =
-        context.locale.languageCode;
+    final String currentLang = context.locale.languageCode;
 
     String selectedTempLang =
-        (currentLang == 'pa' || currentLang == 'ps')
+        currentLang == 'pa' || currentLang == 'ps'
             ? 'ps'
             : currentLang == 'en'
                 ? 'en'
                 : 'fa';
 
-    showDialog(
+    showDialog<void>(
       context: context,
       builder: (BuildContext dialogContext) {
         return StatefulBuilder(
-          builder: (
-            BuildContext context,
-            StateSetter setDialogState,
-          ) {
+          builder: (context, setDialogState) {
             return AlertDialog(
               backgroundColor: AppColors.cardBgLight,
-              surfaceTintColor: AppColors.cardBgLight,
+              surfaceTintColor: Colors.transparent,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(22),
               ),
               title: Row(
                 children: [
                   Icon(
                     Icons.language_rounded,
-                    color: AppColors.textPrimary,
+                    color: _blue,
+                    size: 27,
                   ),
-                  const SizedBox(width: 10),
-                  Text(
-                    _localized(
-                      'select_language_title',
-                      'انتخاب زبان',
-                    ),
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textPrimary,
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      _localized(
+                        'select_language_title',
+                        'انتخاب زبان',
+                      ),
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary,
+                      ),
                     ),
                   ),
                 ],
@@ -188,47 +201,32 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                     value: 'fa',
                     groupValue: selectedTempLang,
-                    onChanged: (String? value) {
+                    onChanged: (value) {
                       if (value == null) return;
-
                       setDialogState(() {
                         selectedTempLang = value;
                       });
                     },
                   ),
-                  Divider(
-                    height: 1,
-                    color: AppColors.fieldBorder,
-                  ),
+                  _dialogDivider(),
                   _buildLanguageRadio(
-                    title: _localized(
-                      'lang_pashto',
-                      'پښتو',
-                    ),
+                    title: _localized('lang_pashto', 'پښتو'),
                     value: 'ps',
                     groupValue: selectedTempLang,
-                    onChanged: (String? value) {
+                    onChanged: (value) {
                       if (value == null) return;
-
                       setDialogState(() {
                         selectedTempLang = value;
                       });
                     },
                   ),
-                  Divider(
-                    height: 1,
-                    color: AppColors.fieldBorder,
-                  ),
+                  _dialogDivider(),
                   _buildLanguageRadio(
-                    title: _localized(
-                      'lang_english',
-                      'English',
-                    ),
+                    title: _localized('lang_english', 'English'),
                     value: 'en',
                     groupValue: selectedTempLang,
-                    onChanged: (String? value) {
+                    onChanged: (value) {
                       if (value == null) return;
-
                       setDialogState(() {
                         selectedTempLang = value;
                       });
@@ -238,38 +236,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               actions: [
                 TextButton(
-                  onPressed: () {
-                    Navigator.pop(dialogContext);
-                  },
+                  onPressed: () => Navigator.pop(dialogContext),
                   child: Text(
                     _localized('cancel', 'انصراف'),
                     style: TextStyle(
                       color: AppColors.textSecondary,
-                      fontSize: 14,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
                 ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primaryBrand,
-                    foregroundColor: AppColors.buttonText,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
+                  style: _dialogButtonStyle,
                   onPressed: () async {
                     Navigator.pop(dialogContext);
-
-                    await _applyLanguageChange(
-                      selectedTempLang,
-                    );
+                    await _applyLanguageChange(selectedTempLang);
                   },
                   child: Text(
                     _localized('confirm', 'تایید'),
                     style: const TextStyle(
-                      fontSize: 14,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -282,6 +266,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  Widget _dialogDivider() {
+    return Divider(
+      height: 1,
+      thickness: 0.5,
+      color: AppColors.fieldBorder,
+    );
+  }
+
   Widget _buildLanguageRadio({
     required String title,
     required String value,
@@ -291,14 +283,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return RadioListTile<String>(
       title: Text(
         title,
-        style: const TextStyle(
+        style: TextStyle(
+          color: AppColors.textPrimary,
           fontSize: 14,
           fontWeight: FontWeight.w600,
         ),
       ),
       value: value,
       groupValue: groupValue,
-      activeColor: AppColors.primaryBrand,
+      activeColor: _blue,
       contentPadding: EdgeInsets.zero,
       onChanged: onChanged,
     );
@@ -307,35 +300,44 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _performClearCache() async {
     if (_isLoadingCache) return;
 
-    setState(() {
-      _isLoadingCache = true;
-    });
+    setState(() => _isLoadingCache = true);
 
     try {
-      final Directory tempDir =
-          await getTemporaryDirectory();
+      final Directory tempDir = await getTemporaryDirectory();
+      bool hadFailure = false;
 
       if (await tempDir.exists()) {
-        // محتوای پوشه پاک می‌شود، نه خود پوشه (حذف خود پوشه ممکن است
-        // نوشتن بعدیِ فایل‌های موقت پلاگین‌ها را خراب کند)
         await for (final FileSystemEntity entity in tempDir.list()) {
           try {
             await entity.delete(recursive: true);
-          } catch (_) {}
+          } catch (e) {
+            hadFailure = true;
+            debugPrint('تعذر حذف فایل موقت: $e');
+          }
         }
       }
 
       if (!mounted) return;
 
-      _showMessage(
-        _localized(
-          'cache_cleared_msg',
-          'حافظه موقت با موفقیت پاکسازی شد',
-        ),
-        backgroundColor: AppColors.success,
-      );
-    } catch (error) {
-      debugPrint('خطا در پاکسازی کش: $error');
+      if (hadFailure) {
+        _showMessage(
+          _localized(
+            'cache_clear_partial_msg',
+            'برخی فایل‌های موقت در حال استفاده بودند و پاک نشدند',
+          ),
+          backgroundColor: const Color(0xFF9A6417),
+        );
+      } else {
+        _showMessage(
+          _localized(
+            'cache_cleared_msg',
+            'حافظه موقت با موفقیت پاکسازی شد',
+          ),
+          backgroundColor: _buttonBlue,
+        );
+      }
+    } catch (e) {
+      debugPrint('خطا در پاکسازی کش: $e');
 
       if (!mounted) return;
 
@@ -348,9 +350,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       );
     } finally {
       if (mounted) {
-        setState(() {
-          _isLoadingCache = false;
-        });
+        setState(() => _isLoadingCache = false);
       }
     }
   }
@@ -358,59 +358,62 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void _clearCacheDialog() {
     HapticFeedback.mediumImpact();
 
-    showDialog(
+    showDialog<void>(
       context: context,
-      builder: (BuildContext dialogContext) {
+      builder: (dialogContext) {
         return AlertDialog(
           backgroundColor: AppColors.cardBgLight,
-          surfaceTintColor: AppColors.cardBgLight,
+          surfaceTintColor: Colors.transparent,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(22),
           ),
-          title: Text(
-            _localized(
-              'clear_cache_title',
-              'پاکسازی حافظه موقت',
-            ),
-            style: TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-            ),
+          title: Row(
+            children: [
+              Icon(
+                Icons.cleaning_services_rounded,
+                color: _purple,
+                size: 27,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  _localized(
+                    'clear_cache_title',
+                    'پاکسازی حافظه موقت',
+                  ),
+                  style: TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
           ),
           content: Text(
             _localized(
               'clear_cache_desc',
               'آیا از پاکسازی فایل‌های موقت برنامه اطمینان دارید؟',
             ),
-            style: const TextStyle(
+            style: TextStyle(
+              color: AppColors.textSecondary,
               fontSize: 14,
-              fontWeight: FontWeight.w400,
+              height: 1.7,
             ),
           ),
           actions: [
             TextButton(
-              onPressed: () {
-                Navigator.pop(dialogContext);
-              },
+              onPressed: () => Navigator.pop(dialogContext),
               child: Text(
                 _localized('cancel', 'انصراف'),
                 style: TextStyle(
                   color: AppColors.textSecondary,
-                  fontSize: 14,
                   fontWeight: FontWeight.w600,
                 ),
               ),
             ),
             ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primaryBrand,
-                foregroundColor: AppColors.buttonText,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
+              style: _dialogButtonStyle,
               onPressed: () async {
                 Navigator.pop(dialogContext);
                 await _performClearCache();
@@ -418,7 +421,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
               child: Text(
                 _localized('confirm', 'تایید'),
                 style: const TextStyle(
-                  fontSize: 14,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -432,96 +434,74 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void _showLegalDialog({
     required String title,
     required IconData icon,
+    required Color iconColor,
     required String content,
   }) {
-    showDialog(
+    showDialog<void>(
       context: context,
-      builder: (BuildContext dialogContext) {
-        return Directionality(
-          textDirection: ui.TextDirection.rtl,
-          child: AlertDialog(
-            backgroundColor: AppColors.cardBgLight,
-            surfaceTintColor: AppColors.cardBgLight,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
-            ),
-            titlePadding: const EdgeInsets.fromLTRB(
-              20,
-              20,
-              20,
-              8,
-            ),
-            contentPadding: const EdgeInsets.fromLTRB(
-              20,
-              12,
-              20,
-              8,
-            ),
-            actionsPadding: const EdgeInsets.fromLTRB(
-              16,
-              0,
-              16,
-              12,
-            ),
-            title: Row(
-              children: [
-                Container(
-                  width: 38,
-                  height: 38,
-                  decoration: BoxDecoration(
-                    color: AppColors.primaryBrand.withOpacity(0.10),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(
-                    icon,
-                    size: 21,
-                    color: AppColors.primaryBrand,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    title,
-                    style: TextStyle(
-                      color: AppColors.textPrimary,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            content: SizedBox(
-              width: double.maxFinite,
-              child: SingleChildScrollView(
-                child: Text(
-                  content,
-                  textAlign: TextAlign.justify,
-                  style: TextStyle(
-                    fontSize: 13,
-                    height: 1.75,
-                    color: AppColors.textPrimary,
-                    fontWeight: FontWeight.w400,
-                  ),
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: AppColors.cardBgLight,
+          surfaceTintColor: Colors.transparent,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(22),
+          ),
+          titlePadding: const EdgeInsets.fromLTRB(20, 22, 20, 8),
+          contentPadding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
+          actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+          title: Row(
+            children: [
+              // بدون مربع یا زمینه پشت آیکن
+              SizedBox(
+                width: 34,
+                height: 34,
+                child: Icon(
+                  icon,
+                  size: 28,
+                  color: iconColor,
                 ),
               ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(dialogContext);
-                },
+              const SizedBox(width: 12),
+              Expanded(
                 child: Text(
-                  _localized('close', 'بستن'),
+                  title,
                   style: TextStyle(
-                    color: AppColors.primaryBrand,
-                    fontSize: 14,
+                    color: AppColors.textPrimary,
+                    fontSize: 16,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
               ),
             ],
           ),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: SingleChildScrollView(
+              child: Text(
+                content,
+                textAlign: TextAlign.start,
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 13,
+                  height: 1.85,
+                  fontWeight: FontWeight.w400,
+                ),
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: Text(
+                _localized('close', 'بستن'),
+                style: TextStyle(
+                  color: _blue,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
         );
       },
     );
@@ -531,31 +511,104 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _showLegalDialog(
       title: _localized('services_safir_title', 'خدمات سفیر'),
       icon: Icons.local_taxi_rounded,
+      iconColor: _orange,
       content: _localized(
         'services_safir_content',
-        'سفیر یک پلتفرم حمل‌ونقل شهری است که ارتباط میان مسافران و رانندگان را ساده‌تر می‌سازد.\n\nمسافران می‌توانند مبدأ و مقصد سفر را ثبت کنند، درخواست سفر بفرستند، وضعیت سفر را مشاهده کنند، اطلاعات کلی راننده و وسیلهٔ نقلیه را ببینند، سوابق سفر را بررسی کنند و مشکلات خود را از بخش پشتیبانی گزارش دهند.\n\nرانندگان می‌توانند اطلاعات هویتی، گواهینامه و اطلاعات وسیلهٔ نقلیه را ثبت کنند، درخواست‌های سفر را مدیریت کنند، وضعیت سفر را به‌روزرسانی کنند و سوابق و درآمدهای خود را مشاهده کنند.\n\nبرخی امکانات ممکن است بر اساس شهر، وضعیت اینترنت، دسترسی راننده، نسخهٔ برنامه یا قوانین محلی در دسترس نباشند. سفیر تلاش می‌کند خدمات را به‌صورت منظم و قابل‌اعتماد ارائه کند، اما امکان اختلال موقت در اثر شرایط فنی یا عوامل خارج از کنترل وجود دارد.',
+        'سفیر یک پلتفرم حمل‌ونقل شهری است که ارتباط میان مسافران و رانندگان را ساده‌تر می‌سازد.
+
+'
+        'مسافران می‌توانند مبدأ و مقصد سفر را ثبت کنند، درخواست سفر بفرستند، وضعیت سفر را مشاهده کنند، اطلاعات کلی راننده و وسیلهٔ نقلیه را ببینند، سوابق سفر را بررسی کنند و مشکلات خود را از بخش پشتیبانی گزارش دهند.
+
+'
+        'رانندگان می‌توانند اطلاعات هویتی، گواهینامه و اطلاعات وسیلهٔ نقلیه را ثبت کنند، درخواست‌های سفر را مدیریت کنند، وضعیت سفر را به‌روزرسانی کنند و سوابق و درآمدهای خود را مشاهده کنند.
+
+'
+        'برخی امکانات ممکن است بر اساس شهر، وضعیت اینترنت، دسترسی راننده، نسخهٔ برنامه یا قوانین محلی در دسترس نباشند. سفیر تلاش می‌کند خدمات را به‌صورت منظم و قابل‌اعتماد ارائه کند، اما امکان اختلال موقت در اثر شرایط فنی یا عوامل خارج از کنترل وجود دارد.',
       ),
     );
   }
 
   void _showTermsDialog() {
     _showLegalDialog(
-      title: _localized('terms_conditions_title', 'شرایط و قوانین استفاده'),
-      icon: Icons.description_outlined,
+      title: _localized(
+        'terms_conditions_title',
+        'شرایط و قوانین استفاده',
+      ),
+      icon: Icons.description_rounded,
+      iconColor: _blue,
       content: _localized(
         'terms_conditions_content',
-        'با ایجاد حساب، ورود یا استفاده از اپلیکیشن سفیر، شما این شرایط و قوانین را می‌پذیرید. اگر با بخشی از این قوانین موافق نیستید، لطفاً از خدمات سفیر استفاده نکنید.\n\n۱. حساب کاربری\nکاربر باید اطلاعات صحیح، کامل و به‌روز وارد کند و مسئول حفظ امنیت شماره تلفن، کد ورود و حساب خود است.\n\n۲. درخواست سفر\nثبت درخواست سفر به معنای تضمین پذیرش آن نیست.\n\n۳. رفتار کاربران\nمسافر و راننده باید با احترام رفتار کنند.\n\n۴. مسئولیت راننده\nراننده باید مدارک، گواهینامه و اطلاعات وسیلهٔ نقلیه را صحیح ثبت کند.\n\n۵. کرایه و پرداخت\nکرایه ممکن است بر اساس مسیر، زمان، مسافت، تعرفه و شرایط سفر تعیین شود.\n\n۶. لغو سفر\nلغو مکرر یا غیرموجه سفر توسط مسافر یا راننده ممکن است باعث محدودشدن حساب شود.\n\n۷. محدودسازی حساب\nسفیر می‌تواند در صورت تقلب، نقض قوانین یا سوءاستفاده از خدمات، حساب را مسدود کند.',
+        'با ایجاد حساب، ورود یا استفاده از اپلیکیشن سفیر، شما این شرایط و قوانین را می‌پذیرید. اگر با بخشی از این قوانین موافق نیستید، لطفاً از خدمات سفیر استفاده نکنید.
+
+'
+        '۱. حساب کاربری
+'
+        'کاربر باید اطلاعات صحیح، کامل و به‌روز وارد کند و مسئول حفظ امنیت شماره تلفن، کد ورود و حساب خود است.
+
+'
+        '۲. درخواست سفر
+'
+        'ثبت درخواست سفر به معنای تضمین پذیرش آن نیست.
+
+'
+        '۳. رفتار کاربران
+'
+        'مسافر و راننده باید با احترام رفتار کنند.
+
+'
+        '۴. مسئولیت راننده
+'
+        'راننده باید مدارک، گواهینامه و اطلاعات وسیلهٔ نقلیه را صحیح ثبت کند.
+
+'
+        '۵. کرایه و پرداخت
+'
+        'کرایه ممکن است بر اساس مسیر، زمان، مسافت، تعرفه و شرایط سفر تعیین شود.
+
+'
+        '۶. لغو سفر
+'
+        'لغو مکرر یا غیرموجه سفر توسط مسافر یا راننده ممکن است باعث محدودشدن حساب شود.
+
+'
+        '۷. محدودسازی حساب
+'
+        'سفیر می‌تواند در صورت تقلب، نقض قوانین یا سوءاستفاده از خدمات، حساب را مسدود کند.',
       ),
     );
   }
 
   void _showPrivacyDialog() {
     _showLegalDialog(
-      title: _localized('privacy_policy_title', 'حریم خصوصی و داده‌ها'),
-      icon: Icons.privacy_tip_outlined,
+      title: _localized(
+        'privacy_policy_title',
+        'حریم خصوصی و داده‌ها',
+      ),
+      icon: Icons.privacy_tip_rounded,
+      iconColor: _purple,
       content: _localized(
         'privacy_policy_content',
-        'حریم خصوصی کاربران برای سفیر مهم است. این برنامه ممکن است فقط برای ارائه و بهبود خدمات، اطلاعات لازم را دریافت و پردازش کند.\n\n۱. اطلاعاتی که ممکن است دریافت شود\nاطلاعات حساب مانند نام، شماره تلفن، ایمیل، اطلاعات سفر و موقعیت مکانی.\n\n۲. موقعیت مکانی\nبرای ثبت درخواست سفر، تعیین مبدأ و مقصد و نمایش مسیر استفاده می‌شود.\n\n۳. استفاده از داده‌ها\nاطلاعات فقط برای ایجاد و مدیریت حساب، انجام سفر و پشتیبانی استفاده می‌شود.\n\n۴. اشتراک‌گذاری اطلاعات\nاطلاعات ضروری سفر ممکن است میان مسافر و راننده به اشتراک گذاشته شود.',
+        'حریم خصوصی کاربران برای سفیر مهم است. این برنامه ممکن است فقط برای ارائه و بهبود خدمات، اطلاعات لازم را دریافت و پردازش کند.
+
+'
+        '۱. اطلاعاتی که ممکن است دریافت شود
+'
+        'اطلاعات حساب مانند نام، شماره تلفن، ایمیل، اطلاعات سفر و موقعیت مکانی.
+
+'
+        '۲. موقعیت مکانی
+'
+        'برای ثبت درخواست سفر، تعیین مبدأ و مقصد و نمایش مسیر استفاده می‌شود.
+
+'
+        '۳. استفاده از داده‌ها
+'
+        'اطلاعات فقط برای ایجاد و مدیریت حساب، انجام سفر و پشتیبانی استفاده می‌شود.
+
+'
+        '۴. اشتراک‌گذاری اطلاعات
+'
+        'اطلاعات ضروری سفر ممکن است میان مسافر و راننده به اشتراک گذاشته شود.',
       ),
     );
   }
@@ -563,21 +616,37 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void _showAboutDialog() {
     _showLegalDialog(
       title: _localized('about_app_title', 'دربارهٔ اپلیکیشن'),
-      icon: Icons.info_outline_rounded,
+      icon: Icons.info_rounded,
+      iconColor: AppColors.iconSecondary,
       content: _localized(
         'about_app_content',
-        'سفیر یک اپلیکیشن حمل‌ونقل شهری است که برای آسان‌ترشدن ثبت و مدیریت سفر طراحی شده است.\n\nهدف ما ایجاد ارتباطی ساده‌تر میان مسافران و رانندگان و دسترسی سریع‌تر به خدمات سفر است.\n\nنسخهٔ برنامه:\nv1.0.0 (Safir Passengers)',
+        'سفیر یک اپلیکیشن حمل‌ونقل شهری است که برای آسان‌ترشدن ثبت و مدیریت سفر طراحی شده است.
+
+'
+        'هدف ما ایجاد ارتباطی ساده‌تر میان مسافران و رانندگان و دسترسی سریع‌تر به خدمات سفر است.
+
+'
+        'نسخهٔ برنامه:
+'
+        'v1.0.0 (Safir Passengers)',
       ),
     );
   }
 
   void _showDeleteAccountDialog() {
     _showLegalDialog(
-      title: _localized('delete_account_title', 'حذف حساب و داده‌ها'),
-      icon: Icons.delete_forever_outlined,
+      title: _localized(
+        'delete_account_title',
+        'حذف حساب و داده‌ها',
+      ),
+      icon: Icons.delete_forever_rounded,
+      iconColor: _red,
       content: _localized(
         'delete_account_content',
-        'شما حق دارید درخواست حذف حساب سفیر و داده‌های مرتبط با آن را ثبت کنید.\n\nدر فرایند حذف، اطلاعات مرتبط با حساب بررسی می‌شوند. ممکن است برخی اطلاعات فقط در صورت ضرورت قانونی یا جلوگیری از تقلب برای مدت محدود حفظ شوند.',
+        'شما حق دارید درخواست حذف حساب سفیر و داده‌های مرتبط با آن را ثبت کنید.
+
+'
+        'در فرایند حذف، اطلاعات مرتبط با حساب بررسی می‌شوند. ممکن است برخی اطلاعات فقط در صورت ضرورت قانونی یا جلوگیری از تقلب برای مدت محدود حفظ شوند.',
       ),
     );
   }
@@ -588,11 +657,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }) {
     if (!mounted) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
+    final ScaffoldMessengerState messenger =
+        ScaffoldMessenger.of(context);
+
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(
       SnackBar(
         content: Text(
           message,
           style: const TextStyle(
+            color: Colors.white,
             fontSize: 14,
             fontWeight: FontWeight.w500,
           ),
@@ -600,7 +674,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         backgroundColor: backgroundColor,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(14),
         ),
       ),
     );
@@ -608,9 +682,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final String currentLangCode =
-        context.locale.languageCode;
-
+    final String currentLangCode = context.locale.languageCode;
     final bool isRtl = currentLangCode != 'en';
 
     final IconData chevronIcon = isRtl
@@ -618,415 +690,351 @@ class _SettingsScreenState extends State<SettingsScreen> {
         : Icons.chevron_right_rounded;
 
     return Directionality(
-      textDirection: isRtl
-          ? ui.TextDirection.rtl
-          : ui.TextDirection.ltr,
+      textDirection:
+          isRtl ? ui.TextDirection.rtl : ui.TextDirection.ltr,
       child: Scaffold(
         backgroundColor: AppColors.backgroundLight,
         appBar: AppBar(
           backgroundColor: AppColors.backgroundLight,
-          surfaceTintColor: AppColors.backgroundLight,
+          surfaceTintColor: Colors.transparent,
           elevation: 0,
           scrolledUnderElevation: 0,
           title: Text(
             _localized('settings_title', 'تنظیمات'),
             style: TextStyle(
               color: AppColors.textPrimary,
-              fontWeight: FontWeight.w600,
-              fontSize: 14,
+              fontWeight: FontWeight.w800,
+              fontSize: 19,
             ),
           ),
           centerTitle: true,
           leading: IconButton(
+            tooltip: _localized('back', 'بازگشت'),
             icon: Icon(
-              isRtl
-                  ? Icons.arrow_back_ios_new_rounded
-                  : Icons.arrow_back_ios_rounded,
+              Icons.arrow_back_ios_new_rounded,
               color: AppColors.textPrimary,
               size: 20,
             ),
-            onPressed: () {
-              Navigator.pop(context);
-            },
+            onPressed: () => Navigator.pop(context),
           ),
         ),
-        body: ListView(
-          padding: const EdgeInsets.symmetric(
-            vertical: 20,
-            horizontal: 16,
-          ),
-          children: [
-            _buildSectionHeader(
-              _localized(
-                'general_settings_header',
-                'عمومی',
+        body: SafeArea(
+          top: false,
+          child: ListView(
+            physics: const BouncingScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 28),
+            children: [
+              _buildSectionHeader(
+                _localized('general_settings_header', 'عمومی'),
               ),
-            ),
-            _buildCardGroup([
-              _SettingsTile(
-                leading: Icon(Icons.language_rounded),
-                title: Text(
-                  _localized(
+              _buildCardGroup([
+                _SettingsTile(
+                  icon: Icons.language_rounded,
+                  accent: _blue,
+                  title: _localized(
                     'app_language_label',
                     'زبان برنامه',
                   ),
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
-                    color: AppColors.textPrimary,
+                  subtitle:
+                      '${_localized('current_language_prefix', 'زبان فعلی')}: '
+                      '${_getLanguageName(currentLangCode)}',
+                  trailing: _buildChevron(chevronIcon),
+                  onTap: _showLanguageDialog,
+                ),
+              ]),
+              const SizedBox(height: 24),
+              _buildSectionHeader(
+                _localized('appearance_header', 'ظاهر برنامه'),
+              ),
+              _buildCardGroup([
+                _buildThemeSelector(),
+              ]),
+              const SizedBox(height: 24),
+              _buildSectionHeader(
+                _localized(
+                  'notifications_header',
+                  'اعلانات و صداها',
+                ),
+              ),
+              _buildCardGroup([
+                _buildSettingSwitchTile(
+                  icon: Icons.notifications_active_rounded,
+                  accent: _orange,
+                  title: _localized(
+                    'enable_notifications_label',
+                    'دریافت اعلانات',
                   ),
+                  value: _enableNotifications,
+                  onChanged: _toggleNotification,
                 ),
-                subtitle: Text(
-                  '${_localized(
-                    'current_language_prefix',
-                    'زبان فعلی',
-                  )}: ${_getLanguageName(currentLangCode)}',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textSecondary,
-                    fontWeight: FontWeight.w400,
+                _buildSettingSwitchTile(
+                  icon: Icons.volume_up_rounded,
+                  accent: _purple,
+                  title: _localized(
+                    'enable_sounds_label',
+                    'افکت‌های صوتی',
                   ),
+                  value: _enableSoundEffects,
+                  onChanged: _toggleSound,
                 ),
-                trailing: Icon(
-                  chevronIcon,
-                  color: AppColors.handle,
+              ]),
+              const SizedBox(height: 24),
+              _buildSectionHeader(
+                _localized(
+                  'privacy_cache_header',
+                  'حافظه و داده‌ها',
                 ),
-                onTap: _showLanguageDialog,
               ),
-            ]),
-            const SizedBox(height: 24),
-            _buildSectionHeader(
-              _localized('appearance_header', 'ظاهر برنامه'),
-            ),
-            _buildCardGroup([_buildThemeSelector()]),
-            const SizedBox(height: 24),
-            _buildSectionHeader(
-              _localized(
-                'notifications_header',
-                'اعلانات و صداها',
-              ),
-            ),
-            _buildCardGroup([
-              _buildSettingSwitchTile(
-                icon: Icons.notifications_active_outlined,
-                title: _localized(
-                  'enable_notifications_label',
-                  'دریافت اعلانات',
-                ),
-                value: _enableNotifications,
-                onChanged: _toggleNotification,
-              ),
-              Divider(
-                height: 1,
-                indent: 70,
-                color: AppColors.fieldBorder,
-              ),
-              _buildSettingSwitchTile(
-                icon: Icons.volume_up_outlined,
-                title: _localized(
-                  'enable_sounds_label',
-                  'افکت‌های صوتی',
-                ),
-                value: _enableSoundEffects,
-                onChanged: _toggleSound,
-              ),
-            ]),
-            const SizedBox(height: 24),
-            _buildSectionHeader(
-              _localized(
-                'privacy_cache_header',
-                'حافظه و داده‌ها',
-              ),
-            ),
-            _buildCardGroup([
-              _SettingsTile(
-                leading: _isLoadingCache
-                    ? SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: AppColors.primaryBrand,
-                        ),
-                      )
-                    : Icon(
-                        Icons.cleaning_services_outlined,
-                        color: AppColors.textPrimary,
-                      ),
-                title: Text(
-                  _localized(
+              _buildCardGroup([
+                _SettingsTile(
+                  icon: Icons.cleaning_services_rounded,
+                  accent: _purple,
+                  loading: _isLoadingCache,
+                  title: _localized(
                     'clear_cache_btn',
                     'پاکسازی حافظه موقت',
                   ),
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-                subtitle: Text(
-                  _localized(
+                  subtitle: _localized(
                     'clear_cache_subtitle',
                     'آزادسازی فضای اشغال‌شده توسط عکس‌ها و نقشه‌ها',
                   ),
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textSecondary,
-                    fontWeight: FontWeight.w400,
-                  ),
+                  trailing: _buildChevron(chevronIcon),
+                  onTap:
+                      _isLoadingCache ? null : _clearCacheDialog,
                 ),
-                trailing: Icon(
-                  chevronIcon,
-                  color: AppColors.handle,
-                ),
-                onTap: _isLoadingCache
-                    ? null
-                    : _clearCacheDialog,
+              ]),
+              const SizedBox(height: 24),
+              _buildSectionHeader(
+                _localized('about_safir_header', 'درباره سفیر'),
               ),
-            ]),
-            const SizedBox(height: 24),
-            _buildSectionHeader(
-              _localized('about_safir_header', 'درباره سفیر'),
-            ),
-            _buildCardGroup([
-              _SettingsTile(
-                leading: Icon(Icons.local_taxi_rounded),
-                title: Text(
-                  _localized('services_safir_title', 'خدمات سفیر'),
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
-                    color: AppColors.textPrimary,
+              _buildCardGroup([
+                _SettingsTile(
+                  icon: Icons.local_taxi_rounded,
+                  accent: _orange,
+                  title: _localized(
+                    'services_safir_title',
+                    'خدمات سفیر',
                   ),
-                ),
-                subtitle: Text(
-                  _localized('services_safir_sub', 'امکانات و خدمات مسافر و راننده'),
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textSecondary,
+                  subtitle: _localized(
+                    'services_safir_sub',
+                    'امکانات و خدمات مسافر و راننده',
                   ),
+                  trailing: _buildChevron(chevronIcon),
+                  onTap: _showServicesDialog,
                 ),
-                trailing: Icon(
-                  chevronIcon,
-                  color: AppColors.handle,
-                ),
-                onTap: _showServicesDialog,
-              ),
-              Divider(
-                height: 1,
-                indent: 70,
-                color: AppColors.fieldBorder,
-              ),
-              _SettingsTile(
-                leading: Icon(Icons.description_outlined),
-                title: Text(
-                  _localized('terms_conditions_title', 'شرایط و قوانین استفاده'),
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
-                    color: AppColors.textPrimary,
+                _SettingsTile(
+                  icon: Icons.description_rounded,
+                  accent: _blue,
+                  title: _localized(
+                    'terms_conditions_title',
+                    'شرایط و قوانین استفاده',
                   ),
-                ),
-                subtitle: Text(
-                  _localized('terms_conditions_sub', 'حقوق، مسئولیت‌ها و قوانین سفر'),
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textSecondary,
+                  subtitle: _localized(
+                    'terms_conditions_sub',
+                    'حقوق، مسئولیت‌ها و قوانین سفر',
                   ),
+                  trailing: _buildChevron(chevronIcon),
+                  onTap: _showTermsDialog,
                 ),
-                trailing: Icon(
-                  chevronIcon,
-                  color: AppColors.handle,
-                ),
-                onTap: _showTermsDialog,
-              ),
-              Divider(
-                height: 1,
-                indent: 70,
-                color: AppColors.fieldBorder,
-              ),
-              _SettingsTile(
-                leading: Icon(Icons.privacy_tip_outlined),
-                title: Text(
-                  _localized('privacy_policy_title', 'حریم خصوصی و داده‌ها'),
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
-                    color: AppColors.textPrimary,
+                _SettingsTile(
+                  icon: Icons.privacy_tip_rounded,
+                  accent: _purple,
+                  title: _localized(
+                    'privacy_policy_title',
+                    'حریم خصوصی و داده‌ها',
                   ),
-                ),
-                subtitle: Text(
-                  _localized('privacy_policy_sub', 'نحوهٔ دریافت، استفاده و نگهداری اطلاعات'),
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textSecondary,
+                  subtitle: _localized(
+                    'privacy_policy_sub',
+                    'نحوهٔ دریافت، استفاده و نگهداری اطلاعات',
                   ),
+                  trailing: _buildChevron(chevronIcon),
+                  onTap: _showPrivacyDialog,
                 ),
-                trailing: Icon(
-                  chevronIcon,
-                  color: AppColors.handle,
-                ),
-                onTap: _showPrivacyDialog,
-              ),
-              Divider(
-                height: 1,
-                indent: 70,
-                color: AppColors.fieldBorder,
-              ),
-              _SettingsTile(
-                leading: Icon(
-                  Icons.delete_forever_outlined,
-                ),
-                title: Text(
-                  _localized('delete_account_title', 'حذف حساب و داده‌ها'),
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
-                    color: AppColors.textPrimary,
+                _SettingsTile(
+                  icon: Icons.delete_forever_rounded,
+                  accent: _red,
+                  title: _localized(
+                    'delete_account_title',
+                    'حذف حساب و داده‌ها',
                   ),
-                ),
-                subtitle: Text(
-                  _localized('delete_account_sub', 'راهنمای ثبت درخواست حذف حساب'),
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textSecondary,
+                  subtitle: _localized(
+                    'delete_account_sub',
+                    'راهنمای ثبت درخواست حذف حساب',
                   ),
+                  trailing: _buildChevron(chevronIcon),
+                  onTap: _showDeleteAccountDialog,
                 ),
-                trailing: Icon(
-                  chevronIcon,
-                  color: AppColors.handle,
-                ),
-                accent: AppColors.danger,
-                onTap: _showDeleteAccountDialog,
-              ),
-              Divider(
-                height: 1,
-                indent: 70,
-                color: AppColors.fieldBorder,
-              ),
-              _SettingsTile(
-                leading: Icon(Icons.info_outline_rounded),
-                title: Text(
-                  _localized('about_app_title', 'دربارهٔ اپلیکیشن'),
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
-                    color: AppColors.textPrimary,
+                _SettingsTile(
+                  icon: Icons.info_rounded,
+                  accent: AppColors.iconSecondary,
+                  title: _localized(
+                    'about_app_title',
+                    'دربارهٔ اپلیکیشن',
                   ),
-                ),
-                subtitle: Text(
-                  _localized('about_app_sub', 'معرفی سفیر و نسخهٔ برنامه'),
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textSecondary,
+                  subtitle: _localized(
+                    'about_app_sub',
+                    'معرفی سفیر و نسخهٔ برنامه',
                   ),
+                  trailing: _buildChevron(chevronIcon),
+                  onTap: _showAboutDialog,
                 ),
-                trailing: Icon(
-                  chevronIcon,
-                  color: AppColors.handle,
-                ),
-                onTap: _showAboutDialog,
-              ),
-            ]),
-            const SizedBox(height: 20),
-          ],
+              ]),
+            ],
+          ),
         ),
       ),
+    );
+  }
+
+  Widget _buildChevron(IconData icon) {
+    return Icon(
+      icon,
+      size: 21,
+      color: AppColors.iconSecondary.withOpacity(0.65),
     );
   }
 
   Widget _buildSettingSwitchTile({
     required IconData icon,
+    required Color accent,
     required String title,
     required bool value,
     required ValueChanged<bool> onChanged,
   }) {
     return _SettingsTile(
-      leading: Icon(icon),
-      title: Text(
-        title,
-        style: TextStyle(
-          fontWeight: FontWeight.w600,
-          fontSize: 14,
-          color: AppColors.textPrimary,
-        ),
-      ),
+      icon: icon,
+      accent: accent,
+      title: title,
       trailing: _ModernSwitch(
         value: value,
-        activeColor: AppColors.primaryBrand,
+        activeColor: _buttonBlue,
         onChanged: onChanged,
       ),
-      onTap: () {
-        onChanged(!value);
+      onTap: () => onChanged(!value),
+    );
+  }
+
+  Widget _buildThemeSelector() {
+    return AnimatedBuilder(
+      animation: ThemeController.instance,
+      builder: (context, _) {
+        final ThemeMode mode = ThemeController.instance.mode;
+
+        final options = <MapEntry<ThemeMode, String>>[
+          MapEntry(
+            ThemeMode.system,
+            _localized('theme_system', 'خودکار'),
+          ),
+          MapEntry(
+            ThemeMode.light,
+            _localized('theme_light', 'روشن'),
+          ),
+          MapEntry(
+            ThemeMode.dark,
+            _localized('theme_dark', 'تاریک'),
+          ),
+        ];
+
+        final icons = <ThemeMode, IconData>{
+          ThemeMode.system: Icons.brightness_auto_rounded,
+          ThemeMode.light: Icons.light_mode_rounded,
+          ThemeMode.dark: Icons.dark_mode_rounded,
+        };
+
+        final colors = <ThemeMode, Color>{
+          ThemeMode.system: _blue,
+          ThemeMode.light: _orange,
+          ThemeMode.dark: _purple,
+        };
+
+        return Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              for (int i = 0; i < options.length; i++) ...[
+                if (i > 0) const SizedBox(width: 8),
+                Expanded(
+                  child: _buildThemeOption(
+                    mode: options[i].key,
+                    selected: mode == options[i].key,
+                    label: options[i].value,
+                    icon: icons[options[i].key]!,
+                    iconColor: colors[options[i].key]!,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        );
       },
     );
   }
 
-  /// انتخاب تم: خودکار (سیستم) / روشن / تاریک
-  Widget _buildThemeSelector() {
-    final mode = ThemeController.instance.mode;
-    final options = <MapEntry<ThemeMode, List<Object>>>[
-      MapEntry(ThemeMode.system,
-          [Icons.brightness_auto_rounded, _localized('theme_system', 'خودکار')]),
-      MapEntry(ThemeMode.light,
-          [Icons.light_mode_rounded, _localized('theme_light', 'روشن')]),
-      MapEntry(ThemeMode.dark,
-          [Icons.dark_mode_rounded, _localized('theme_dark', 'تاریک')]),
-    ];
-    return Padding(
-      padding: const EdgeInsets.all(12),
-      child: Container(
-        padding: const EdgeInsets.all(4),
-        decoration: BoxDecoration(
-          color: AppColors.backgroundLight,
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: Row(
-          children: [
-            for (final o in options)
-              Expanded(
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () {
-                    HapticFeedback.selectionClick();
-                    ThemeController.instance.setMode(o.key);
-                  },
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    decoration: BoxDecoration(
-                      color: mode == o.key
-                          ? AppColors.primaryButton
-                          : Colors.transparent,
-                      borderRadius: BorderRadius.circular(11),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          o.value[0] as IconData,
-                          size: 18,
-                          color: mode == o.key
-                              ? AppColors.buttonText
-                              : AppColors.textSecondary,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          o.value[1] as String,
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: mode == o.key
-                                ? AppColors.buttonText
-                                : AppColors.textSecondary,
-                          ),
-                        ),
-                      ],
-                    ),
+  Widget _buildThemeOption({
+    required ThemeMode mode,
+    required bool selected,
+    required String label,
+    required IconData icon,
+    required Color iconColor,
+  }) {
+    return Semantics(
+      selected: selected,
+      button: true,
+      label: label,
+      child: Material(
+        color: selected
+            ? AppColors.backgroundLight
+            : Colors.transparent,
+        borderRadius: BorderRadius.circular(12),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () async {
+            HapticFeedback.selectionClick();
+            await ThemeController.instance.setMode(mode);
+          },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              vertical: 14,
+              horizontal: 4,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  icon,
+                  size: 25,
+                  color: iconColor,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: selected
+                        ? FontWeight.w700
+                        : FontWeight.w500,
+                    color: selected
+                        ? AppColors.textPrimary
+                        : AppColors.textSecondary,
                   ),
                 ),
-              ),
-          ],
+                const SizedBox(height: 8),
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  width: selected ? 20 : 6,
+                  height: 3,
+                  decoration: BoxDecoration(
+                    color: selected
+                        ? _blue
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -1034,15 +1042,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Widget _buildSectionHeader(String title) {
     return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 6,
-        vertical: 8,
+      padding: const EdgeInsetsDirectional.only(
+        start: 8,
+        end: 8,
+        bottom: 11,
       ),
       child: Text(
         title,
         style: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w800,
+          fontSize: 12.5,
+          fontWeight: FontWeight.w600,
           color: AppColors.textSecondary,
         ),
       ),
@@ -1050,15 +1059,34 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _buildCardGroup(List<Widget> children) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.cardBgLight,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.fieldBorder),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: Column(children: children),
+    final bool isRtl =
+        Directionality.of(context) == ui.TextDirection.rtl;
+
+    final List<Widget> rows = [];
+
+    for (int i = 0; i < children.length; i++) {
+      if (i > 0) {
+        rows.add(
+          Divider(
+            height: 1,
+            thickness: 0.5,
+            indent: isRtl ? 16 : 68,
+            endIndent: isRtl ? 68 : 16,
+            color: AppColors.fieldBorder.withOpacity(0.65),
+          ),
+        );
+      }
+      rows.add(children[i]);
+    }
+
+    return Material(
+      color: AppColors.cardBgLight,
+      elevation: 0,
+      borderRadius: BorderRadius.circular(18),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: rows,
       ),
     );
   }
@@ -1077,129 +1105,116 @@ class _ModernSwitch extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      toggled: value,
-      label: value ? _localizedKey('switch_active', 'فعال') : _localizedKey('switch_inactive', 'غیرفعال'),
-      child: GestureDetector(
-        onTap: () {
-          onChanged(!value);
-        },
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOut,
-          width: 44,
-          height: 25,
-          padding: const EdgeInsets.all(3),
-          decoration: BoxDecoration(
-            color: value
-                ? activeColor
-                : AppColors.fieldBorder,
-            borderRadius: BorderRadius.circular(30),
-            border: Border.all(
-              color: value
-                  ? activeColor
-                  : AppColors.borderLight,
-            ),
-          ),
-          child: AnimatedAlign(
-            duration: const Duration(milliseconds: 180),
-            curve: Curves.easeOut,
-            alignment: value
-                ? Alignment.centerRight
-                : Alignment.centerLeft,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 180),
-              width: 19,
-              height: 19,
-              decoration: BoxDecoration(
-                color: AppColors.buttonText,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black12,
-                    blurRadius: 3,
-                    offset: Offset(0, 1),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
+    return SizedBox(
+      width: 52,
+      child: Switch(
+        value: value,
+        onChanged: onChanged,
+        activeColor: Colors.white,
+        activeTrackColor: activeColor,
+        inactiveThumbColor: AppColors.isDark
+            ? const Color(0xFFD6D6D6)
+            : Colors.white,
+        inactiveTrackColor: AppColors.isDark
+            ? const Color(0xFF505050)
+            : const Color(0xFFBDBDBD),
+        materialTapTargetSize: MaterialTapTargetSize.padded,
       ),
     );
   }
-
-  String _localizedKey(String key, String fallback) {
-    final String value = key.tr();
-    return value.isEmpty || value == key ? fallback : value;
-  }
 }
-/// ردیف تنظیمات: آیکون در کادر رنگی، عنوان، زیرعنوان، و جزء انتهایی.
-/// هم‌شکل با آیتم‌های منوی پروفایل (animated_menus.dart).
+
+/// ردیف تنظیمات؛ آیکن رنگی بدون مربع یا زمینه.
 class _SettingsTile extends StatelessWidget {
+  final IconData icon;
+  final Color accent;
+  final String title;
+  final String? subtitle;
+  final Widget? trailing;
+  final VoidCallback? onTap;
+  final bool loading;
+
   const _SettingsTile({
-    required this.leading,
+    required this.icon,
+    required this.accent,
     required this.title,
     this.subtitle,
     this.trailing,
     this.onTap,
-    this.accent,
+    this.loading = false,
   });
-
-  final Widget leading;
-  final Widget title;
-  final Widget? subtitle;
-  final Widget? trailing;
-  final VoidCallback? onTap;
-  final Color? accent;
 
   @override
   Widget build(BuildContext context) {
-    final Color accent = this.accent ?? AppColors.primaryBrand;
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 14,
-            vertical: 12,
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 42,
-                height: 42,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: accent.withOpacity(0.10),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: IconTheme(
-                  data: IconThemeData(color: accent, size: 21),
-                  child: leading,
-                ),
+    return InkWell(
+      onTap: onTap,
+      splashColor: accent.withOpacity(0.10),
+      highlightColor: accent.withOpacity(0.04),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 17,
+        ),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 36,
+              height: 36,
+              child: Center(
+                child: loading
+                    ? SizedBox(
+                        width: 23,
+                        height: 23,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.2,
+                          color: accent,
+                        ),
+                      )
+                    : Icon(
+                        icon,
+                        color: accent,
+                        size: 28,
+                      ),
               ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
                     title,
-                    if (subtitle != null) ...[
-                      const SizedBox(height: 3),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w700,
+                      height: 1.35,
+                    ),
+                  ),
+                  if (subtitle != null) ...[
+                    const SizedBox(height: 4),
+                    Text(
                       subtitle!,
-                    ],
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w400,
+                        height: 1.45,
+                      ),
+                    ),
                   ],
-                ),
+                ],
               ),
-              if (trailing != null) ...[
-                const SizedBox(width: 8),
-                trailing!,
-              ],
+            ),
+            if (trailing != null) ...[
+              const SizedBox(width: 10),
+              trailing!,
             ],
-          ),
+          ],
         ),
       ),
     );
