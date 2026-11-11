@@ -14,43 +14,48 @@ class LoadingDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Directionality(
-      textDirection: TextDirection.rtl, // راست‌چین کردن متن بارگذاری
-      child: Dialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        backgroundColor: Colors.white,
-        elevation: 5,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const SizedBox(width: 8),
-              // انیمیشن چرخشی با رنگ اصلی برند (#145A41)
-              const SizedBox(
-                width: 28,
-                height: 28,
-                child: CircularProgressIndicator(
-                  strokeWidth: 3,
-                  valueColor: AlwaysStoppedAnimation<Color>(AppColors.primaryBrand),
+    // اگر ترجمه نبود، خودِ متن داده‌شده نشان داده می‌شود (نه کلید خالی)
+    final String translated = getTranslation(messageText) ?? '';
+    final String text = translated.trim().isEmpty ? messageText : translated;
+
+    return Dialog(
+      backgroundColor: AppColors.cardBgLight,
+      surfaceTintColor: Colors.transparent,
+      elevation: 0,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 40),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(22),
+        side: BorderSide(color: AppColors.fieldBorder),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 22, horizontal: 22),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 28,
+              height: 28,
+              child: CircularProgressIndicator(
+                strokeWidth: 3,
+                strokeCap: StrokeCap.round,
+                color: AppColors.primaryBrand,
+                backgroundColor: AppColors.fieldBorder,
+              ),
+            ),
+            const SizedBox(width: 18),
+            // جهت متن از زبان اپ می‌آید (راست‌به‌چپ برای فارسی/پشتو، چپ‌به‌راست برای انگلیسی)
+            Flexible(
+              child: Text(
+                text,
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  height: 1.5,
+                  color: AppColors.textPrimary,
                 ),
               ),
-              const SizedBox(width: 20),
-              // متن پیام بارگذاری با پشتیبانی از چندزبانه
-              Expanded(
-                child: Text(
-                  getTranslation(messageText) ?? messageText,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.black87,
-                  ),
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
