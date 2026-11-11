@@ -5,6 +5,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:safir_passengers/theme/app_colors.dart';
+import 'package:safir_passengers/services/referral_service.dart';
+import 'package:share_plus/share_plus.dart';
 
 // نام‌های قبلی برای سازگاری با فایل‌های دیگر؛ حالا از AppColors (روشن/تاریک) می‌آیند.
 Color get safirBrandColor => AppColors.primaryBrand;
@@ -98,7 +100,7 @@ class InviteFriendsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const String referralCode = "SAFIR-8820";
+    final String referralCode = ReferralService.code;
 
     return Scaffold(
       backgroundColor: AppColors.backgroundLight,
@@ -161,7 +163,7 @@ class InviteFriendsScreen extends StatelessWidget {
                       ),
                     ),
                     onPressed: () {
-                      Clipboard.setData(const ClipboardData(text: referralCode));
+                      Clipboard.setData(ClipboardData(text: referralCode));
                       HapticFeedback.mediumImpact();
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(content: Text("copy_btn".tr())),
@@ -180,11 +182,43 @@ class InviteFriendsScreen extends StatelessWidget {
                 ],
               ),
             ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  side: BorderSide(color: AppColors.primaryBrand),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                onPressed: () {
+                  HapticFeedback.mediumImpact();
+                  Share.share(ReferralService.shareMessage);
+                },
+                icon: Icon(Icons.share_rounded,
+                    size: 18, color: AppColors.primaryBrand),
+                label: Text(
+                  _inviteTr('share_invite_btn', 'ارسال دعوت به دوستان'),
+                  style: TextStyle(
+                    color: AppColors.primaryBrand,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 15,
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
       ),
     );
   }
+}
+
+String _inviteTr(String key, String fallback) {
+  final String v = key.tr();
+  return (v.trim().isEmpty || v == key) ? fallback : v;
 }
 
 // ----------------------------------------------------
