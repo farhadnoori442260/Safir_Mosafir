@@ -7,29 +7,32 @@ class PlacePredictionTileDesign extends StatelessWidget {
   final PredictedPlaces? predictedPlaces;
 
   const PlacePredictionTileDesign({
-    super.key, 
+    super.key,
     this.predictedPlaces,
   });
 
   @override
   Widget build(BuildContext context) {
+    final String secondary = predictedPlaces?.secondaryText ?? "";
+
     return Directionality(
       textDirection: TextDirection.rtl, // راست‌چین کردن نمایش آدرس‌ها و آیکون
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Row(
           children: [
-            // آیکون لوکیشن با رنگ اصلی برند سفیر (#145A41)
+            // آیکون لوکیشن در دایرهٔ سبز ملایم
             Container(
-              padding: const EdgeInsets.all(8),
-              decoration: const BoxDecoration(
-                color: AppColors.cardLightBg, // پس‌زمینه کارت روشن (#EAF6F1)
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: AppColors.cardBackground,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
-                Icons.location_on_rounded, 
-                color: AppColors.primaryBrand, // #145A41
-                size: 22,
+              child: Icon(
+                Icons.location_on_rounded,
+                color: AppColors.primaryBrand,
+                size: 21,
               ),
             ),
             const SizedBox(width: 14),
@@ -39,24 +42,30 @@ class PlacePredictionTileDesign extends StatelessWidget {
                 children: [
                   // عنوان اصلی مکان
                   Text(
-                    predictedPlaces?.mainText ?? getTranslation(context, "unknown_place"),
+                    predictedPlaces?.mainText ??
+                        getTranslation(context, "unknown_place"),
+                    maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 14,
-                      fontWeight: FontWeight.bold,
+                      fontWeight: FontWeight.w800,
                       color: AppColors.textPrimary,
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  // توضیحات یا آدرس فرعی مکان
-                  Text(
-                    predictedPlaces?.secondaryText ?? "",
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: AppColors.textSecondary,
+                  if (secondary.isNotEmpty) ...[
+                    const SizedBox(height: 3),
+                    // توضیحات یا آدرس فرعی مکان
+                    Text(
+                      secondary,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.textSecondary,
+                      ),
                     ),
-                  ),
+                  ],
                 ],
               ),
             ),
