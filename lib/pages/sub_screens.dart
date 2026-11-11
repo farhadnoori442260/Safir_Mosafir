@@ -4,9 +4,91 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:safir_passengers/theme/app_colors.dart';
 
-final Color safirBrandColor = const Color(0xFF1B7A57);
-final Color safirAccentColor = const Color(0xFF22C55E);
+// نام‌های قبلی برای سازگاری با فایل‌های دیگر؛ حالا از AppColors (روشن/تاریک) می‌آیند.
+Color get safirBrandColor => AppColors.primaryBrand;
+Color get safirAccentColor => AppColors.success;
+
+// ----------------------------------------------------
+// ابزارهای مشترک ظاهر
+// ----------------------------------------------------
+
+/// نوار بالای یک‌دست برای همهٔ صفحه‌های این فایل
+PreferredSizeWidget _subAppBar(BuildContext context, String title) {
+  return AppBar(
+    title: Text(
+      title,
+      style: TextStyle(
+        fontWeight: FontWeight.w800,
+        fontSize: 17,
+        color: AppColors.textPrimary,
+      ),
+    ),
+    backgroundColor: AppColors.backgroundLight,
+    surfaceTintColor: AppColors.backgroundLight,
+    foregroundColor: AppColors.textPrimary,
+    elevation: 0,
+    scrolledUnderElevation: 0,
+    centerTitle: true,
+    leading: Navigator.canPop(context)
+        ? IconButton(
+            icon: Icon(
+              Icons.arrow_back_ios_new_rounded,
+              size: 19,
+              color: AppColors.textPrimary,
+            ),
+            onPressed: () => Navigator.maybePop(context),
+          )
+        : null,
+  );
+}
+
+/// دایرهٔ نرم با آیکن بزرگ (حالت خالی و سربرگ صفحه‌ها)
+Widget _heroIcon(IconData icon, Color color, {double size = 92}) {
+  return Container(
+    width: size,
+    height: size,
+    decoration: BoxDecoration(
+      color: color.withOpacity(0.12),
+      shape: BoxShape.circle,
+    ),
+    child: Icon(icon, size: size * 0.5, color: color),
+  );
+}
+
+/// کارت یک‌دست
+BoxDecoration _cardDecoration({double radius = 18}) {
+  return BoxDecoration(
+    color: AppColors.cardBgLight,
+    borderRadius: BorderRadius.circular(radius),
+    border: Border.all(color: AppColors.fieldBorder),
+  );
+}
+
+/// دکمهٔ اصلی تمام‌عرض
+Widget _primaryButton(String label, VoidCallback onPressed) {
+  return SizedBox(
+    width: double.infinity,
+    height: 54,
+    child: ElevatedButton(
+      style: ElevatedButton.styleFrom(
+        backgroundColor: AppColors.primaryButton,
+        elevation: 0,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      ),
+      onPressed: onPressed,
+      child: Text(
+        label,
+        style: TextStyle(
+          color: AppColors.buttonText,
+          fontWeight: FontWeight.w800,
+          fontSize: 16,
+        ),
+      ),
+    ),
+  );
+}
 
 // ----------------------------------------------------
 // ۲. صفحه دعوت از دوستان
@@ -19,59 +101,64 @@ class InviteFriendsScreen extends StatelessWidget {
     const String referralCode = "SAFIR-8820";
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      appBar: AppBar(
-        title: Text(
-          "invite_friends_title".tr(),
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-        ),
-        backgroundColor: safirBrandColor,
-        foregroundColor: Colors.white,
-        centerTitle: true,
-      ),
+      backgroundColor: AppColors.backgroundLight,
+      appBar: _subAppBar(context, "invite_friends_title".tr()),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
         child: Column(
           children: [
             const SizedBox(height: 20),
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: safirBrandColor.withOpacity(0.08),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(Icons.card_giftcard_rounded, size: 80, color: safirBrandColor),
-            ),
-            const SizedBox(height: 24),
+            _heroIcon(Icons.card_giftcard_rounded, AppColors.warningIcon,
+                size: 128),
+            const SizedBox(height: 26),
             Text(
               "invite_friends_main_title".tr(),
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontWeight: FontWeight.w800,
+                fontSize: 20,
+                color: AppColors.textPrimary,
+              ),
             ),
             const SizedBox(height: 12),
             Text(
               "invite_friends_subtext".tr(),
               textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey.shade600, fontSize: 13, height: 1.5),
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 13.5,
+                height: 1.6,
+              ),
             ),
             const SizedBox(height: 32),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: safirBrandColor.withOpacity(0.3)),
+                color: AppColors.cardBgLight,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(
+                  color: AppColors.primaryBrand.withOpacity(0.35),
+                ),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
                     referralCode,
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: safirBrandColor, letterSpacing: 2),
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.primaryBrand,
+                      letterSpacing: 2,
+                    ),
                   ),
                   ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: safirBrandColor,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      backgroundColor: AppColors.primaryButton,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
                     onPressed: () {
                       Clipboard.setData(const ClipboardData(text: referralCode));
@@ -80,8 +167,15 @@ class InviteFriendsScreen extends StatelessWidget {
                         SnackBar(content: Text("copy_btn".tr())),
                       );
                     },
-                    icon: const Icon(Icons.copy, size: 16, color: Colors.white),
-                    label: Text("copy_btn".tr(), style: const TextStyle(color: Colors.white)),
+                    icon: Icon(Icons.copy_rounded,
+                        size: 16, color: AppColors.buttonText),
+                    label: Text(
+                      "copy_btn".tr(),
+                      style: TextStyle(
+                        color: AppColors.buttonText,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                   )
                 ],
               ),
@@ -104,18 +198,15 @@ class MessagesScreen extends StatelessWidget {
     final String? currentUserId = FirebaseAuth.instance.currentUser?.uid;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      appBar: AppBar(
-        title: Text(
-          "messages_title".tr(),
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-        ),
-        backgroundColor: safirBrandColor,
-        foregroundColor: Colors.white,
-        centerTitle: true,
-      ),
+      backgroundColor: AppColors.backgroundLight,
+      appBar: _subAppBar(context, "messages_title".tr()),
       body: currentUserId == null
-          ? Center(child: Text("messages_desc".tr()))
+          ? Center(
+              child: Text(
+                "messages_desc".tr(),
+                style: TextStyle(color: AppColors.textSecondary),
+              ),
+            )
           : StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance
                   .collection('users')
@@ -125,11 +216,20 @@ class MessagesScreen extends StatelessWidget {
                   .snapshots(),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
-                  return Center(child: CircularProgressIndicator(color: safirBrandColor));
+                  return Center(
+                    child: CircularProgressIndicator(
+                      color: AppColors.primaryBrand,
+                    ),
+                  );
                 }
 
                 if (snapshot.hasError) {
-                  return Center(child: Text("error_occurred".tr()));
+                  return Center(
+                    child: Text(
+                      "error_occurred".tr(),
+                      style: TextStyle(color: AppColors.danger),
+                    ),
+                  );
                 }
 
                 if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
@@ -137,11 +237,16 @@ class MessagesScreen extends StatelessWidget {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.mark_email_read_outlined, size: 64, color: Colors.grey.shade300),
-                        const SizedBox(height: 12),
+                        _heroIcon(Icons.mark_email_read_outlined,
+                            AppColors.originBlue),
+                        const SizedBox(height: 16),
                         Text(
                           "هیچ پیامی دریافت نشده است",
-                          style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+                          style: TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ],
                     ),
@@ -151,45 +256,81 @@ class MessagesScreen extends StatelessWidget {
                 var notifications = snapshot.data!.docs;
 
                 return ListView.builder(
+                  physics: const BouncingScrollPhysics(),
                   padding: const EdgeInsets.all(16),
                   itemCount: notifications.length,
                   itemBuilder: (context, index) {
-                    var data = notifications[index].data() as Map<String, dynamic>;
+                    var data =
+                        notifications[index].data() as Map<String, dynamic>;
                     String title = data['title'] ?? 'اطلاعیه سفیر';
                     String body = data['body'] ?? '';
                     String time = '';
 
-                    if (data['timestamp'] != null && data['timestamp'] is Timestamp) {
+                    if (data['timestamp'] != null &&
+                        data['timestamp'] is Timestamp) {
                       DateTime date = (data['timestamp'] as Timestamp).toDate();
-                      time = "${date.hour}:${date.minute.toString().padLeft(2, '0')}";
+                      time =
+                          "${date.hour}:${date.minute.toString().padLeft(2, '0')}";
                     } else {
                       time = "today".tr();
                     }
 
-                    return Card(
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      elevation: 0,
+                    return Container(
                       margin: const EdgeInsets.only(bottom: 10),
-                      child: ListTile(
-                        leading: CircleAvatar(
-                          backgroundColor: safirBrandColor.withOpacity(0.1),
-                          child: Icon(Icons.notifications_active_outlined, color: safirBrandColor),
-                        ),
-                        title: Text(
-                          title,
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                        ),
-                        subtitle: Padding(
-                          padding: const EdgeInsets.only(top: 4.0),
-                          child: Text(
-                            body,
-                            style: TextStyle(fontSize: 12, color: Colors.black.withOpacity(0.7)),
+                      padding: const EdgeInsets.all(14),
+                      decoration: _cardDecoration(),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            width: 42,
+                            height: 42,
+                            decoration: BoxDecoration(
+                              color: AppColors.originBlue.withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: Icon(
+                              Icons.notifications_active_rounded,
+                              color: AppColors.originBlue,
+                              size: 21,
+                            ),
                           ),
-                       ),
-                        trailing: Text(
-                          time,
-                          style: const TextStyle(fontSize: 10, color: Colors.grey),
-                        ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  title,
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 14,
+                                    color: AppColors.textPrimary,
+                                  ),
+                                ),
+                                if (body.isNotEmpty) ...[
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    body,
+                                    style: TextStyle(
+                                      fontSize: 12.5,
+                                      height: 1.5,
+                                      color: AppColors.textSecondary,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            time,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
                       ),
                     );
                   },
@@ -211,16 +352,8 @@ class DiscountCodeScreen extends StatelessWidget {
     final TextEditingController codeController = TextEditingController();
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      appBar: AppBar(
-        title: Text(
-          "discounts_title".tr(),
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-        ),
-        backgroundColor: safirBrandColor,
-        foregroundColor: Colors.white,
-        centerTitle: true,
-      ),
+      backgroundColor: AppColors.backgroundLight,
+      appBar: _subAppBar(context, "discounts_title".tr()),
       body: Padding(
         padding: const EdgeInsets.all(20.0),
         child: Column(
@@ -230,26 +363,55 @@ class DiscountCodeScreen extends StatelessWidget {
                 Expanded(
                   child: TextField(
                     controller: codeController,
+                    cursorColor: AppColors.primaryBrand,
+                    style: TextStyle(
+                      color: AppColors.textPrimary,
+                      fontWeight: FontWeight.w700,
+                    ),
                     decoration: InputDecoration(
                       hintText: "enter_discount_code".tr(),
+                      hintStyle: TextStyle(color: AppColors.textSecondary),
                       filled: true,
-                      fillColor: Colors.white,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                      fillColor: AppColors.cardBgLight,
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 15),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: BorderSide(color: AppColors.fieldBorder),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: BorderSide(color: AppColors.fieldBorder),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: BorderSide(
+                            color: AppColors.primaryBrand, width: 1.5),
+                      ),
                     ),
                   ),
                 ),
                 const SizedBox(width: 10),
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: safirBrandColor,
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    backgroundColor: AppColors.primaryButton,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 22, vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
                   ),
                   onPressed: () {
                     HapticFeedback.lightImpact();
                   },
-                  child: Text("apply_btn".tr(), style: const TextStyle(color: Colors.white)),
+                  child: Text(
+                    "apply_btn".tr(),
+                    style: TextStyle(
+                      color: AppColors.buttonText,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -258,9 +420,16 @@ class DiscountCodeScreen extends StatelessWidget {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.local_offer_outlined, size: 64, color: Colors.grey),
-                    const SizedBox(height: 12),
-                    Text("discounts_empty_msg".tr(), style: const TextStyle(color: Colors.grey)),
+                    _heroIcon(
+                        Icons.local_offer_rounded, AppColors.warningIcon),
+                    const SizedBox(height: 16),
+                    Text(
+                      "discounts_empty_msg".tr(),
+                      style: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -278,62 +447,116 @@ class DiscountCodeScreen extends StatelessWidget {
 class BinShahriScreen extends StatelessWidget {
   const BinShahriScreen({super.key});
 
+  Widget _routeRow({
+    required Widget dot,
+    required String title,
+    required String subtitle,
+    VoidCallback? onTap,
+    bool showChevron = false,
+    required BuildContext context,
+  }) {
+    final bool rtl = Directionality.of(context) == ui.TextDirection.rtl;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
+        child: Row(
+          children: [
+            SizedBox(width: 24, child: Center(child: dot)),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (showChevron)
+              Icon(
+                rtl
+                    ? Icons.chevron_left_rounded
+                    : Icons.chevron_right_rounded,
+                color: AppColors.handle,
+                size: 24,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      appBar: AppBar(
-        title: Text(
-          "intercity_title".tr(),
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-        ),
-        backgroundColor: safirBrandColor,
-        foregroundColor: Colors.white,
-        centerTitle: true,
-      ),
+      backgroundColor: AppColors.backgroundLight,
+      appBar: _subAppBar(context, "intercity_title".tr()),
       body: Padding(
         padding: const EdgeInsets.all(20.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Card(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              elevation: 0,
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  children: [
-                    ListTile(
-                      leading: const Icon(Icons.my_location, color: Colors.blue),
-                      title: Text("origin".tr()),
-                      subtitle: Text("origin_province_hint".tr()),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: _cardDecoration(radius: 20),
+              child: Column(
+                children: [
+                  _routeRow(
+                    context: context,
+                    dot: Container(
+                      width: 14,
+                      height: 14,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: AppColors.cardBgLight,
+                        border:
+                            Border.all(color: AppColors.originBlue, width: 3.5),
+                      ),
                     ),
-                    const Divider(),
-                    ListTile(
-                      leading: const Icon(Icons.location_on, color: Colors.red),
-                      title: Text("destination".tr()),
-                      subtitle: Text("select_destination".tr()),
-                      trailing: const Icon(Icons.arrow_forward_ios, size: 14),
-                      onTap: () {},
+                    title: "origin".tr(),
+                    subtitle: "origin_province_hint".tr(),
+                  ),
+                  Divider(
+                    height: 1,
+                    indent: 42,
+                    color: AppColors.fieldBorder,
+                  ),
+                  _routeRow(
+                    context: context,
+                    dot: Container(
+                      width: 14,
+                      height: 14,
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryButton,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
                     ),
-                  ],
-                ),
+                    title: "destination".tr(),
+                    subtitle: "select_destination".tr(),
+                    showChevron: true,
+                    onTap: () {},
+                  ),
+                ],
               ),
             ),
             const Spacer(),
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: safirBrandColor,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-                onPressed: () {},
-                child: Text("request_intercity_ride".tr(),
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-              ),
-            )
+            _primaryButton("request_intercity_ride".tr(), () {}),
           ],
         ),
       ),
@@ -350,48 +573,78 @@ class BarbariScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      appBar: AppBar(
-        title: Text(
-          "cargo_services_title".tr(),
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-        ),
-        backgroundColor: safirBrandColor,
-        foregroundColor: Colors.white,
-        centerTitle: true,
-      ),
+      backgroundColor: AppColors.backgroundLight,
+      appBar: _subAppBar(context, "cargo_services_title".tr()),
       body: GridView.count(
+        physics: const BouncingScrollPhysics(),
         padding: const EdgeInsets.all(20),
         crossAxisCount: 2,
-        crossAxisSpacing: 16,
-        mainAxisSpacing: 16,
+        crossAxisSpacing: 14,
+        mainAxisSpacing: 14,
         children: [
-          _buildFreightCard(context, Icons.electric_rickshaw, "vehicle_zaranj_title".tr(), "capacity_zaranj".tr()),
-          _buildFreightCard(context, Icons.local_shipping_outlined, "vehicle_pickup_title".tr(), "capacity_pickup".tr()),
-          _buildFreightCard(context, Icons.fire_truck_outlined, "vehicle_truck_title".tr(), "capacity_truck".tr()),
-          _buildFreightCard(context, Icons.inventory_2_outlined, "extra_cargo_services_section".tr(), "packing_help_label".tr()),
+          _buildFreightCard(context, Icons.electric_rickshaw_rounded,
+              "vehicle_zaranj_title".tr(), "capacity_zaranj".tr(),
+              AppColors.warningIcon),
+          _buildFreightCard(context, Icons.local_shipping_rounded,
+              "vehicle_pickup_title".tr(), "capacity_pickup".tr(),
+              AppColors.originBlue),
+          _buildFreightCard(context, Icons.fire_truck_rounded,
+              "vehicle_truck_title".tr(), "capacity_truck".tr(),
+              AppColors.primaryBrand),
+          _buildFreightCard(context, Icons.inventory_2_rounded,
+              "extra_cargo_services_section".tr(), "packing_help_label".tr(),
+              AppColors.danger),
         ],
       ),
     );
   }
 
-  Widget _buildFreightCard(BuildContext context, IconData icon, String title, String subtitle) {
-    return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      elevation: 0,
+  Widget _buildFreightCard(BuildContext context, IconData icon, String title,
+      String subtitle, Color color) {
+    return Material(
+      color: AppColors.cardBgLight,
+      borderRadius: BorderRadius.circular(20),
       child: InkWell(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         onTap: () {},
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
+        child: Ink(
+          decoration: _cardDecoration(radius: 20),
+          padding: const EdgeInsets.all(14),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, size: 48, color: safirBrandColor),
+              Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Icon(icon, size: 34, color: color),
+              ),
               const SizedBox(height: 12),
-              Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 14,
+                  color: AppColors.textPrimary,
+                ),
+              ),
               const SizedBox(height: 4),
-              Text(subtitle, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+              Text(
+                subtitle,
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 11.5,
+                  color: AppColors.textSecondary,
+                ),
+              ),
             ],
           ),
         ),
@@ -409,46 +662,37 @@ class RegistrationScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      appBar: AppBar(
-        title: Text(
-          "driver_registration_title".tr(),
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-        ),
-        backgroundColor: safirBrandColor,
-        foregroundColor: Colors.white,
-        centerTitle: true,
-      ),
+      backgroundColor: AppColors.backgroundLight,
+      appBar: _subAppBar(context, "driver_registration_title".tr()),
       body: Padding(
         padding: const EdgeInsets.all(24.0),
         child: Column(
           children: [
-            Icon(Icons.time_to_leave_rounded, size: 90, color: safirBrandColor),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
+            _heroIcon(Icons.time_to_leave_rounded, AppColors.primaryBrand,
+                size: 128),
+            const SizedBox(height: 24),
             Text(
               "register_subtitle".tr(),
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+                color: AppColors.textPrimary,
+              ),
             ),
             const SizedBox(height: 10),
             Text(
               "driver_registration_coming_soon".tr(),
               textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.grey, fontSize: 13, height: 1.5),
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 13.5,
+                height: 1.6,
+              ),
             ),
             const Spacer(),
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: safirBrandColor,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-                onPressed: () {},
-                child: Text("continue_btn".tr(),
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-              ),
-            )
+            _primaryButton("continue_btn".tr(), () {}),
           ],
         ),
       ),
