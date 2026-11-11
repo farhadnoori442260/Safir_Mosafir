@@ -62,138 +62,213 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  /// یک ردیف اطلاعات با آیکن رنگی داخل کادر نرم
+  Widget _infoRow({
+    required IconData icon,
+    required Color color,
+    required String label,
+    required String value,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      child: Row(
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(icon, color: color, size: 21),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF9F9F9),
+      backgroundColor: AppColors.backgroundLight,
       appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0.5,
+        backgroundColor: AppColors.backgroundLight,
+        surfaceTintColor: AppColors.backgroundLight,
+        elevation: 0,
+        scrolledUnderElevation: 0,
         title: Text(
           "my_profile_title".tr(),
-          style: const TextStyle(
+          style: TextStyle(
             color: AppColors.textPrimary,
-            fontWeight: FontWeight.bold,
-            fontSize: 18,
+            fontWeight: FontWeight.w800,
+            fontSize: 17,
           ),
         ),
         centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
+          icon: Icon(
+            Icons.arrow_back_ios_new_rounded,
+            size: 19,
+            color: AppColors.textPrimary,
+          ),
           onPressed: () => Navigator.pop(context),
         ),
       ),
       body: _isLoading
-          ? const Center(
+          ? Center(
               child: CircularProgressIndicator(color: AppColors.primaryBrand),
             )
           : SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 30.0),
+              physics: const BouncingScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 30),
               child: Column(
                 children: [
-                  // بخش آواتار و تصویر پروفایل
+                  // بخش آواتار و نام
                   Center(
                     child: Container(
-                      width: 120,
-                      height: 120,
+                      width: 112,
+                      height: 112,
+                      padding: const EdgeInsets.all(5),
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: AppColors.cardBackground,
                         border: Border.all(
-                          color: AppColors.primaryBrand.withOpacity(0.3),
+                          color: AppColors.primaryBrand.withOpacity(0.35),
                           width: 2,
                         ),
                       ),
-                      child: const CircleAvatar(
-                        backgroundColor: Colors.transparent,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: AppColors.cardBackground,
+                        ),
                         child: Icon(
-                          Icons.person,
-                          size: 70,
+                          Icons.person_rounded,
+                          size: 62,
                           color: AppColors.primaryBrand,
                         ),
                       ),
                     ),
                   ),
-                  const SizedBox(height: 35),
+                  const SizedBox(height: 14),
+                  Text(
+                    userName.isEmpty ? "unknown_text".tr() : userName,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 19,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
 
                   // کارت نمایش اطلاعات کاربری
-                  Card(
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      side: BorderSide(color: Colors.grey.withOpacity(0.15)),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: AppColors.cardBgLight,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: AppColors.fieldBorder),
                     ),
-                    color: Colors.white,
                     child: Column(
                       children: [
-                        ListTile(
-                          leading: const Icon(Icons.person_outline, color: AppColors.primaryBrand),
-                          title: Text(
-                            "full_name_label".tr(),
-                            style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
-                          ),
-                          subtitle: Text(
-                            userName.isEmpty ? "unknown_text".tr() : userName,
-                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
-                          ),
+                        _infoRow(
+                          icon: Icons.person_rounded,
+                          color: AppColors.primaryBrand,
+                          label: "full_name_label".tr(),
+                          value:
+                              userName.isEmpty ? "unknown_text".tr() : userName,
                         ),
-                        const Divider(height: 1, indent: 16, endIndent: 16),
-                        ListTile(
-                          leading: const Icon(Icons.phone_android_outlined, color: AppColors.primaryBrand),
-                          title: Text(
-                            "phone_number_label".tr(),
-                            style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
-                          ),
-                          subtitle: Text(
-                            userPhone.isEmpty 
-                                ? "unknown_text".tr() 
-                                : formatNumberByLocale(context, userPhone),
-                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
-                          ),
+                        Divider(
+                          height: 1,
+                          indent: 70,
+                          endIndent: 14,
+                          color: AppColors.fieldBorder,
                         ),
-                        const Divider(height: 1, indent: 16, endIndent: 16),
-                        ListTile(
-                          leading: const Icon(Icons.email_outlined, color: AppColors.primaryBrand),
-                          title: Text(
-                            "email_address_label".tr(),
-                            style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
-                          ),
-                          subtitle: Text(
-                            userEmail.isEmpty ? "unknown_text".tr() : userEmail,
-                            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: AppColors.textPrimary),
-                          ),
+                        _infoRow(
+                          icon: Icons.phone_rounded,
+                          color: AppColors.successDark,
+                          label: "phone_number_label".tr(),
+                          value: userPhone.isEmpty
+                              ? "unknown_text".tr()
+                              : formatNumberByLocale(context, userPhone),
+                        ),
+                        Divider(
+                          height: 1,
+                          indent: 70,
+                          endIndent: 14,
+                          color: AppColors.fieldBorder,
+                        ),
+                        _infoRow(
+                          icon: Icons.mail_rounded,
+                          color: AppColors.originBlue,
+                          label: "email_address_label".tr(),
+                          value:
+                              userEmail.isEmpty ? "unknown_text".tr() : userEmail,
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 40),
+                  const SizedBox(height: 28),
 
                   // دکمه هدایت به صفحه ویرایش اطلاعات
                   SizedBox(
                     width: double.infinity,
-                    height: 50,
+                    height: 54,
                     child: ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primaryButton,
                         overlayColor: AppColors.primaryButtonPressed,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
                         elevation: 0,
                       ),
                       onPressed: () {
                         Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (c) => const EditProfileScreen()),
+                          MaterialPageRoute(
+                              builder: (c) => const EditProfileScreen()),
                         ).then((_) {
                           _loadUserData(); // به‌روزرسانی مجدد پس از بازگشت از صفحه ویرایش
                         });
                       },
-                      icon: const Icon(Icons.edit, color: AppColors.buttonText, size: 20),
+                      icon: Icon(
+                        Icons.edit_rounded,
+                        color: AppColors.buttonText,
+                        size: 20,
+                      ),
                       label: Text(
                         "edit_profile_btn".tr(),
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: AppColors.buttonText,
                           fontSize: 16,
-                          fontWeight: FontWeight.bold,
+                          fontWeight: FontWeight.w800,
                         ),
                       ),
                     ),
