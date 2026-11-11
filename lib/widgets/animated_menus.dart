@@ -3,11 +3,14 @@ import 'package:easy_localization/easy_localization.dart'
     hide TextDirection;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:safir_passengers/global/global_var.dart';
 import 'package:safir_passengers/theme/app_colors.dart';
+import 'package:safir_passengers/services/promo_service.dart';
+import 'package:safir_passengers/services/referral_service.dart';
 import 'package:safir_passengers/pages/settings_screen.dart';
 import 'package:safir_passengers/pages/trips_history_page.dart';
 import 'package:safir_passengers/pages/saved_addresses_screen.dart';
@@ -21,6 +24,38 @@ Color get darkTextColor => AppColors.textPrimary;
 Color get secondaryTextColor => AppColors.textSecondary;
 Color get pageBackground => AppColors.backgroundLight;
 Color get menuIconBackground => AppColors.cardBackground;
+
+/// ترجمه با متن جایگزین (args هم پشتیبانی می‌شود)
+String _mt(String key, String fallback, {List<String>? args}) {
+  final String v = args == null ? key.tr() : key.tr(args: args);
+  return (v.trim().isEmpty || v == key) ? fallback : v;
+}
+
+void _snack(BuildContext context, String message,
+    {Color? color, SnackBarAction? action}) {
+  if (!context.mounted) return;
+  _snackOn(ScaffoldMessenger.of(context), message,
+      color: color, action: action);
+}
+
+void _snackOn(ScaffoldMessengerState m, String message,
+    {Color? color, SnackBarAction? action}) {
+  m.hideCurrentSnackBar();
+  m.showSnackBar(
+    SnackBar(
+      behavior: SnackBarBehavior.floating,
+      backgroundColor: color,
+      action: action,
+      content: Text(
+        message,
+        style: TextStyle(
+          color: AppColors.buttonText,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    ),
+  );
+}
 
 Future<void> _makeSupportCall(BuildContext context) async {
   String phone = '+93700000000';
@@ -51,53 +86,41 @@ Future<void> _makeSupportCall(BuildContext context) async {
     path: phone,
   );
 
+  // مستقیم تلاش می‌کنیم؛ canLaunchUrl روی اندروید ۱۱+ بدون queries در Manifest همیشه false می‌دهد
   try {
-    final bool canCall = await canLaunchUrl(launchUri);
-
-    if (canCall) {
-      final bool opened = await launchUrl(launchUri);
-      if (opened) return;
-    }
+    final bool opened = await launchUrl(launchUri);
+    if (opened) return;
   } catch (e) {
     debugPrint('خطا در بازکردن شماره تماس: $e');
   }
 
   if (!context.mounted) return;
 
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(
-      content: Text(
-        'can_not_make_call'.tr(args: [phone]),
-      ),
-      backgroundColor: AppColors.danger,
+  _snack(
+    context,
+    _mt('can_not_make_call', 'امکان تماس نبود: $phone', args: [phone]),
+    color: AppColors.danger,
+    action: SnackBarAction(
+      label: _mt('copy', 'کپی شماره'),
+      textColor: AppColors.buttonText,
+      onPressed: () => Clipboard.setData(ClipboardData(text: phone)),
     ),
   );
 }
 
 Future<void> _shareInviteCode(BuildContext context) async {
-  final User? user = FirebaseAuth.instance.currentUser;
-
-  final String referralCode =
-      user != null && user.uid.length >= 6
-          ? user.uid.substring(0, 6).toUpperCase()
-          : 'SAFIR2026';
-
-  final String shareMessage =
-      'invite_message'.tr(args: [referralCode]);
+  final String shareMessage = ReferralService.shareMessage;
 
   try {
     await Share.share(shareMessage);
   } catch (e) {
     debugPrint('خطا در اشتراک‌گذاری کد دعوت: $e');
 
-    if (!context.mounted) return;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'error_occurred'.tr(args: [e.toString()]),
-        ),
-      ),
+    // متن فنی خطا به کاربر نشان داده نمی‌شود
+    _snack(
+      context,
+      _mt('share_failed', 'اشتراک‌گذاری انجام نشد، دوباره تلاش کنید'),
+      color: AppColors.danger,
     );
   }
 }
@@ -139,71 +162,53 @@ class _DiscountCodeSheetState
     final String code =
         _discountController.text.trim().toUpperCase();
 
-    final ScaffoldMessengerState messenger =
-        ScaffoldMessenger.of(context);
+    // قبل از بسته شدن شیت گرفته می‌شود تا بعد از pop هم پیام نشان داده شود
+    final ScaffoldMessengerState hostMessenger = ScaffoldMessenger.of(context);
 
     if (code.isEmpty) {
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text('enter_discount_code'.tr()),
-        ),
-      );
+      HapticFeedback.lightImpact();
+      _snackOn(hostMessenger, _mt('enter_discount_code', 'کد تخفیف را وارد کنید'));
       return;
     }
 
     final String successMessage =
-        'discount_applied_success'.tr();
-    final String invalidMessage = 'discount_invalid'.tr();
+        _mt('discount_applied_success', 'کد تخفیف ثبت شد');
 
     setState(() => _isLoading = true);
 
     try {
-      final DocumentSnapshot<Map<String, dynamic>> snapshot =
-          await FirebaseFirestore.instance
-              .collection('coupons')
-              .doc(code)
-              .get();
+      final PromoValidation result = await PromoService.validate(code);
 
       if (!mounted) return;
 
-      final Map<String, dynamic>? couponData =
-          snapshot.data();
-
-      final bool isActive =
-          couponData?['isActive'] != false;
-
       setState(() => _isLoading = false);
 
-      if (snapshot.exists && isActive) {
-        Navigator.pop(context);
+      if (result.isValid) {
+        // کد برای سفر بعدی نگه داشته می‌شود و روی نقشه خودکار اعمال می‌شود
+        await PromoService.savePending(code);
 
-        messenger.showSnackBar(
-          SnackBar(
-            content: Text(successMessage),
-            backgroundColor: AppColors.successDark,
-          ),
+        HapticFeedback.mediumImpact();
+        if (mounted) Navigator.pop(context);
+
+        _snackOn(
+          hostMessenger,
+          '${result.message} — $successMessage',
+          color: AppColors.successDark,
         );
       } else {
-        messenger.showSnackBar(
-          SnackBar(
-            content: Text(invalidMessage),
-            backgroundColor: AppColors.danger,
-          ),
-        );
+        HapticFeedback.heavyImpact();
+        _snackOn(hostMessenger, result.message, color: AppColors.danger);
       }
     } catch (e) {
       if (!mounted) return;
 
       setState(() => _isLoading = false);
 
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(
-            'error_occurred'.tr(
-              args: [e.toString()],
-            ),
-          ),
-        ),
+      debugPrint('Discount check error: $e');
+      _snackOn(
+        hostMessenger,
+        _mt('discount_check_failed', 'بررسی کد انجام نشد، دوباره تلاش کنید'),
+        color: AppColors.danger,
       );
     }
   }
@@ -232,8 +237,8 @@ class _DiscountCodeSheetState
             Row(
               children: [
                 _buildHeaderIcon(
-                  Icons.local_offer_outlined,
-                  AppColors.primaryBrand,
+                  Icons.local_offer_rounded,
+                  AppColors.warningIcon,
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -277,7 +282,7 @@ class _DiscountCodeSheetState
                 ),
                 prefixIcon: Icon(
                   Icons.confirmation_number_outlined,
-                  color: AppColors.textSecondary,
+                  color: AppColors.warningIcon,
                 ),
                 filled: true,
                 fillColor: AppColors.backgroundLight,
@@ -359,6 +364,21 @@ class ProfileAnimatedMenu extends StatefulWidget {
 
 class _ProfileAnimatedMenuState
     extends State<ProfileAnimatedMenu> {
+  // یک بار ساخته می‌شوند تا با هر rebuild (مثلاً تغییر تم) دوباره از شبکه نخوانند
+  late Future<String> _nameFuture;
+  late Future<String> _phoneFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _reloadProfile();
+  }
+
+  void _reloadProfile() {
+    _nameFuture = _displayName();
+    _phoneFuture = _displayPhone();
+  }
+
   Future<String> _displayName() async {
     final String globalName = userName.trim();
 
@@ -538,6 +558,7 @@ class _ProfileAnimatedMenuState
             _buildMenuGroup([
               _buildMenuItem(
                 icon: Icons.route_rounded,
+                accent: AppColors.primaryBrand,
                 title: _localizedKey(
                   'trips_history',
                   'سفرها',
@@ -557,7 +578,8 @@ class _ProfileAnimatedMenuState
                 },
               ),
               _buildMenuItem(
-                icon: Icons.bookmark_border_rounded,
+                icon: Icons.bookmark_rounded,
+                accent: AppColors.danger,
                 title: _localizedKey(
                   'saved_addresses_title',
                   'آدرس‌های ذخیره‌شده',
@@ -578,6 +600,7 @@ class _ProfileAnimatedMenuState
               ),
               _buildMenuItem(
                 icon: Icons.person_add_alt_1_rounded,
+                accent: AppColors.originBlue,
                 title: _localizedKey(
                   'invite_friends',
                   'دعوت از دوستان',
@@ -591,7 +614,8 @@ class _ProfileAnimatedMenuState
                 },
               ),
               _buildMenuItem(
-                icon: Icons.chat_bubble_outline_rounded,
+                icon: Icons.chat_bubble_rounded,
+                accent: AppColors.warning,
                 title: _localizedKey(
                   'messages',
                   'پیام‌ها',
@@ -621,7 +645,8 @@ class _ProfileAnimatedMenuState
             _buildMenuGroup([
               // تنظیمات دقیقاً جای قبلی کد تخفیف.
               _buildMenuItem(
-                icon: Icons.settings_outlined,
+                icon: Icons.settings_rounded,
+                accent: AppColors.textSecondary,
                 title: _localizedKey(
                   'settings',
                   'تنظیمات',
@@ -633,7 +658,8 @@ class _ProfileAnimatedMenuState
                 onTap: _openSettings,
               ),
               _buildMenuItem(
-                icon: Icons.local_offer_outlined,
+                icon: Icons.local_offer_rounded,
+                accent: AppColors.warningIcon,
                 title: _localizedKey(
                   'discount_code',
                   'کد تخفیف',
@@ -648,6 +674,7 @@ class _ProfileAnimatedMenuState
               ),
               _buildMenuItem(
                 icon: Icons.support_agent_rounded,
+                accent: AppColors.success,
                 title: _localizedKey(
                   'support_contact',
                   'پشتیبانی و ارتباط با ما',
@@ -685,7 +712,7 @@ class _ProfileAnimatedMenuState
           );
 
           if (mounted) {
-            setState(() {});
+            setState(_reloadProfile);
           }
         },
         child: Container(
@@ -701,6 +728,15 @@ class _ProfileAnimatedMenuState
             ),
             border: Border.all(color: AppColors.fieldBorder),
             borderRadius: BorderRadius.circular(24),
+            boxShadow: AppColors.isDark
+                ? null
+                : [
+                    BoxShadow(
+                      color: AppColors.primaryBrand.withOpacity(0.10),
+                      blurRadius: 18,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
           ),
           child: Row(
             children: [
@@ -739,7 +775,7 @@ class _ProfileAnimatedMenuState
                       CrossAxisAlignment.start,
                   children: [
                     FutureBuilder<String>(
-                      future: _displayName(),
+                      future: _nameFuture,
                       builder: (
                         BuildContext context,
                         AsyncSnapshot<String> snapshot,
@@ -765,7 +801,7 @@ class _ProfileAnimatedMenuState
                     ),
                     const SizedBox(height: 4),
                     FutureBuilder<String>(
-                      future: _displayPhone(),
+                      future: _phoneFuture,
                       builder: (
                         BuildContext context,
                         AsyncSnapshot<String> snapshot,
@@ -780,6 +816,32 @@ class _ProfileAnimatedMenuState
                           ),
                         );
                       },
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryBrand.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.edit_rounded,
+                              size: 12, color: AppColors.primaryBrand),
+                          const SizedBox(width: 4),
+                          Text(
+                            _localizedKey(
+                                'edit_profile_hint', 'مشاهده و ویرایش پروفایل'),
+                            style: TextStyle(
+                              color: AppColors.primaryBrand,
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -837,8 +899,17 @@ class _ProfileAnimatedMenuState
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: AppColors.cardBgLight,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(22),
         border: Border.all(color: AppColors.fieldBorder),
+        boxShadow: AppColors.isDark
+            ? null
+            : [
+                BoxShadow(
+                  color: AppColors.textPrimary.withOpacity(0.05),
+                  blurRadius: 14,
+                  offset: const Offset(0, 5),
+                ),
+              ],
       ),
       child: Column(children: rows),
     );
@@ -846,6 +917,7 @@ class _ProfileAnimatedMenuState
 
   Widget _buildMenuItem({
     required IconData icon,
+    required Color accent,
     required String title,
     required String subtitle,
     required VoidCallback onTap,
@@ -856,7 +928,12 @@ class _ProfileAnimatedMenuState
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: onTap,
+        onTap: () {
+          HapticFeedback.selectionClick();
+          onTap();
+        },
+        splashColor: accent.withOpacity(0.10),
+        highlightColor: accent.withOpacity(0.06),
         child: Padding(
           padding: const EdgeInsets.symmetric(
             horizontal: 14,
@@ -868,13 +945,13 @@ class _ProfileAnimatedMenuState
                 width: 42,
                 height: 42,
                 decoration: BoxDecoration(
-                  color: AppColors.cardBackground,
+                  color: accent.withOpacity(AppColors.isDark ? 0.20 : 0.13),
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: Icon(
                   icon,
-                  color: AppColors.primaryBrand,
-                  size: 21,
+                  color: accent,
+                  size: 22,
                 ),
               ),
               const SizedBox(width: 14),
