@@ -3,8 +3,9 @@ import 'package:easy_localization/easy_localization.dart' hide TextDirection;
 import '../../theme/app_colors.dart';
 
 class IntercitySheets {
-  static const Color safirBrandColor = Color(0xFF145A41);
-  static const Color originBlueColor = Color(0xFF2563EB);
+  // نام‌های قبلی برای سازگاری؛ حالا از AppColors (روشن/تاریک) می‌آیند.
+  static Color get safirBrandColor => AppColors.primaryBrand;
+  static Color get originBlueColor => AppColors.originBlue;
 
   // ════════════════════════════════════════════════════════════
   //  ابزارها
@@ -124,7 +125,7 @@ class IntercitySheets {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.cardBgLight,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
@@ -147,7 +148,7 @@ class IntercitySheets {
                       width: 40,
                       height: 5,
                       decoration: BoxDecoration(
-                        color: Colors.grey[300],
+                        color: AppColors.handle,
                         borderRadius: BorderRadius.circular(10),
                       ),
                     ),
@@ -158,14 +159,14 @@ class IntercitySheets {
                     children: [
                       Text(
                         _tr('intercity.select_destination_city', 'انتخاب شهر مقصد'),
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 17,
                           color: AppColors.textPrimary,
                         ),
                       ),
                       IconButton(
-                        icon: const Icon(
+                        icon: Icon(
                           Icons.close_rounded,
                           color: AppColors.textSecondary,
                         ),
@@ -196,16 +197,31 @@ class IntercitySheets {
                         'intercity.search_city_hint',
                         'جستجوی نام شهر یا ولایت...',
                       ),
-                      prefixIcon: const Icon(
+                      prefixIcon: Icon(
                         Icons.search_rounded,
-                        color: safirBrandColor,
+                        color: AppColors.primaryBrand,
                       ),
                       filled: true,
-                      fillColor: Colors.grey[100],
+                      hintStyle: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 13.5,
+                      ),
+                      fillColor: AppColors.backgroundLight,
                       contentPadding: const EdgeInsets.symmetric(vertical: 14),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(16),
-                        borderSide: BorderSide.none,
+                        borderSide: BorderSide(color: AppColors.fieldBorder),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: BorderSide(color: AppColors.fieldBorder),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: BorderSide(
+                          color: AppColors.primaryBrand,
+                          width: 1.5,
+                        ),
                       ),
                     ),
                   ),
@@ -224,23 +240,23 @@ class IntercitySheets {
                         horizontal: 14,
                       ),
                       decoration: BoxDecoration(
-                        color: safirBrandColor.withOpacity(0.08),
+                        color: AppColors.primaryBrand.withOpacity(0.08),
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
-                          color: safirBrandColor.withOpacity(0.2),
+                          color: AppColors.primaryBrand.withOpacity(0.2),
                         ),
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.map_rounded, color: safirBrandColor),
+                          Icon(Icons.map_rounded, color: AppColors.primaryBrand),
                           const SizedBox(width: 10),
                           Text(
                             _tr(
                               'intercity.select_on_map',
                               'انتخاب مستقیم از روی نقشه',
                             ),
-                            style: const TextStyle(
-                              color: safirBrandColor,
+                            style: TextStyle(
+                              color: AppColors.primaryBrand,
                               fontWeight: FontWeight.bold,
                               fontSize: 13.5,
                             ),
@@ -251,7 +267,7 @@ class IntercitySheets {
                                 ? Icons.arrow_back_ios_new_rounded
                                 : Icons.arrow_forward_ios_rounded,
                             size: 14,
-                            color: safirBrandColor,
+                            color: AppColors.primaryBrand,
                           ),
                         ],
                       ),
@@ -261,7 +277,7 @@ class IntercitySheets {
 
                   Text(
                     _tr('intercity.popular_cities', 'شهرهای پرتردد'),
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontWeight: FontWeight.bold,
                       color: AppColors.textSecondary,
                       fontSize: 12,
@@ -282,7 +298,7 @@ class IntercitySheets {
                                   'intercity.no_city_found',
                                   'شهری با این مشخصات یافت نشد',
                                 ),
-                                style: const TextStyle(
+                                style: TextStyle(
                                   color: AppColors.textSecondary,
                                 ),
                               ),
@@ -291,9 +307,9 @@ class IntercitySheets {
                         : ListView.separated(
                             shrinkWrap: true,
                             itemCount: filteredCities.length,
-                            separatorBuilder: (c, i) => const Divider(
+                            separatorBuilder: (c, i) => Divider(
                               height: 1,
-                              color: Color(0xFFEEEEEE),
+                              color: AppColors.fieldBorder,
                             ),
                             itemBuilder: (context, index) {
                               final Map<String, dynamic> city =
@@ -311,18 +327,18 @@ class IntercitySheets {
                                 leading: Container(
                                   padding: const EdgeInsets.all(8),
                                   decoration: BoxDecoration(
-                                    color: Colors.grey[100],
+                                    color: AppColors.cardBackground,
                                     shape: BoxShape.circle,
                                   ),
-                                  child: const Icon(
+                                  child: Icon(
                                     Icons.location_city_rounded,
-                                    color: safirBrandColor,
+                                    color: AppColors.primaryBrand,
                                     size: 20,
                                   ),
                                 ),
                                 title: Text(
                                   cityName,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontWeight: FontWeight.bold,
                                     color: AppColors.textPrimary,
                                     fontSize: 14,
@@ -336,7 +352,7 @@ class IntercitySheets {
                                           '',
                                           args: [cityName],
                                         ),
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 11.5,
                                     color: AppColors.textSecondary,
                                   ),
@@ -345,7 +361,7 @@ class IntercitySheets {
                                   isRTL
                                       ? Icons.chevron_left_rounded
                                       : Icons.chevron_right_rounded,
-                                  color: Colors.grey,
+                                  color: AppColors.handle,
                                 ),
                                 onTap: () {
                                   Navigator.pop(context);
@@ -410,11 +426,11 @@ class IntercitySheets {
         margin: EdgeInsets.fromLTRB(12, 12, 12, 12 + safeBottom),
         padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.cardBgLight,
           borderRadius: BorderRadius.circular(28),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.12),
+              color: Colors.black.withOpacity(AppColors.isDark ? 0.45 : 0.12),
               blurRadius: 20,
               offset: const Offset(0, -4),
             ),
@@ -428,7 +444,7 @@ class IntercitySheets {
                 width: 38,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: Colors.grey[300],
+                  color: AppColors.handle,
                   borderRadius: BorderRadius.circular(10),
                 ),
               ),
@@ -439,9 +455,9 @@ class IntercitySheets {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: const Color(0xFFF9FAFB),
+                color: AppColors.backgroundLight,
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: Colors.grey[200]!),
+                border: Border.all(color: AppColors.fieldBorder),
               ),
               child: Column(
                 children: [
@@ -449,9 +465,9 @@ class IntercitySheets {
                     onTap: onEditOrigin,
                     child: Row(
                       children: [
-                        const Icon(
+                        Icon(
                           Icons.circle,
-                          color: originBlueColor,
+                          color: AppColors.originBlue,
                           size: 12,
                         ),
                         const SizedBox(width: 10),
@@ -461,7 +477,7 @@ class IntercitySheets {
                             children: [
                               Text(
                                 _tr('intercity.origin', 'مبدأ'),
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 10,
                                   color: AppColors.textSecondary,
                                 ),
@@ -475,7 +491,7 @@ class IntercitySheets {
                                     : originAddress,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 13,
                                   color: AppColors.textPrimary,
@@ -484,26 +500,26 @@ class IntercitySheets {
                             ],
                           ),
                         ),
-                        const Icon(
+                        Icon(
                           Icons.edit_outlined,
                           size: 16,
-                          color: safirBrandColor,
+                          color: AppColors.primaryBrand,
                         ),
                       ],
                     ),
                   ),
-                  const Padding(
+                  Padding(
                     padding: EdgeInsets.symmetric(vertical: 8),
-                    child: Divider(height: 1),
+                    child: Divider(height: 1, color: AppColors.fieldBorder),
                   ),
                   InkWell(
                     onTap: onEditDestination,
                     child: Row(
                       children: [
-                        const Icon(
+                        Icon(
                           Icons.location_on,
-                          color: Colors.redAccent,
-                          size: 16,
+                          color: AppColors.primaryButton,
+                          size: 18,
                         ),
                         const SizedBox(width: 10),
                         Expanded(
@@ -512,7 +528,7 @@ class IntercitySheets {
                             children: [
                               Text(
                                 _tr('intercity.destination', 'مقصد'),
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 10,
                                   color: AppColors.textSecondary,
                                 ),
@@ -526,7 +542,7 @@ class IntercitySheets {
                                     : destinationAddress,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 13,
                                   color: AppColors.textPrimary,
@@ -535,10 +551,10 @@ class IntercitySheets {
                             ],
                           ),
                         ),
-                        const Icon(
+                        Icon(
                           Icons.edit_outlined,
                           size: 16,
-                          color: safirBrandColor,
+                          color: AppColors.primaryBrand,
                         ),
                       ],
                     ),
@@ -584,17 +600,17 @@ class IntercitySheets {
                         horizontal: 12,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.indigo.withOpacity(0.06),
+                        color: AppColors.originBlue.withOpacity(0.10),
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
-                          color: Colors.indigo.withOpacity(0.15),
+                          color: AppColors.originBlue.withOpacity(0.25),
                         ),
                       ),
                       child: Row(
                         children: [
-                          const Icon(
+                          Icon(
                             Icons.calendar_month_rounded,
-                            color: Colors.indigo,
+                            color: AppColors.originBlue,
                             size: 20,
                           ),
                           const SizedBox(width: 8),
@@ -604,17 +620,17 @@ class IntercitySheets {
                               children: [
                                 Text(
                                   _tr('intercity.travel_time', 'زمان حرکت'),
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 10,
                                     color: AppColors.textSecondary,
                                   ),
                                 ),
                                 Text(
                                   dateText,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.bold,
-                                    color: Colors.indigo,
+                                    color: AppColors.originBlue,
                                   ),
                                   overflow: TextOverflow.ellipsis,
                                 ),
@@ -636,10 +652,10 @@ class IntercitySheets {
                       horizontal: 8,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.orange.withOpacity(0.06),
+                      color: AppColors.warning.withOpacity(0.12),
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
-                        color: Colors.orange.withOpacity(0.2),
+                        color: AppColors.warning.withOpacity(0.30),
                       ),
                     ),
                     child: Row(
@@ -653,14 +669,14 @@ class IntercitySheets {
                           },
                           child: Container(
                             padding: const EdgeInsets.all(4),
-                            decoration: const BoxDecoration(
-                              color: Colors.white,
+                            decoration: BoxDecoration(
+                              color: AppColors.cardBgLight,
                               shape: BoxShape.circle,
                             ),
-                            child: const Icon(
+                            child: Icon(
                               Icons.remove,
                               size: 16,
-                              color: Colors.orange,
+                              color: AppColors.warningIcon,
                             ),
                           ),
                         ),
@@ -668,17 +684,17 @@ class IntercitySheets {
                           children: [
                             Text(
                               _tr('intercity.passengers_count', 'تعداد مسافر'),
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 9,
                                 color: AppColors.textSecondary,
                               ),
                             ),
                             Text(
                               '$passengerCount $personLabel',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.bold,
-                                color: Colors.orange,
+                                color: AppColors.warningIcon,
                               ),
                             ),
                           ],
@@ -691,14 +707,14 @@ class IntercitySheets {
                           },
                           child: Container(
                             padding: const EdgeInsets.all(4),
-                            decoration: const BoxDecoration(
-                              color: Colors.white,
+                            decoration: BoxDecoration(
+                              color: AppColors.cardBgLight,
                               shape: BoxShape.circle,
                             ),
-                            child: const Icon(
+                            child: Icon(
                               Icons.add,
                               size: 16,
-                              color: Colors.orange,
+                              color: AppColors.warningIcon,
                             ),
                           ),
                         ),
@@ -719,7 +735,7 @@ class IntercitySheets {
                   children: [
                     Text(
                       _tr('intercity.fare_cost', 'هزینه تخمینی'),
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: AppColors.textSecondary,
                         fontSize: 13,
                       ),
@@ -727,7 +743,7 @@ class IntercitySheets {
                     if (distanceInKm > 0)
                       Text(
                         'مسافت: ${distanceInKm.toStringAsFixed(1)} کیلومتر',
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: AppColors.textSecondary,
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
@@ -737,10 +753,10 @@ class IntercitySheets {
                 ),
                 Text(
                   '${fareAmount.toStringAsFixed(0)} ${_tr('intercity.currency', 'افغانی')}',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
-                    color: safirBrandColor,
+                    color: AppColors.primaryBrand,
                   ),
                 ),
               ],
@@ -751,22 +767,22 @@ class IntercitySheets {
             // دکمهٔ ثبت درخواست
             SizedBox(
               width: double.infinity,
-              height: 52,
+              height: 54,
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: safirBrandColor,
+                  backgroundColor: AppColors.primaryButton,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
                   ),
-                  elevation: 2,
+                  elevation: 0,
                 ),
                 onPressed: isLoading ? null : submitAction,
                 child: isLoading
-                    ? const SizedBox(
+                    ? SizedBox(
                         height: 22,
                         width: 22,
                         child: CircularProgressIndicator(
-                          color: Colors.white,
+                          color: AppColors.buttonText,
                           strokeWidth: 2,
                         ),
                       )
@@ -775,10 +791,10 @@ class IntercitySheets {
                           'intercity.request_trip',
                           'ثبت درخواست سفر بین شهری',
                         ),
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: TextStyle(
+                          color: AppColors.buttonText,
                           fontSize: 15,
-                          fontWeight: FontWeight.bold,
+                          fontWeight: FontWeight.w800,
                         ),
                       ),
               ),
