@@ -53,6 +53,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   String _localized(String key, String fallback) {
     final String value = key.tr();
+
     return value.trim().isEmpty || value == key
         ? fallback
         : value;
@@ -68,6 +69,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       setState(() {
         _enableNotifications =
             prefs.getBool('enable_notifications') ?? true;
+
         _enableSoundEffects =
             prefs.getBool('enable_sounds') ?? true;
       });
@@ -77,6 +79,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _toggleNotification(bool value) async {
+    if (!mounted) return;
+
     HapticFeedback.selectionClick();
 
     setState(() => _enableNotifications = value);
@@ -92,6 +96,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _toggleSound(bool value) async {
+    if (!mounted) return;
+
     HapticFeedback.selectionClick();
 
     setState(() => _enableSoundEffects = value);
@@ -107,17 +113,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _applyLanguageChange(String langCode) async {
-    await context.setLocale(Locale(langCode));
+    try {
+      await context.setLocale(Locale(langCode));
 
-    final SharedPreferences prefs =
-        await SharedPreferences.getInstance();
+      final SharedPreferences prefs =
+          await SharedPreferences.getInstance();
 
-    await prefs.setString('selected_language', langCode);
+      await prefs.setString('selected_language', langCode);
 
-    if (!mounted) return;
+      if (!mounted) return;
 
-    widget.onLanguageChanged?.call(langCode);
-    setState(() {});
+      widget.onLanguageChanged?.call(langCode);
+      setState(() {});
+    } catch (e) {
+      debugPrint('خطا در تغییر زبان: $e');
+
+      if (!mounted) return;
+
+      _showMessage(
+        _localized(
+          'language_change_failed',
+          'تغییر زبان انجام نشد، دوباره تلاش کنید',
+        ),
+        backgroundColor: AppColors.danger,
+      );
+    }
   }
 
   String _getLanguageName(String code) {
@@ -125,8 +145,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
       case 'pa':
       case 'ps':
         return _localized('lang_pashto', 'پښتو');
+
       case 'en':
         return _localized('lang_english', 'English');
+
       default:
         return _localized('lang_dari', 'فارسی / دری');
     }
@@ -203,6 +225,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     groupValue: selectedTempLang,
                     onChanged: (value) {
                       if (value == null) return;
+
                       setDialogState(() {
                         selectedTempLang = value;
                       });
@@ -210,11 +233,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   _dialogDivider(),
                   _buildLanguageRadio(
-                    title: _localized('lang_pashto', 'پښتو'),
+                    title: _localized(
+                      'lang_pashto',
+                      'پښتو',
+                    ),
                     value: 'ps',
                     groupValue: selectedTempLang,
                     onChanged: (value) {
                       if (value == null) return;
+
                       setDialogState(() {
                         selectedTempLang = value;
                       });
@@ -222,11 +249,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   _dialogDivider(),
                   _buildLanguageRadio(
-                    title: _localized('lang_english', 'English'),
+                    title: _localized(
+                      'lang_english',
+                      'English',
+                    ),
                     value: 'en',
                     groupValue: selectedTempLang,
                     onChanged: (value) {
                       if (value == null) return;
+
                       setDialogState(() {
                         selectedTempLang = value;
                       });
@@ -298,7 +329,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _performClearCache() async {
-    if (_isLoadingCache) return;
+    if (_isLoadingCache || !mounted) return;
 
     setState(() => _isLoadingCache = true);
 
@@ -307,12 +338,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
       bool hadFailure = false;
 
       if (await tempDir.exists()) {
-        await for (final FileSystemEntity entity in tempDir.list()) {
+        await for (final FileSystemEntity entity
+            in tempDir.list(followLinks: false)) {
           try {
             await entity.delete(recursive: true);
           } catch (e) {
             hadFailure = true;
-            debugPrint('تعذر حذف فایل موقت: $e');
+            debugPrint('خطا در حذف فایل موقت: $e');
           }
         }
       }
@@ -446,12 +478,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(22),
           ),
-          titlePadding: const EdgeInsets.fromLTRB(20, 22, 20, 8),
-          contentPadding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
-          actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+          titlePadding: const EdgeInsets.fromLTRB(
+            20,
+            22,
+            20,
+            8,
+          ),
+          contentPadding: const EdgeInsets.fromLTRB(
+            20,
+            12,
+            20,
+            8,
+          ),
+          actionsPadding: const EdgeInsets.fromLTRB(
+            16,
+            0,
+            16,
+            12,
+          ),
           title: Row(
             children: [
-              // بدون مربع یا زمینه پشت آیکن
               SizedBox(
                 width: 34,
                 height: 34,
@@ -509,21 +555,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   void _showServicesDialog() {
     _showLegalDialog(
-      title: _localized('services_safir_title', 'خدمات سفیر'),
+      title: _localized(
+        'services_safir_title',
+        'خدمات سفیر',
+      ),
       icon: Icons.local_taxi_rounded,
       iconColor: _orange,
       content: _localized(
         'services_safir_content',
-        'سفیر یک پلتفرم حمل‌ونقل شهری است که ارتباط میان مسافران و رانندگان را ساده‌تر می‌سازد.
+        '''
+سفیر یک پلتفرم حمل‌ونقل شهری است که ارتباط میان مسافران و رانندگان را ساده‌تر می‌سازد.
 
-'
-        'مسافران می‌توانند مبدأ و مقصد سفر را ثبت کنند، درخواست سفر بفرستند، وضعیت سفر را مشاهده کنند، اطلاعات کلی راننده و وسیلهٔ نقلیه را ببینند، سوابق سفر را بررسی کنند و مشکلات خود را از بخش پشتیبانی گزارش دهند.
+مسافران می‌توانند مبدأ و مقصد سفر را ثبت کنند، درخواست سفر بفرستند، وضعیت سفر را مشاهده کنند، اطلاعات کلی راننده و وسیلهٔ نقلیه را ببینند، سوابق سفر را بررسی کنند و مشکلات خود را از بخش پشتیبانی گزارش دهند.
 
-'
-        'رانندگان می‌توانند اطلاعات هویتی، گواهینامه و اطلاعات وسیلهٔ نقلیه را ثبت کنند، درخواست‌های سفر را مدیریت کنند، وضعیت سفر را به‌روزرسانی کنند و سوابق و درآمدهای خود را مشاهده کنند.
+رانندگان می‌توانند اطلاعات هویتی، گواهینامه و اطلاعات وسیلهٔ نقلیه را ثبت کنند، درخواست‌های سفر را مدیریت کنند، وضعیت سفر را به‌روزرسانی کنند و سوابق و درآمدهای خود را مشاهده کنند.
 
-'
-        'برخی امکانات ممکن است بر اساس شهر، وضعیت اینترنت، دسترسی راننده، نسخهٔ برنامه یا قوانین محلی در دسترس نباشند. سفیر تلاش می‌کند خدمات را به‌صورت منظم و قابل‌اعتماد ارائه کند، اما امکان اختلال موقت در اثر شرایط فنی یا عوامل خارج از کنترل وجود دارد.',
+برخی امکانات ممکن است بر اساس شهر، وضعیت اینترنت، دسترسی راننده، نسخهٔ برنامه یا قوانین محلی در دسترس نباشند. سفیر تلاش می‌کند خدمات را به‌صورت منظم و قابل‌اعتماد ارائه کند، اما امکان اختلال موقت در اثر شرایط فنی یا عوامل خارج از کنترل وجود دارد.
+''',
       ),
     );
   }
@@ -538,42 +586,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
       iconColor: _blue,
       content: _localized(
         'terms_conditions_content',
-        'با ایجاد حساب، ورود یا استفاده از اپلیکیشن سفیر، شما این شرایط و قوانین را می‌پذیرید. اگر با بخشی از این قوانین موافق نیستید، لطفاً از خدمات سفیر استفاده نکنید.
+        '''
+با ایجاد حساب، ورود یا استفاده از اپلیکیشن سفیر، شما این شرایط و قوانین را می‌پذیرید. اگر با بخشی از این قوانین موافق نیستید، لطفاً از خدمات سفیر استفاده نکنید.
 
-'
-        '۱. حساب کاربری
-'
-        'کاربر باید اطلاعات صحیح، کامل و به‌روز وارد کند و مسئول حفظ امنیت شماره تلفن، کد ورود و حساب خود است.
+۱. حساب کاربری
+کاربر باید اطلاعات صحیح، کامل و به‌روز وارد کند و مسئول حفظ امنیت شماره تلفن، کد ورود و حساب خود است.
 
-'
-        '۲. درخواست سفر
-'
-        'ثبت درخواست سفر به معنای تضمین پذیرش آن نیست.
+۲. درخواست سفر
+ثبت درخواست سفر به معنای تضمین پذیرش آن نیست.
 
-'
-        '۳. رفتار کاربران
-'
-        'مسافر و راننده باید با احترام رفتار کنند.
+۳. رفتار کاربران
+مسافر و راننده باید با احترام رفتار کنند.
 
-'
-        '۴. مسئولیت راننده
-'
-        'راننده باید مدارک، گواهینامه و اطلاعات وسیلهٔ نقلیه را صحیح ثبت کند.
+۴. مسئولیت راننده
+راننده باید مدارک، گواهینامه و اطلاعات وسیلهٔ نقلیه را صحیح ثبت کند.
 
-'
-        '۵. کرایه و پرداخت
-'
-        'کرایه ممکن است بر اساس مسیر، زمان، مسافت، تعرفه و شرایط سفر تعیین شود.
+۵. کرایه و پرداخت
+کرایه ممکن است بر اساس مسیر، زمان، مسافت، تعرفه و شرایط سفر تعیین شود.
 
-'
-        '۶. لغو سفر
-'
-        'لغو مکرر یا غیرموجه سفر توسط مسافر یا راننده ممکن است باعث محدودشدن حساب شود.
+۶. لغو سفر
+لغو مکرر یا غیرموجه سفر توسط مسافر یا راننده ممکن است باعث محدودشدن حساب شود.
 
-'
-        '۷. محدودسازی حساب
-'
-        'سفیر می‌تواند در صورت تقلب، نقض قوانین یا سوءاستفاده از خدمات، حساب را مسدود کند.',
+۷. محدودسازی حساب
+سفیر می‌تواند در صورت تقلب، نقض قوانین یا سوءاستفاده از خدمات، حساب را مسدود کند.
+''',
       ),
     );
   }
@@ -588,47 +624,43 @@ class _SettingsScreenState extends State<SettingsScreen> {
       iconColor: _purple,
       content: _localized(
         'privacy_policy_content',
-        'حریم خصوصی کاربران برای سفیر مهم است. این برنامه ممکن است فقط برای ارائه و بهبود خدمات، اطلاعات لازم را دریافت و پردازش کند.
+        '''
+حریم خصوصی کاربران برای سفیر مهم است. این برنامه ممکن است فقط برای ارائه و بهبود خدمات، اطلاعات لازم را دریافت و پردازش کند.
 
-'
-        '۱. اطلاعاتی که ممکن است دریافت شود
-'
-        'اطلاعات حساب مانند نام، شماره تلفن، ایمیل، اطلاعات سفر و موقعیت مکانی.
+۱. اطلاعاتی که ممکن است دریافت شود
+اطلاعات حساب مانند نام، شماره تلفن، ایمیل، اطلاعات سفر و موقعیت مکانی.
 
-'
-        '۲. موقعیت مکانی
-'
-        'برای ثبت درخواست سفر، تعیین مبدأ و مقصد و نمایش مسیر استفاده می‌شود.
+۲. موقعیت مکانی
+برای ثبت درخواست سفر، تعیین مبدأ و مقصد و نمایش مسیر استفاده می‌شود.
 
-'
-        '۳. استفاده از داده‌ها
-'
-        'اطلاعات فقط برای ایجاد و مدیریت حساب، انجام سفر و پشتیبانی استفاده می‌شود.
+۳. استفاده از داده‌ها
+اطلاعات فقط برای ایجاد و مدیریت حساب، انجام سفر و پشتیبانی استفاده می‌شود.
 
-'
-        '۴. اشتراک‌گذاری اطلاعات
-'
-        'اطلاعات ضروری سفر ممکن است میان مسافر و راننده به اشتراک گذاشته شود.',
+۴. اشتراک‌گذاری اطلاعات
+اطلاعات ضروری سفر ممکن است میان مسافر و راننده به اشتراک گذاشته شود.
+''',
       ),
     );
   }
 
   void _showAboutDialog() {
     _showLegalDialog(
-      title: _localized('about_app_title', 'دربارهٔ اپلیکیشن'),
+      title: _localized(
+        'about_app_title',
+        'دربارهٔ اپلیکیشن',
+      ),
       icon: Icons.info_rounded,
       iconColor: AppColors.iconSecondary,
       content: _localized(
         'about_app_content',
-        'سفیر یک اپلیکیشن حمل‌ونقل شهری است که برای آسان‌ترشدن ثبت و مدیریت سفر طراحی شده است.
+        '''
+سفیر یک اپلیکیشن حمل‌ونقل شهری است که برای آسان‌ترشدن ثبت و مدیریت سفر طراحی شده است.
 
-'
-        'هدف ما ایجاد ارتباطی ساده‌تر میان مسافران و رانندگان و دسترسی سریع‌تر به خدمات سفر است.
+هدف ما ایجاد ارتباطی ساده‌تر میان مسافران و رانندگان و دسترسی سریع‌تر به خدمات سفر است.
 
-'
-        'نسخهٔ برنامه:
-'
-        'v1.0.0 (Safir Passengers)',
+نسخهٔ برنامه:
+v1.0.0 (Safir Passengers)
+''',
       ),
     );
   }
@@ -643,10 +675,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
       iconColor: _red,
       content: _localized(
         'delete_account_content',
-        'شما حق دارید درخواست حذف حساب سفیر و داده‌های مرتبط با آن را ثبت کنید.
+        '''
+شما حق دارید درخواست حذف حساب سفیر و داده‌های مرتبط با آن را ثبت کنید.
 
-'
-        'در فرایند حذف، اطلاعات مرتبط با حساب بررسی می‌شوند. ممکن است برخی اطلاعات فقط در صورت ضرورت قانونی یا جلوگیری از تقلب برای مدت محدود حفظ شوند.',
+در فرایند حذف، اطلاعات مرتبط با حساب بررسی می‌شوند. ممکن است برخی اطلاعات فقط در صورت ضرورت قانونی یا جلوگیری از تقلب برای مدت محدود حفظ شوند.
+''',
       ),
     );
   }
@@ -682,7 +715,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final String currentLangCode = context.locale.languageCode;
+    final String currentLangCode =
+        context.locale.languageCode;
+
     final bool isRtl = currentLangCode != 'en';
 
     final IconData chevronIcon = isRtl
@@ -690,8 +725,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
         : Icons.chevron_right_rounded;
 
     return Directionality(
-      textDirection:
-          isRtl ? ui.TextDirection.rtl : ui.TextDirection.ltr,
+      textDirection: isRtl
+          ? ui.TextDirection.rtl
+          : ui.TextDirection.ltr,
       child: Scaffold(
         backgroundColor: AppColors.backgroundLight,
         appBar: AppBar(
@@ -722,10 +758,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
           top: false,
           child: ListView(
             physics: const BouncingScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(16, 10, 16, 28),
+            padding: const EdgeInsets.fromLTRB(
+              16,
+              10,
+              16,
+              28,
+            ),
             children: [
               _buildSectionHeader(
-                _localized('general_settings_header', 'عمومی'),
+                _localized(
+                  'general_settings_header',
+                  'عمومی',
+                ),
               ),
               _buildCardGroup([
                 _SettingsTile(
@@ -744,7 +788,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ]),
               const SizedBox(height: 24),
               _buildSectionHeader(
-                _localized('appearance_header', 'ظاهر برنامه'),
+                _localized(
+                  'appearance_header',
+                  'ظاهر برنامه',
+                ),
               ),
               _buildCardGroup([
                 _buildThemeSelector(),
@@ -799,13 +846,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     'آزادسازی فضای اشغال‌شده توسط عکس‌ها و نقشه‌ها',
                   ),
                   trailing: _buildChevron(chevronIcon),
-                  onTap:
-                      _isLoadingCache ? null : _clearCacheDialog,
+                  onTap: _isLoadingCache
+                      ? null
+                      : _clearCacheDialog,
                 ),
               ]),
               const SizedBox(height: 24),
               _buildSectionHeader(
-                _localized('about_safir_header', 'درباره سفیر'),
+                _localized(
+                  'about_safir_header',
+                  'درباره سفیر',
+                ),
               ),
               _buildCardGroup([
                 _SettingsTile(
@@ -915,58 +966,53 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _buildThemeSelector() {
-    return AnimatedBuilder(
-      animation: ThemeController.instance,
-      builder: (context, _) {
-        final ThemeMode mode = ThemeController.instance.mode;
+    final ThemeMode mode = ThemeController.instance.mode;
 
-        final options = <MapEntry<ThemeMode, String>>[
-          MapEntry(
-            ThemeMode.system,
-            _localized('theme_system', 'خودکار'),
-          ),
-          MapEntry(
-            ThemeMode.light,
-            _localized('theme_light', 'روشن'),
-          ),
-          MapEntry(
-            ThemeMode.dark,
-            _localized('theme_dark', 'تاریک'),
-          ),
-        ];
+    final options = <MapEntry<ThemeMode, String>>[
+      MapEntry(
+        ThemeMode.system,
+        _localized('theme_system', 'خودکار'),
+      ),
+      MapEntry(
+        ThemeMode.light,
+        _localized('theme_light', 'روشن'),
+      ),
+      MapEntry(
+        ThemeMode.dark,
+        _localized('theme_dark', 'تاریک'),
+      ),
+    ];
 
-        final icons = <ThemeMode, IconData>{
-          ThemeMode.system: Icons.brightness_auto_rounded,
-          ThemeMode.light: Icons.light_mode_rounded,
-          ThemeMode.dark: Icons.dark_mode_rounded,
-        };
+    final icons = <ThemeMode, IconData>{
+      ThemeMode.system: Icons.brightness_auto_rounded,
+      ThemeMode.light: Icons.light_mode_rounded,
+      ThemeMode.dark: Icons.dark_mode_rounded,
+    };
 
-        final colors = <ThemeMode, Color>{
-          ThemeMode.system: _blue,
-          ThemeMode.light: _orange,
-          ThemeMode.dark: _purple,
-        };
+    final colors = <ThemeMode, Color>{
+      ThemeMode.system: _blue,
+      ThemeMode.light: _orange,
+      ThemeMode.dark: _purple,
+    };
 
-        return Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
-            children: [
-              for (int i = 0; i < options.length; i++) ...[
-                if (i > 0) const SizedBox(width: 8),
-                Expanded(
-                  child: _buildThemeOption(
-                    mode: options[i].key,
-                    selected: mode == options[i].key,
-                    label: options[i].value,
-                    icon: icons[options[i].key]!,
-                    iconColor: colors[options[i].key]!,
-                  ),
-                ),
-              ],
-            ],
-          ),
-        );
-      },
+    return Padding(
+      padding: const EdgeInsets.all(12),
+      child: Row(
+        children: [
+          for (int i = 0; i < options.length; i++) ...[
+            if (i > 0) const SizedBox(width: 8),
+            Expanded(
+              child: _buildThemeOption(
+                mode: options[i].key,
+                selected: mode == options[i].key,
+                label: options[i].value,
+                icon: icons[options[i].key]!,
+                iconColor: colors[options[i].key]!,
+              ),
+            ),
+          ],
+        ],
+      ),
     );
   }
 
@@ -988,9 +1034,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
         borderRadius: BorderRadius.circular(12),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
-          onTap: () async {
+          onTap: () {
             HapticFeedback.selectionClick();
-            await ThemeController.instance.setMode(mode);
+
+            ThemeController.instance.setMode(mode);
+
+            if (mounted) {
+              setState(() {});
+            }
           },
           child: Padding(
             padding: const EdgeInsets.symmetric(
@@ -1059,8 +1110,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _buildCardGroup(List<Widget> children) {
-    final bool isRtl =
-        Directionality.of(context) == ui.TextDirection.rtl;
+    final String languageCode = context.locale.languageCode;
+    final bool isRtl = languageCode != 'en';
 
     final List<Widget> rows = [];
 
@@ -1076,6 +1127,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         );
       }
+
       rows.add(children[i]);
     }
 
@@ -1118,13 +1170,14 @@ class _ModernSwitch extends StatelessWidget {
         inactiveTrackColor: AppColors.isDark
             ? const Color(0xFF505050)
             : const Color(0xFFBDBDBD),
-        materialTapTargetSize: MaterialTapTargetSize.padded,
+        materialTapTargetSize:
+            MaterialTapTargetSize.padded,
       ),
     );
   }
 }
 
-/// ردیف تنظیمات؛ آیکن رنگی بدون مربع یا زمینه.
+/// آیکن رنگی بدون مربع یا زمینه.
 class _SettingsTile extends StatelessWidget {
   final IconData icon;
   final Color accent;
