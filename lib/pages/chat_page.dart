@@ -26,10 +26,14 @@ class ChatPage extends StatefulWidget {
 }
 
 class _ChatPageState extends State<ChatPage> {
-  static const Color chatBackground = Color(0xFFF5F7F8);
-  static const Color messageGreen = Color(0xFF1B7A57);
-  static const Color darkText = Color(0xFF17202A);
-  static const Color softText = Color(0xFF718096);
+  /// پاسخ‌های سریع مسافر؛ اگر نمی‌خواهید، false کنید.
+  static const bool _showQuickReplies = true;
+
+  /// ترجمه با متن جایگزین (اگر کلید پیدا نشد، easy_localization خود کلید را برمی‌گرداند)
+  String _trOr(String key, String fallback) {
+    final String v = key.tr();
+    return (v.isEmpty || v == key) ? fallback : v;
+  }
 
   final TextEditingController _messageController =
       TextEditingController();
@@ -119,7 +123,7 @@ class _ChatPageState extends State<ChatPage> {
             error.message ??
                 'error_occurred'.tr(),
           ),
-          backgroundColor: Colors.red.shade700,
+          backgroundColor: AppColors.danger,
         ),
       );
     } catch (error) {
@@ -136,7 +140,7 @@ class _ChatPageState extends State<ChatPage> {
           content: Text(
             'error_occurred'.tr(),
           ),
-          backgroundColor: Colors.red.shade700,
+          backgroundColor: AppColors.danger,
         ),
       );
     } finally {
@@ -229,7 +233,7 @@ class _ChatPageState extends State<ChatPage> {
             : 'chat_driver_default_name'.tr();
 
     return Scaffold(
-      backgroundColor: chatBackground,
+      backgroundColor: AppColors.backgroundLight,
       appBar: _buildAppBar(displayName),
       body: SafeArea(
         child: Column(
@@ -237,6 +241,8 @@ class _ChatPageState extends State<ChatPage> {
             Expanded(
               child: _buildMessages(),
             ),
+            if (_showQuickReplies && widget.tripId.trim().isNotEmpty)
+              _buildQuickReplies(),
             _buildMessageComposer(),
           ],
         ),
@@ -248,8 +254,9 @@ class _ChatPageState extends State<ChatPage> {
     String displayName,
   ) {
     return AppBar(
-      backgroundColor: Colors.white,
-      foregroundColor: darkText,
+      backgroundColor: AppColors.cardBgLight,
+      surfaceTintColor: AppColors.cardBgLight,
+      foregroundColor: AppColors.textPrimary,
       elevation: 0,
       scrolledUnderElevation: 0,
       centerTitle: false,
@@ -273,8 +280,8 @@ class _ChatPageState extends State<ChatPage> {
               displayName,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: darkText,
+              style: TextStyle(
+                color: AppColors.textPrimary,
                 fontSize: 16,
                 fontWeight: FontWeight.w800,
               ),
@@ -286,9 +293,9 @@ class _ChatPageState extends State<ChatPage> {
         IconButton(
           tooltip: 'close_tooltip'.tr(),
           onPressed: () => Navigator.pop(context),
-          icon: const Icon(
+          icon: Icon(
             Icons.close_rounded,
-            color: Color(0xFF64748B),
+            color: AppColors.textSecondary,
           ),
         ),
         const SizedBox(width: 4),
@@ -311,9 +318,9 @@ class _ChatPageState extends State<ChatPage> {
       height: size,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: const Color(0xFFE5F3EC),
+        color: AppColors.cardBackground,
         border: Border.all(
-          color: messageGreen.withOpacity(0.2),
+          color: AppColors.primaryBrand.withOpacity(0.2),
           width: borderWidth,
         ),
       ),
@@ -323,9 +330,9 @@ class _ChatPageState extends State<ChatPage> {
                 photo,
                 fit: BoxFit.cover,
                 errorBuilder: (_, __, ___) {
-                  return const Icon(
+                  return Icon(
                     Icons.person_rounded,
-                    color: messageGreen,
+                    color: AppColors.primaryBrand,
                     size: 24,
                   );
                 },
@@ -338,13 +345,13 @@ class _ChatPageState extends State<ChatPage> {
                     return child;
                   }
 
-                  return const Center(
+                  return Center(
                     child: SizedBox(
                       width: 17,
                       height: 17,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        color: messageGreen,
+                        color: AppColors.primaryBrand,
                       ),
                     ),
                   );
@@ -352,7 +359,7 @@ class _ChatPageState extends State<ChatPage> {
               )
             : Icon(
                 Icons.person_rounded,
-                color: messageGreen,
+                color: AppColors.primaryBrand,
                 size: size * 0.55,
               ),
       ),
@@ -375,9 +382,9 @@ class _ChatPageState extends State<ChatPage> {
       builder: (context, snapshot) {
         if (snapshot.connectionState ==
             ConnectionState.waiting) {
-          return const Center(
+          return Center(
             child: CircularProgressIndicator(
-              color: messageGreen,
+              color: AppColors.primaryBrand,
             ),
           );
         }
@@ -416,10 +423,13 @@ class _ChatPageState extends State<ChatPage> {
           ),
           itemCount: messages.length,
           itemBuilder: (context, index) {
-            final Map<String, dynamic> data =
-                messages[messages.length - 1 - index].data();
+            final QueryDocumentSnapshot<Map<String, dynamic>> doc =
+                messages[messages.length - 1 - index];
 
-            return _buildMessageBubble(data);
+            return _buildMessageBubble(
+              doc.data(),
+              pending: doc.metadata.hasPendingWrites,
+            );
           },
         );
       },
@@ -427,8 +437,9 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   Widget _buildMessageBubble(
-    Map<String, dynamic> data,
-  ) {
+    Map<String, dynamic> data, {
+    bool pending = false,
+  }) {
     final String message =
         data['message']?.toString().trim() ?? '';
 
@@ -472,8 +483,8 @@ class _ChatPageState extends State<ChatPage> {
                 ),
                 decoration: BoxDecoration(
                   color: isMe
-                      ? messageGreen
-                      : Colors.white,
+                      ? AppColors.primaryButton
+                      : AppColors.cardBgLight,
                   borderRadius: BorderRadius.only(
                     topLeft: const Radius.circular(18),
                     topRight: const Radius.circular(18),
@@ -487,7 +498,7 @@ class _ChatPageState extends State<ChatPage> {
                   border: isMe
                       ? null
                       : Border.all(
-                          color: const Color(0xFFE6EBE8),
+                          color: AppColors.fieldBorder,
                         ),
                   boxShadow: [
                     BoxShadow(
@@ -507,8 +518,8 @@ class _ChatPageState extends State<ChatPage> {
                       textDirection: ui.TextDirection.rtl,
                       style: TextStyle(
                         color: isMe
-                            ? Colors.white
-                            : darkText,
+                            ? AppColors.buttonText
+                            : AppColors.textPrimary,
                         fontSize: 14,
                         height: 1.45,
                         fontWeight: FontWeight.w500,
@@ -525,18 +536,21 @@ class _ChatPageState extends State<ChatPage> {
                           textDirection: ui.TextDirection.ltr,
                           style: TextStyle(
                             color: isMe
-                                ? Colors.white70
-                                : softText,
+                                ? AppColors.buttonText.withOpacity(0.75)
+                                : AppColors.textSecondary,
                             fontSize: 10,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
                         if (isMe) ...[
                           const SizedBox(width: 4),
-                          const Icon(
-                            Icons.done_all_rounded,
+                          // ساعت = هنوز به سرور نرسیده، دو تیک = ارسال شد
+                          Icon(
+                            pending
+                                ? Icons.schedule_rounded
+                                : Icons.done_all_rounded,
                             size: 14,
-                            color: Colors.white70,
+                            color: AppColors.buttonText.withOpacity(0.75),
                           ),
                         ],
                       ],
@@ -563,21 +577,21 @@ class _ChatPageState extends State<ChatPage> {
               width: 82,
               height: 82,
               decoration: BoxDecoration(
-                color: messageGreen.withOpacity(0.09),
+                color: AppColors.primaryBrand.withOpacity(0.09),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.forum_outlined,
                 size: 42,
-                color: messageGreen,
+                color: AppColors.primaryBrand,
               ),
             ),
             const SizedBox(height: 16),
             Text(
               'chat_no_messages_yet'.tr(),
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: softText,
+              style: TextStyle(
+                color: AppColors.textSecondary,
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
               ),
@@ -586,8 +600,8 @@ class _ChatPageState extends State<ChatPage> {
             Text(
               'chat_empty_subtitle'.tr(),
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Color(0xFF9AA5B1),
+              style: TextStyle(
+                color: AppColors.textSecondary,
                 fontSize: 12,
               ),
             ),
@@ -608,20 +622,72 @@ class _ChatPageState extends State<ChatPage> {
             Icon(
               Icons.cloud_off_rounded,
               size: 54,
-              color: Colors.grey.shade400,
+              color: AppColors.iconSecondary,
             ),
             const SizedBox(height: 12),
             Text(
               message,
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: Colors.grey.shade600,
+                color: AppColors.textSecondary,
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  /// پاسخ‌های آمادهٔ مسافر (یک لمس = ارسال)
+  Widget _buildQuickReplies() {
+    final List<String> replies = <String>[
+      _trOr('chat_quick_here', 'من اینجا هستم'),
+      _trOr('chat_quick_coming', 'دارم می‌آیم'),
+      _trOr('chat_quick_wait', 'لطفاً چند دقیقه صبر کنید'),
+      _trOr('chat_quick_thanks', 'ممنون'),
+    ];
+
+    return Container(
+      height: 46,
+      color: AppColors.cardBgLight,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+        itemCount: replies.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (BuildContext context, int index) {
+          return InkWell(
+            borderRadius: BorderRadius.circular(20),
+            onTap: _isSending
+                ? null
+                : () {
+                    _messageController.text = replies[index];
+                    sendMessage();
+                  },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: AppColors.cardBackground,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: AppColors.primaryBrand.withOpacity(0.25),
+                ),
+              ),
+              child: Text(
+                replies[index],
+                style: TextStyle(
+                  color: AppColors.primaryBrand,
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -635,10 +701,10 @@ class _ChatPageState extends State<ChatPage> {
         10,
       ),
       decoration: BoxDecoration(
-        color: Colors.white,
-        border: const Border(
+        color: AppColors.cardBgLight,
+        border: Border(
           top: BorderSide(
-            color: Color(0xFFE8EEEA),
+            color: AppColors.fieldBorder,
           ),
         ),
         boxShadow: [
@@ -655,10 +721,10 @@ class _ChatPageState extends State<ChatPage> {
           Expanded(
             child: Container(
               decoration: BoxDecoration(
-                color: chatBackground,
+                color: AppColors.backgroundLight,
                 borderRadius: BorderRadius.circular(23),
                 border: Border.all(
-                  color: const Color(0xFFE3EAE6),
+                  color: AppColors.fieldBorder,
                 ),
               ),
               child: TextField(
@@ -668,16 +734,16 @@ class _ChatPageState extends State<ChatPage> {
                 textDirection: ui.TextDirection.rtl,
                 textInputAction:
                     TextInputAction.newline,
-                style: const TextStyle(
-                  color: darkText,
+                style: TextStyle(
+                  color: AppColors.textPrimary,
                   fontSize: 14,
                   height: 1.35,
                 ),
                 decoration: InputDecoration(
                   hintText:
                       'chat_type_message_hint'.tr(),
-                  hintStyle: const TextStyle(
-                    color: Color(0xFF9AA5B1),
+                  hintStyle: TextStyle(
+                    color: AppColors.textSecondary,
                     fontSize: 13,
                   ),
                   border: InputBorder.none,
@@ -702,8 +768,8 @@ class _ChatPageState extends State<ChatPage> {
             height: 46,
             decoration: BoxDecoration(
               color: _isSending
-                  ? Colors.grey.shade300
-                  : messageGreen,
+                  ? AppColors.handle
+                  : AppColors.primaryButton,
               shape: BoxShape.circle,
             ),
             child: Material(
@@ -714,18 +780,18 @@ class _ChatPageState extends State<ChatPage> {
                 customBorder: const CircleBorder(),
                 child: Center(
                   child: _isSending
-                      ? const SizedBox(
+                      ? SizedBox(
                           width: 19,
                           height: 19,
                           child:
                               CircularProgressIndicator(
                             strokeWidth: 2,
-                            color: Colors.white,
+                            color: AppColors.buttonText,
                           ),
                         )
-                      : const Icon(
+                      : Icon(
                           Icons.send_rounded,
-                          color: Colors.white,
+                          color: AppColors.buttonText,
                           size: 21,
                         ),
                 ),
