@@ -33,6 +33,7 @@ import 'map_files/cargo_sheets.dart';
 import 'map_files/trip_options_sheet.dart';
 import 'map_files/schedule_trip_sheet.dart';
 import 'map_files/promo_code_sheet.dart';
+import 'package:safir_passengers/services/promo_service.dart';
 import '../widgets/animated_menus.dart';
 import '../widgets/map_location_label.dart';
 
@@ -526,6 +527,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
     }
 
     _startLiveLocationUpdates();
+    _loadPendingPromo();
 
     // کلیک روی آدرس ذخیره‌شده (از هر صفحه‌ای): در مرحلهٔ اول «مبدأ» همین‌جا
     // تعیین می‌شود و بعد کاربر مقصد را خودش انتخاب می‌کند
@@ -2421,89 +2423,27 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
         validator: _validatePromoCode,
         onApply: (code) {
           setState(() {
-            _appliedPromoCode = code;
+            _appliedPromoCode = code.isEmpty ? null : code.toUpperCase();
           });
+          // با منوی پروفایل هماهنگ بماند
+          if (code.isEmpty) {
+            PromoService.clearPending();
+          } else {
+            PromoService.savePending(code);
+          }
         },
       ),
     );
   }
 
-  String _promoTr(String key, String fallback) {
-    final String v = key.tr();
-    return (v.trim().isEmpty || v == key) ? fallback : v;
-  }
+  Future<PromoValidation> _validatePromoCode(String code) =>
+      PromoService.validate(code);
 
-  /// 🎟️ بررسی کد تخفیف در Firestore: مجموعهٔ promo_codes، شناسهٔ سند = خود کد (حروف بزرگ)
-  /// فیلدها: active (bool)، type ('percent' یا 'fixed')، value (عدد)،
-  /// expires_at (Timestamp، اختیاری)، max_uses و used_count (اختیاری)
-  Future<PromoValidation> _validatePromoCode(String rawCode) async {
-    final String code = rawCode.trim().toUpperCase();
-
-    try {
-      final DocumentSnapshot<Map<String, dynamic>> doc = await FirebaseFirestore
-          .instance
-          .collection('promo_codes')
-          .doc(code)
-          .get()
-          .timeout(const Duration(seconds: 8));
-
-      final Map<String, dynamic>? data = doc.data();
-
-      if (!doc.exists || data == null) {
-        return PromoValidation(
-          false,
-          _promoTr('promo_invalid', 'کد تخفیف نامعتبر است'),
-        );
-      }
-
-      final bool active = data['active'] != false;
-      final Object? expires = data['expires_at'];
-      final bool expired =
-          expires is Timestamp && expires.toDate().isBefore(DateTime.now());
-
-      if (!active || expired) {
-        return PromoValidation(
-          false,
-          _promoTr('promo_expired', 'مهلت این کد تخفیف تمام شده است'),
-        );
-      }
-
-      final num? maxUses = data['max_uses'] is num ? data['max_uses'] as num : null;
-      final num usedCount = data['used_count'] is num ? data['used_count'] as num : 0;
-
-      if (maxUses != null && usedCount >= maxUses) {
-        return PromoValidation(
-          false,
-          _promoTr('promo_used_up', 'ظرفیت استفادهٔ این کد تکمیل شده است'),
-        );
-      }
-
-      final String type = data['type']?.toString().toLowerCase() ?? '';
-      final num? value = data['value'] is num ? data['value'] as num : null;
-
-      String summary = _promoTr('promo_valid', 'کد تخفیف معتبر است');
-      if (value != null && value > 0) {
-        summary = type == 'percent'
-            ? '${value.toStringAsFixed(0)}٪ ${_promoTr('promo_discount_word', 'تخفیف')}'
-            : '${value.toStringAsFixed(0)} ${_promoTr('currency.afghani', 'افغانی')} ${_promoTr('promo_discount_word', 'تخفیف')}';
-      }
-
-      return PromoValidation(true, summary);
-    } on FirebaseException catch (e) {
-      debugPrint('Promo check Firebase error: ${e.code} ${e.message}');
-      return PromoValidation(
-        false,
-        e.code == 'permission-denied'
-            ? _promoTr('promo_check_failed', 'بررسی کد انجام نشد، دوباره تلاش کنید')
-            : _promoTr('promo_check_failed', 'بررسی کد انجام نشد، دوباره تلاش کنید'),
-      );
-    } catch (e) {
-      debugPrint('Promo check error: $e');
-      return PromoValidation(
-        false,
-        _promoTr('promo_check_failed', 'بررسی کد انجام نشد، دوباره تلاش کنید'),
-      );
-    }
+  /// کد تأییدشده‌ای که کاربر قبلاً (مثلاً از منوی پروفایل) ثبت کرده بود، خودکار اعمال می‌شود
+  Future<void> _loadPendingPromo() async {
+    final String? code = await PromoService.loadPending();
+    if (!mounted || code == null || _hasPromoCode) return;
+    setState(() => _appliedPromoCode = code);
   }
 
   Future<void> _playTripStatusSound(String tripStatus) async {
@@ -2724,6 +2664,11 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
         };
 
         await tripRequestRef!.set(passengerTripDetails);
+
+        // کد تخفیف در این سفر مصرف شد؛ برای سفر بعد دوباره نیاز به ثبت دارد
+        if (_hasPromoCode) {
+          PromoService.clearPending();
+        }
 
         // اگر در حین ثبت، صفحه بسته شد یا کاربر منصرف شد
         if (!mounted) return;
