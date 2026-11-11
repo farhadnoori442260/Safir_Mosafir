@@ -6,11 +6,12 @@ import '../../theme/app_colors.dart';
 import '../../global/global_var.dart';
 
 class CargoSheets {
-  /// 🎨 رنگ اختصاصی فوکوس (آبی اسنپی)
-  static const Color focusBlue = Color(0xFF0066FF);
-  static const Color borderGrey = Color(0xFFD6D6D6);
-  static const Color labelGrey = Color(0xFF9E9E9E);
-  static const Color errorRed = Color(0xFFE53935);
+  /// 🎨 رنگ‌های فرم باربری
+  // نام‌های قبلی برای سازگاری با فایل‌های دیگر؛ حالا از AppColors می‌آیند.
+  static Color get focusBlue => AppColors.originBlue;
+  static Color get borderGrey => AppColors.fieldBorder;
+  static Color get labelGrey => AppColors.textSecondary;
+  static Color get errorRed => AppColors.danger;
 
   /// 📦 ۱. صفحه کامل اطلاعات فرستنده (Sender Screen)
   static void showSenderDialog({
@@ -122,11 +123,11 @@ class CargoSheets {
         curve: Curves.easeOutCubic,
         padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.cardBgLight,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.12),
+              color: Colors.black.withOpacity(AppColors.isDark ? 0.45 : 0.12),
               blurRadius: 15,
               offset: const Offset(0, -4),
             ),
@@ -141,7 +142,7 @@ class CargoSheets {
                 width: 38,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: Colors.grey[300],
+                  color: AppColors.handle,
                   borderRadius: BorderRadius.circular(10),
                 ),
               ),
@@ -149,7 +150,7 @@ class CargoSheets {
             const SizedBox(height: 12),
             Text(
               'cargo.select_vehicle'.tr(),
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w600,
                 color: AppColors.textPrimary,
@@ -174,11 +175,13 @@ class CargoSheets {
                           padding: const EdgeInsets.symmetric(vertical: 10),
                           decoration: BoxDecoration(
                             color: isSelected
-                                ? focusBlue.withOpacity(0.08)
-                                : Colors.grey[100],
+                                ? AppColors.cardBackground
+                                : AppColors.backgroundLight,
                             borderRadius: BorderRadius.circular(16),
                             border: Border.all(
-                              color: isSelected ? focusBlue : Colors.transparent,
+                              color: isSelected
+                                  ? AppColors.primaryBrand
+                                  : AppColors.fieldBorder,
                               width: 1.5,
                             ),
                           ),
@@ -190,7 +193,7 @@ class CargoSheets {
                                 vehicle.icon,
                                 size: 30,
                                 color: isSelected
-                                    ? focusBlue
+                                    ? AppColors.primaryBrand
                                     : AppColors.textSecondary,
                               ),
                               const SizedBox(height: 6),
@@ -205,7 +208,7 @@ class CargoSheets {
                                       ? FontWeight.w700
                                       : FontWeight.w500,
                                   color: isSelected
-                                      ? focusBlue
+                                      ? AppColors.primaryBrand
                                       : AppColors.textPrimary,
                                 ),
                               ),
@@ -218,13 +221,13 @@ class CargoSheets {
                 }).toList(),
               ),
             ),
-            const Divider(height: 24),
+            Divider(height: 24, color: AppColors.fieldBorder),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
                   'cargo.payer_side'.tr(),
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                     color: AppColors.textPrimary,
@@ -235,33 +238,59 @@ class CargoSheets {
                     ChoiceChip(
                       label: Text(
                         senderText,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 13.5,
-                          fontWeight: FontWeight.w600,
+                          fontWeight: FontWeight.w700,
+                          color: paymentPayer == senderText
+                              ? AppColors.primaryBrand
+                              : AppColors.textSecondary,
                         ),
                       ),
                       selected: paymentPayer == senderText,
-                      selectedColor: focusBlue.withOpacity(0.15),
+                      showCheckmark: false,
+                      backgroundColor: AppColors.backgroundLight,
+                      selectedColor: AppColors.cardBackground,
+                      side: BorderSide(
+                        color: paymentPayer == senderText
+                            ? AppColors.primaryBrand
+                            : AppColors.fieldBorder,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                       onSelected: (_) => onPayerChanged(senderText),
                     ),
                     const SizedBox(width: 8),
                     ChoiceChip(
                       label: Text(
                         receiverText,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 13.5,
-                          fontWeight: FontWeight.w600,
+                          fontWeight: FontWeight.w700,
+                          color: paymentPayer == receiverText
+                              ? AppColors.primaryBrand
+                              : AppColors.textSecondary,
                         ),
                       ),
                       selected: paymentPayer == receiverText,
-                      selectedColor: focusBlue.withOpacity(0.15),
+                      showCheckmark: false,
+                      backgroundColor: AppColors.backgroundLight,
+                      selectedColor: AppColors.cardBackground,
+                      side: BorderSide(
+                        color: paymentPayer == receiverText
+                            ? AppColors.primaryBrand
+                            : AppColors.fieldBorder,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                       onSelected: (_) => onPayerChanged(receiverText),
                     ),
                   ],
                 ),
               ],
             ),
-            const Divider(height: 24),
+            Divider(height: 24, color: AppColors.fieldBorder),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -270,7 +299,7 @@ class CargoSheets {
                   children: [
                     Text(
                       'cargo.total_fare'.tr(),
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
                         color: AppColors.textSecondary,
@@ -285,10 +314,10 @@ class CargoSheets {
                       child: Text(
                         '${currentFare.toStringAsFixed(0)} ${'currency.afghani'.tr()}',
                         key: ValueKey<double>(currentFare),
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 19,
                           fontWeight: FontWeight.w600,
-                          color: focusBlue,
+                          color: AppColors.primaryBrand,
                         ),
                       ),
                     ),
@@ -296,32 +325,32 @@ class CargoSheets {
                 ),
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1BAB58),
+                    backgroundColor: AppColors.primaryButton,
                     padding: const EdgeInsets.symmetric(
                       horizontal: 28,
                       vertical: 12,
                     ),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(14),
                     ),
                     elevation: 0,
                   ),
                   onPressed: isLoading ? null : onRequestTrip,
                   child: isLoading
-                      ? const SizedBox(
+                      ? SizedBox(
                           height: 20,
                           width: 20,
                           child: CircularProgressIndicator(
-                            color: Colors.white,
+                            color: AppColors.buttonText,
                             strokeWidth: 2,
                           ),
                         )
                       : Text(
                           'cargo.submit_order'.tr(),
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: TextStyle(
+                            color: AppColors.buttonText,
                             fontSize: 14,
-                            fontWeight: FontWeight.w600,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
                 ),
@@ -470,7 +499,7 @@ class _CargoPartyScreenState extends State<_CargoPartyScreen> {
                 ? 'لطفاً بخش‌های ضروری را تکمیل کنید'
                 : 'لطفاً اطلاعات ضروری گیرنده را تکمیل کنید',
           ),
-          backgroundColor: CargoSheets.errorRed,
+          backgroundColor: AppColors.danger,
           duration: const Duration(seconds: 2),
         ),
       );
@@ -505,22 +534,25 @@ class _CargoPartyScreenState extends State<_CargoPartyScreen> {
     final double safeBottom = MediaQuery.of(context).padding.bottom;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.backgroundLight,
       resizeToAvoidBottomInset: false,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.backgroundLight,
+        surfaceTintColor: AppColors.backgroundLight,
         elevation: 0,
+        scrolledUnderElevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
+          icon: Icon(Icons.arrow_back_ios_new_rounded,
+              size: 19, color: AppColors.textPrimary),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
           widget.isSender
               ? 'cargo.sender_details_title'.tr()
               : 'cargo.receiver_details_title'.tr(),
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 16,
-            fontWeight: FontWeight.w600,
+            fontWeight: FontWeight.w800,
             color: AppColors.textPrimary,
           ),
         ),
@@ -536,23 +568,23 @@ class _CargoPartyScreenState extends State<_CargoPartyScreen> {
           bottom: isKeyboardOpen ? keyboardHeight + 12 : safeBottom + 12,
         ),
         child: SizedBox(
-          height: 48,
+          height: 54,
           width: double.infinity,
           child: ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF1BAB58),
+              backgroundColor: AppColors.primaryButton,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(16),
               ),
               elevation: 0,
             ),
             onPressed: _submit,
             child: Text(
               'cargo.confirm_continue'.tr(),
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: AppColors.buttonText,
                 fontSize: 15,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w800,
               ),
             ),
           ),
@@ -585,25 +617,25 @@ class _CargoPartyScreenState extends State<_CargoPartyScreen> {
                           vertical: 8,
                         ),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF3F4F9),
-                          borderRadius: BorderRadius.circular(10),
+                          color: (widget.isSender ? AppColors.originBlue : AppColors.primaryButton).withOpacity(0.10),
+                          borderRadius: BorderRadius.circular(12),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Text(
                               'cargo.use_my_info'.tr(),
-                              style: const TextStyle(
-                                color: CargoSheets.focusBlue,
-                                fontWeight: FontWeight.w600,
+                              style: TextStyle(
+                                color: (widget.isSender ? AppColors.originBlue : AppColors.primaryButton),
+                                fontWeight: FontWeight.w700,
                                 fontSize: 13,
                               ),
                             ),
                             const SizedBox(width: 4),
-                            const Icon(
+                            Icon(
                               Icons.arrow_downward_rounded,
                               size: 16,
-                              color: CargoSheets.focusBlue,
+                              color: (widget.isSender ? AppColors.originBlue : AppColors.primaryButton),
                             ),
                           ],
                         ),
@@ -647,10 +679,10 @@ class _CargoPartyScreenState extends State<_CargoPartyScreen> {
                     ? 'cargo.origin_address_label'.tr()
                     : 'cargo.destination_address_label'.tr(),
                 readOnly: true,
-                suffixIcon: const Icon(
+                suffixIcon: Icon(
                   Icons.edit_outlined,
                   size: 20,
-                  color: CargoSheets.labelGrey,
+                  color: AppColors.textSecondary,
                 ),
               ),
               const SizedBox(height: 20),
@@ -740,19 +772,19 @@ class _CargoPartyScreenState extends State<_CargoPartyScreen> {
     String? errorText,
     ValueChanged<String>? onChanged,
   }) {
-    const OutlineInputBorder normalBorder = OutlineInputBorder(
-      borderRadius: BorderRadius.all(Radius.circular(10)),
-      borderSide: BorderSide(color: CargoSheets.borderGrey, width: 1.0),
+    final OutlineInputBorder normalBorder = OutlineInputBorder(
+      borderRadius: BorderRadius.all(Radius.circular(14)),
+      borderSide: BorderSide(color: AppColors.fieldBorder, width: 1.0),
     );
 
-    const OutlineInputBorder focusedBorder = OutlineInputBorder(
-      borderRadius: BorderRadius.all(Radius.circular(10)),
-      borderSide: BorderSide(color: CargoSheets.focusBlue, width: 1.5),
+    final OutlineInputBorder focusedBorder = OutlineInputBorder(
+      borderRadius: BorderRadius.all(Radius.circular(14)),
+      borderSide: BorderSide(color: (widget.isSender ? AppColors.originBlue : AppColors.primaryButton), width: 1.5),
     );
 
-    const OutlineInputBorder errorBorder = OutlineInputBorder(
-      borderRadius: BorderRadius.all(Radius.circular(10)),
-      borderSide: BorderSide(color: CargoSheets.errorRed, width: 1.5),
+    final OutlineInputBorder errorBorder = OutlineInputBorder(
+      borderRadius: BorderRadius.all(Radius.circular(14)),
+      borderSide: BorderSide(color: AppColors.danger, width: 1.5),
     );
 
     return TextField(
@@ -764,7 +796,7 @@ class _CargoPartyScreenState extends State<_CargoPartyScreen> {
       textDirection: textDirection,
       onChanged: onChanged,
       scrollPadding: const EdgeInsets.only(bottom: 40),
-      style: const TextStyle(
+      style: TextStyle(
         color: AppColors.textPrimary,
         fontSize: 14,
         fontWeight: FontWeight.w400,
@@ -773,25 +805,25 @@ class _CargoPartyScreenState extends State<_CargoPartyScreen> {
         isDense: false,
         labelText: label,
         errorText: errorText,
-        errorStyle: const TextStyle(color: CargoSheets.errorRed, fontSize: 11),
+        errorStyle: TextStyle(color: AppColors.danger, fontSize: 11),
         suffixIcon: suffixIcon,
         floatingLabelBehavior: FloatingLabelBehavior.auto,
         floatingLabelAlignment: FloatingLabelAlignment.start,
-        labelStyle: const TextStyle(
-          color: CargoSheets.labelGrey,
+        labelStyle: TextStyle(
+          color: AppColors.textSecondary,
           fontSize: 13,
           fontWeight: FontWeight.w400,
         ),
         floatingLabelStyle: TextStyle(
-          color: errorText != null ? CargoSheets.errorRed : CargoSheets.focusBlue,
+          color: errorText != null ? AppColors.danger : (widget.isSender ? AppColors.originBlue : AppColors.primaryButton),
           fontSize: 12,
           fontWeight: FontWeight.w500,
-          backgroundColor: Colors.white,
+          backgroundColor: AppColors.cardBgLight,
         ),
-        hintStyle: const TextStyle(color: CargoSheets.labelGrey, fontSize: 13),
+        hintStyle: TextStyle(color: AppColors.textSecondary, fontSize: 13),
         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 18),
         filled: true,
-        fillColor: Colors.white,
+        fillColor: AppColors.cardBgLight,
         border: normalBorder,
         enabledBorder: errorText != null ? errorBorder : normalBorder,
         disabledBorder: normalBorder,
@@ -809,14 +841,14 @@ class _CargoPartyScreenState extends State<_CargoPartyScreen> {
     required List<String> items,
     required ValueChanged<String?> onChanged,
   }) {
-    const OutlineInputBorder normalBorder = OutlineInputBorder(
-      borderRadius: BorderRadius.all(Radius.circular(10)),
-      borderSide: BorderSide(color: CargoSheets.borderGrey, width: 1.0),
+    final OutlineInputBorder normalBorder = OutlineInputBorder(
+      borderRadius: BorderRadius.all(Radius.circular(14)),
+      borderSide: BorderSide(color: AppColors.fieldBorder, width: 1.0),
     );
 
-    const OutlineInputBorder focusedBorder = OutlineInputBorder(
-      borderRadius: BorderRadius.all(Radius.circular(10)),
-      borderSide: BorderSide(color: CargoSheets.focusBlue, width: 1.5),
+    final OutlineInputBorder focusedBorder = OutlineInputBorder(
+      borderRadius: BorderRadius.all(Radius.circular(14)),
+      borderSide: BorderSide(color: (widget.isSender ? AppColors.originBlue : AppColors.primaryButton), width: 1.5),
     );
 
     // ✅ اگر مقدار فعلی در لیست نبود (مثلاً بعد از تغییر زبان)، کرش نمی‌کند
@@ -826,31 +858,31 @@ class _CargoPartyScreenState extends State<_CargoPartyScreen> {
       key: ValueKey<String>('dropdown_$label'),
       value: safeValue,
       isExpanded: true,
-      style: const TextStyle(
+      style: TextStyle(
         color: AppColors.textPrimary,
         fontSize: 14,
         fontWeight: FontWeight.w400,
       ),
-      icon: const Icon(
+      icon: Icon(
         Icons.keyboard_arrow_down_rounded,
-        color: CargoSheets.labelGrey,
+        color: AppColors.textSecondary,
       ),
       decoration: InputDecoration(
         labelText: label,
         floatingLabelBehavior: FloatingLabelBehavior.auto,
-        labelStyle: const TextStyle(
-          color: CargoSheets.labelGrey,
+        labelStyle: TextStyle(
+          color: AppColors.textSecondary,
           fontSize: 13,
           fontWeight: FontWeight.w400,
         ),
-        floatingLabelStyle: const TextStyle(
-          color: CargoSheets.focusBlue,
+        floatingLabelStyle: TextStyle(
+          color: (widget.isSender ? AppColors.originBlue : AppColors.primaryButton),
           fontSize: 12,
           fontWeight: FontWeight.w500,
-          backgroundColor: Colors.white,
+          backgroundColor: AppColors.cardBgLight,
         ),
         filled: true,
-        fillColor: Colors.white,
+        fillColor: AppColors.cardBgLight,
         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 18),
         border: normalBorder,
         enabledBorder: normalBorder,
