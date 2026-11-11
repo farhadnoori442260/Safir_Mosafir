@@ -5,6 +5,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:maplibre_gl/maplibre_gl.dart' show LatLng;
+import 'package:safir_passengers/theme/app_colors.dart';
 
 // ⚠️ اگر نام یا مسیر فایل صفحهٔ نقشه فرق دارد، فقط همین یک خط را درست کنید
 // (برای پیدا کردن فایل، در پروژه «class SafirMapScreen» را جستجو کنید)
@@ -28,15 +29,6 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
   /// و به همین دلیل صفحه همیشه خالی بود.)
   Stream<QuerySnapshot<Map<String, dynamic>>>? _ridesStream;
   String? _streamUid;
-
-  // ───────── رنگ‌ها ─────────
-  static const Color _brand = Color(0xFF145A41);
-  static const Color _brandSoft = Color(0xFFE6F2EC);
-  static const Color _pageBackground = Color(0xFFF6F8FA);
-  static const Color _ink = Color(0xFF1F2430);
-  static const Color _muted = Color(0xFF7A8290);
-  static const Color _line = Color(0xFFE8ECF0);
-  static const Color _action = Color(0xFF4F5BD5);
 
   /// سفری که بیشتر از این مدت در حالت «جستجو» مانده، منقضی حساب می‌شود
   static const Duration _searchExpiry = Duration(minutes: 10);
@@ -393,15 +385,15 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
 
     _TripGroup group = _TripGroup.other;
     String statusText = 'trip_status_generic'.tr();
-    Color statusColor = _muted;
+    Color statusColor = AppColors.textSecondary;
 
     if (_isCompletedStatus(status)) {
       group = _TripGroup.completed;
       statusText = 'trip_status_completed'.tr();
-      statusColor = _brand;
+      statusColor = AppColors.primaryBrand;
     } else if (_isCancelledStatus(status)) {
       group = _TripGroup.cancelled;
-      statusColor = const Color(0xFFE5484D);
+      statusColor = AppColors.danger;
 
       final String reason = _getString(data, <String>['cancel_reason']);
       final String by = _getString(data, <String>['cancelled_by']).toLowerCase();
@@ -418,10 +410,10 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
     } else if (expiredSearch) {
       group = _TripGroup.cancelled;
       statusText = 'trip_status_expired_no_driver'.tr();
-      statusColor = const Color(0xFFE5484D);
+      statusColor = AppColors.danger;
     } else if (_isActiveStatus(status)) {
       group = _TripGroup.active;
-      statusColor = const Color(0xFF2F6FED);
+      statusColor = AppColors.originBlue;
 
       switch (status) {
         case 'searching':
@@ -612,8 +604,8 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
                   }
 
                   if (!snapshot.hasData) {
-                    return const Center(
-                      child: CircularProgressIndicator(color: _brand),
+                    return Center(
+                      child: CircularProgressIndicator(color: AppColors.primaryBrand),
                     );
                   }
 
@@ -673,43 +665,43 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
 
   Widget _buildScaffold({required Widget body}) {
     return Scaffold(
-      backgroundColor: _pageBackground,
+      backgroundColor: AppColors.backgroundLight,
       appBar: AppBar(
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.white,
+        backgroundColor: AppColors.cardBgLight,
+        surfaceTintColor: AppColors.cardBgLight,
         elevation: 0,
         scrolledUnderElevation: 0.5,
         centerTitle: true,
         title: Text(
           'trip_screen_title'.tr(),
-          style: const TextStyle(
-            color: _ink,
+          style: TextStyle(
+            color: AppColors.textPrimary,
             fontWeight: FontWeight.w800,
             fontSize: 19,
           ),
         ),
         leading: IconButton(
           onPressed: () => Navigator.pop(context),
-          icon: const Icon(
-            Icons.arrow_back_rounded,
-            color: Color(0xFF555B65),
+          icon: Icon(
+            Icons.arrow_back_ios_new_rounded,
+            color: AppColors.textSecondary,
           ),
         ),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(50),
           child: Container(
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              border: Border(bottom: BorderSide(color: _line)),
+            decoration: BoxDecoration(
+              color: AppColors.cardBgLight,
+              border: Border(bottom: BorderSide(color: AppColors.fieldBorder)),
             ),
             child: TabBar(
               controller: _tabController,
-              indicatorColor: _brand,
+              indicatorColor: AppColors.primaryBrand,
               indicatorWeight: 3,
               indicatorSize: TabBarIndicatorSize.label,
               dividerColor: Colors.transparent,
-              labelColor: _ink,
-              unselectedLabelColor: _muted,
+              labelColor: AppColors.textPrimary,
+              unselectedLabelColor: AppColors.textSecondary,
               labelStyle: const TextStyle(
                 fontWeight: FontWeight.w800,
                 fontSize: 13,
@@ -749,9 +741,9 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
       margin: const EdgeInsets.fromLTRB(16, 14, 16, 8),
       padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 6),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.cardBgLight,
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: _line),
+        border: Border.all(color: AppColors.fieldBorder),
         boxShadow: <BoxShadow>[
           BoxShadow(
             color: Colors.black.withOpacity(0.04),
@@ -762,46 +754,51 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
       ),
       child: Row(
         children: <Widget>[
-          _buildStatItem(Icons.speed_rounded, kmText, 'trip_stat_km'.tr()),
+          _buildStatItem(Icons.speed_rounded, kmText, 'trip_stat_km'.tr(), AppColors.originBlue),
           _buildStatDivider(),
-          _buildStatItem(Icons.local_taxi_rounded, _toFa(total), 'trip_stat_trips'.tr()),
+          _buildStatItem(Icons.local_taxi_rounded, _toFa(total), 'trip_stat_trips'.tr(), AppColors.warningIcon),
           _buildStatDivider(),
-          _buildStatItem(Icons.schedule_rounded, hoursText, 'trip_stat_hours'.tr()),
+          _buildStatItem(Icons.schedule_rounded, hoursText, 'trip_stat_hours'.tr(), AppColors.primaryBrand),
         ],
       ),
     );
   }
 
   Widget _buildStatDivider() {
-    return Container(height: 46, width: 1, color: _line);
+    return Container(height: 46, width: 1, color: AppColors.fieldBorder);
   }
 
-  Widget _buildStatItem(IconData icon, String value, String label) {
+  Widget _buildStatItem(
+    IconData icon,
+    String value,
+    String label,
+    Color accent,
+  ) {
     return Expanded(
       child: Column(
         children: <Widget>[
           Container(
             width: 40,
             height: 40,
-            decoration: const BoxDecoration(
-              color: _brandSoft,
-              shape: BoxShape.circle,
+            decoration: BoxDecoration(
+              color: accent.withOpacity(0.13),
+              borderRadius: BorderRadius.circular(14),
             ),
-            child: Icon(icon, color: _brand, size: 22),
+            child: Icon(icon, color: accent, size: 22),
           ),
           const SizedBox(height: 8),
           Text(
             value,
-            style: const TextStyle(
+            style: TextStyle(
               fontWeight: FontWeight.w800,
               fontSize: 19,
-              color: _ink,
+              color: AppColors.textPrimary,
             ),
           ),
           const SizedBox(height: 2),
           Text(
             label,
-            style: const TextStyle(fontSize: 12, color: _muted),
+            style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
           ),
         ],
       ),
@@ -837,9 +834,9 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.cardBgLight,
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: _line),
+        border: Border.all(color: AppColors.fieldBorder),
         boxShadow: <BoxShadow>[
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
@@ -867,10 +864,10 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
                         trip.driverName,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w800,
-                          color: _ink,
+                          color: AppColors.textPrimary,
                         ),
                       ),
                       if (trip.carDetails.isNotEmpty) ...<Widget>[
@@ -879,7 +876,7 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
                           trip.carDetails,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 12, color: _muted),
+                          style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
                         ),
                       ],
                       const SizedBox(height: 7),
@@ -896,23 +893,23 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
             child: Row(
               children: <Widget>[
-                const Icon(Icons.calendar_today_rounded, size: 14, color: _muted),
+                Icon(Icons.calendar_today_rounded, size: 14, color: AppColors.textSecondary),
                 const SizedBox(width: 7),
                 Expanded(
                   child: Text(
                     trip.dateText,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 12, color: _muted),
+                    style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
                   ),
                 ),
               ],
             ),
           ),
-          const Divider(height: 1, color: _line),
+          Divider(height: 1, color: AppColors.fieldBorder),
           _buildAddressTimeline(trip),
           if (showActions) ...<Widget>[
-            const Divider(height: 1, color: _line),
+            Divider(height: 1, color: AppColors.fieldBorder),
             Row(
               children: <Widget>[
                 Expanded(
@@ -920,14 +917,16 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
                     icon: Icons.swap_horiz_rounded,
                     label: 'trip_action_return'.tr(),
                     onTap: () => _repeatTrip(trip, reverse: true),
+                    color: AppColors.originBlue,
                   ),
                 ),
-                Container(height: 44, width: 1, color: _line),
+                Container(height: 44, width: 1, color: AppColors.fieldBorder),
                 Expanded(
                   child: _buildActionButton(
                     icon: Icons.replay_rounded,
                     label: 'trip_action_repeat'.tr(),
                     onTap: () => _repeatTrip(trip, reverse: false),
+                    color: AppColors.primaryBrand,
                   ),
                 ),
               ],
@@ -944,17 +943,17 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
       height: 54,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: const Color(0xFFF1F3F5),
-        border: Border.all(color: _line, width: 1.5),
+        color: AppColors.backgroundLight,
+        border: Border.all(color: AppColors.fieldBorder, width: 1.5),
       ),
       child: ClipOval(
         child: photo.isNotEmpty
             ? Image.network(
                 photo,
                 fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => const Icon(
+                errorBuilder: (_, __, ___) => Icon(
                   Icons.person_rounded,
-                  color: Color(0xFF9AA3AF),
+                  color: AppColors.iconSecondary,
                   size: 30,
                 ),
                 loadingBuilder: (
@@ -963,21 +962,21 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
                   ImageChunkEvent? progress,
                 ) {
                   if (progress == null) return child;
-                  return const Center(
+                  return Center(
                     child: SizedBox(
                       width: 18,
                       height: 18,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        color: _brand,
+                        color: AppColors.primaryBrand,
                       ),
                     ),
                   );
                 },
               )
-            : const Icon(
+            : Icon(
                 Icons.person_rounded,
-                color: Color(0xFF9AA3AF),
+                color: AppColors.iconSecondary,
                 size: 30,
               ),
       ),
@@ -1024,25 +1023,25 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
       decoration: BoxDecoration(
-        color: const Color(0xFFF7F9FA),
+        color: AppColors.backgroundLight,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _line),
+        border: Border.all(color: AppColors.fieldBorder),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
           Text(
             trip.fareText,
-            style: const TextStyle(
+            style: TextStyle(
               fontWeight: FontWeight.w800,
               fontSize: 16,
-              color: _brand,
+              color: AppColors.primaryBrand,
             ),
           ),
           const SizedBox(height: 2),
           Text(
             'trip_currency_afghani'.tr(),
-            style: const TextStyle(fontSize: 10, color: _muted),
+            style: TextStyle(fontSize: 10, color: AppColors.textSecondary),
           ),
         ],
       ),
@@ -1061,8 +1060,8 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
               height: 12,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.white,
-                border: Border.all(color: _brand, width: 3),
+                color: AppColors.cardBgLight,
+                border: Border.all(color: AppColors.primaryBrand, width: 3),
               ),
             ),
           ),
@@ -1074,7 +1073,7 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
                 width: 2,
                 height: 16,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFD5DAE0),
+                  color: AppColors.handle,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -1086,7 +1085,7 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
               width: 12,
               height: 12,
               decoration: BoxDecoration(
-                color: const Color(0xFF3B4250),
+                color: AppColors.textPrimary,
                 borderRadius: BorderRadius.circular(3),
               ),
             ),
@@ -1109,10 +1108,10 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
             address,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 13,
               height: 1.4,
-              color: Color(0xFF4A5160),
+              color: AppColors.textPrimary,
             ),
           ),
         ),
@@ -1180,6 +1179,7 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
     required IconData icon,
     required String label,
     required VoidCallback onTap,
+    required Color color,
   }) {
     return InkWell(
       onTap: onTap,
@@ -1188,15 +1188,15 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
-            Icon(icon, color: _action, size: 19),
+            Icon(icon, color: color, size: 19),
             const SizedBox(width: 7),
             Flexible(
               child: Text(
                 label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: _action,
+                style: TextStyle(
+                  color: color,
                   fontSize: 13,
                   fontWeight: FontWeight.w800,
                 ),
@@ -1225,9 +1225,12 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
                   painter: _RoutePreviewPainter(
                     geometry: geometry,
                     routeColor: trip.group == _TripGroup.cancelled
-                        ? const Color(0xFFB4BBC6)
-                        : _brand,
+                        ? (AppColors.isDark
+                            ? const Color(0xFF5A6660)
+                            : const Color(0xFFB4BBC6))
+                        : AppColors.primaryBrand,
                     seed: trip.seed,
+                    dark: AppColors.isDark,
                   ),
                 ),
               ),
@@ -1258,7 +1261,7 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.cardBgLight,
         borderRadius: BorderRadius.circular(10),
         boxShadow: <BoxShadow>[
           BoxShadow(
@@ -1270,10 +1273,10 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
       ),
       child: Text(
         label,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 11,
           fontWeight: FontWeight.w800,
-          color: Color(0xFF3B4250),
+          color: AppColors.textPrimary,
         ),
       ),
     );
@@ -1295,14 +1298,14 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
               height: 84,
               decoration: BoxDecoration(
                 color: isError
-                    ? const Color(0xFFFDECEC)
-                    : const Color(0xFFEFF2F5),
+                    ? AppColors.dangerSoft
+                    : AppColors.cardBackground,
                 shape: BoxShape.circle,
               ),
               child: Icon(
                 icon,
                 size: 42,
-                color: isError ? const Color(0xFFE5484D) : const Color(0xFF9AA3AF),
+                color: isError ? AppColors.danger : AppColors.iconSecondary,
               ),
             ),
             const SizedBox(height: 16),
@@ -1311,7 +1314,7 @@ class _TripsHistoryPageState extends State<TripsHistoryPage>
               textAlign: TextAlign.center,
               style: TextStyle(
                 height: 1.6,
-                color: isError ? const Color(0xFFE5484D) : _muted,
+                color: isError ? AppColors.danger : AppColors.textSecondary,
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
               ),
@@ -1425,27 +1428,41 @@ class _RoutePreviewPainter extends CustomPainter {
   final _RouteGeometry geometry;
   final Color routeColor;
   final int seed;
+  final bool dark;
 
   const _RoutePreviewPainter({
     required this.geometry,
     required this.routeColor,
     required this.seed,
+    required this.dark,
   });
 
   Offset _p(Offset f, Size s) => Offset(f.dx * s.width, f.dy * s.height);
 
   @override
   void paint(Canvas canvas, Size size) {
+    // رنگ‌های پیش‌نمایش در دو حالت روشن و تاریک
+    final Color bgColor =
+        dark ? const Color(0xFF141A17) : const Color(0xFFEEF1F3);
+    final Color blockColor =
+        dark ? const Color(0xFF1B231F) : const Color(0xFFE3E7EA);
+    final Color roadColor =
+        dark ? const Color(0xFF2A352F) : Colors.white.withOpacity(0.9);
+    final Color casingColor =
+        dark ? const Color(0xFF0F1412) : Colors.white;
+    final Color markColor =
+        dark ? const Color(0xFFECF1EF) : AppColors.textPrimary;
+
     // پس‌زمینه
     canvas.drawRect(
       Offset.zero & size,
-      Paint()..color = const Color(0xFFEEF1F3),
+      Paint()..color = bgColor,
     );
 
     final Random r = Random(seed ^ 0x5bd1e995);
 
     // بلوک‌های ساختمانی
-    final Paint blockPaint = Paint()..color = const Color(0xFFE3E7EA);
+    final Paint blockPaint = Paint()..color = blockColor;
     for (int i = 0; i < 9; i++) {
       final double bw = 30 + r.nextDouble() * 50;
       final double bh = 18 + r.nextDouble() * 34;
@@ -1463,7 +1480,7 @@ class _RoutePreviewPainter extends CustomPainter {
 
     // خیابان‌های فرعی
     final Paint minorRoad = Paint()
-      ..color = Colors.white.withOpacity(0.9)
+      ..color = roadColor
       ..strokeWidth = 5
       ..strokeCap = StrokeCap.round
       ..style = PaintingStyle.stroke;
@@ -1513,7 +1530,7 @@ class _RoutePreviewPainter extends CustomPainter {
     canvas.drawPath(
       route,
       Paint()
-        ..color = Colors.white
+        ..color = casingColor
         ..strokeWidth = 9
         ..strokeCap = StrokeCap.round
         ..strokeJoin = StrokeJoin.round
@@ -1531,7 +1548,7 @@ class _RoutePreviewPainter extends CustomPainter {
     );
 
     // نقطهٔ مبدأ
-    canvas.drawCircle(start, 9, Paint()..color = Colors.white);
+    canvas.drawCircle(start, 9, Paint()..color = casingColor);
     canvas.drawCircle(start, 5.5, Paint()..color = routeColor);
 
     // نقطهٔ مقصد
@@ -1540,19 +1557,21 @@ class _RoutePreviewPainter extends CustomPainter {
         Rect.fromCenter(center: end, width: 18, height: 18),
         const Radius.circular(5),
       ),
-      Paint()..color = Colors.white,
+      Paint()..color = casingColor,
     );
     canvas.drawRRect(
       RRect.fromRectAndRadius(
         Rect.fromCenter(center: end, width: 11, height: 11),
         const Radius.circular(3),
       ),
-      Paint()..color = const Color(0xFF3B4250),
+      Paint()..color = markColor,
     );
   }
 
   @override
   bool shouldRepaint(covariant _RoutePreviewPainter oldDelegate) {
-    return oldDelegate.routeColor != routeColor || oldDelegate.seed != seed;
+    return oldDelegate.routeColor != routeColor ||
+        oldDelegate.seed != seed ||
+        oldDelegate.dark != dark;
   }
 }
