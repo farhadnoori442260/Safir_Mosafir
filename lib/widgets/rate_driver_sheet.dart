@@ -28,12 +28,9 @@ class RateDriverScreen extends StatefulWidget {
   State<RateDriverScreen> createState() => _RateDriverScreenState();
 }
 
-class _RateDriverScreenState extends State<RateDriverScreen>
-    with SingleTickerProviderStateMixin {
+class _RateDriverScreenState extends State<RateDriverScreen> {
   int _rating = 0;
   bool _isSubmitting = false;
-
-  late final TabController _tabController;
 
   final List<String> _selectedTags = <String>[];
   final TextEditingController _commentController =
@@ -56,18 +53,59 @@ class _RateDriverScreenState extends State<RateDriverScreen>
     'rate_tag_wrong_route',
   ];
 
-  @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(
-      length: 2,
-      vsync: this,
-    );
+  // متن فارسی جایگزین برای برچسب‌ها (اگر ترجمه در فایل زبان نبود)
+  static const Map<String, String> _tagFallback = <String, String>{
+    'rate_tag_punctual': 'وقت‌شناس',
+    'rate_tag_polite': 'با ادب',
+    'rate_tag_clean_car': 'موتر تمیز',
+    'rate_tag_safe_driving': 'رانندگی ایمن',
+    'rate_tag_good_route': 'مسیر خوب',
+    'rate_tag_fair_price': 'کرایه منصفانه',
+    'rate_tag_delay': 'تأخیر',
+    'rate_tag_impolite': 'بی‌ادبی',
+    'rate_tag_dirty_car': 'موتر کثیف',
+    'rate_tag_unsafe_driving': 'رانندگی خطرناک',
+    'rate_tag_wrong_route': 'مسیر اشتباه',
+  };
+
+  /// ترجمه با متن جایگزین (اگر کلید نبود، خود کلید نشان داده نشود)
+  String _t(String key, String fallback) {
+    final String v = key.tr();
+    return (v.trim().isEmpty || v == key) ? fallback : v;
+  }
+
+  bool get _isPositiveGroup => _rating >= 4;
+
+  String get _ratingLabel {
+    switch (_rating) {
+      case 1:
+        return _t('rate_label_1', 'خیلی بد');
+      case 2:
+        return _t('rate_label_2', 'بد');
+      case 3:
+        return _t('rate_label_3', 'معمولی');
+      case 4:
+        return _t('rate_label_4', 'خوب');
+      case 5:
+        return _t('rate_label_5', 'عالی');
+      default:
+        return _t('select_your_rating', 'به این سفر امتیاز بدهید');
+    }
+  }
+
+  void _setRating(int value) {
+    HapticFeedback.selectionClick();
+    setState(() {
+      _rating = value;
+      // برچسب‌های گروه دیگر (مثبت/منفی) نباید همراه امتیاز ثبت شوند
+      final List<String> allowed =
+          _isPositiveGroup ? _positiveTags : _negativeTags;
+      _selectedTags.removeWhere((String t) => !allowed.contains(t));
+    });
   }
 
   @override
   void dispose() {
-    _tabController.dispose();
     _commentController.dispose();
     super.dispose();
   }
@@ -79,7 +117,7 @@ class _RateDriverScreenState extends State<RateDriverScreen>
 
     if (widget.tripId.trim().isEmpty ||
         widget.driverId.trim().isEmpty) {
-      _showError('rate_driver_missing_data'.tr());
+      _showError(_t('rate_driver_missing_data', 'اطلاعات سفر کامل نیست'));
       return;
     }
 
@@ -87,7 +125,7 @@ class _RateDriverScreenState extends State<RateDriverScreen>
         FirebaseAuth.instance.currentUser?.uid ?? '';
 
     if (passengerId.isEmpty) {
-      _showError('error_occurred'.tr());
+      _showError(_t('rate_driver_error', 'ثبت امتیاز انجام نشد، دوباره تلاش کنید'));
       return;
     }
 
@@ -193,10 +231,12 @@ class _RateDriverScreenState extends State<RateDriverScreen>
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
+          behavior: SnackBarBehavior.floating,
           content: Text(
-            'rate_driver_submit_success'.tr(),
+            _t('rate_driver_submit_success', 'امتیاز شما ثبت شد، ممنون!'),
+            style: TextStyle(color: AppColors.buttonText),
           ),
-          backgroundColor: Colors.green.shade700,
+          backgroundColor: AppColors.successDark,
         ),
       );
 
@@ -211,13 +251,8 @@ class _RateDriverScreenState extends State<RateDriverScreen>
         return;
       }
 
-      _showError(
-        'rate_driver_submit_error_detail'.tr(
-          namedArgs: <String, String>{
-            'error': e.message ?? e.code,
-          },
-        ),
-      );
+      // متن فنی خطا به کاربر نشان داده نمی‌شود (در لاگ هست)
+      _showError(_t('rate_driver_error', 'ثبت امتیاز انجام نشد، دوباره تلاش کنید'));
     } catch (e) {
       debugPrint('Driver rating error: $e');
 
@@ -228,11 +263,11 @@ class _RateDriverScreenState extends State<RateDriverScreen>
       final String errorText = e.toString();
 
       if (errorText.contains('already_rated')) {
-        _showError('rate_driver_already_submitted'.tr());
+        _showError(_t('rate_driver_already_submitted', 'برای این سفر قبلاً امتیاز ثبت شده است'));
       } else if (errorText.contains('trip_not_found')) {
-        _showError('rate_driver_trip_not_found'.tr());
+        _showError(_t('rate_driver_trip_not_found', 'سفر پیدا نشد'));
       } else {
-        _showError('error_occurred'.tr());
+        _showError(_t('rate_driver_error', 'ثبت امتیاز انجام نشد، دوباره تلاش کنید'));
       }
     } finally {
       if (mounted) {
@@ -250,268 +285,327 @@ class _RateDriverScreenState extends State<RateDriverScreen>
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.red.shade700,
+        behavior: SnackBarBehavior.floating,
+        content: Text(
+          message,
+          style: TextStyle(color: AppColors.buttonText),
+        ),
+        backgroundColor: AppColors.danger,
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final List<String> tags =
+        _isPositiveGroup ? _positiveTags : _negativeTags;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
+      backgroundColor: AppColors.backgroundLight,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.backgroundLight,
+        surfaceTintColor: Colors.transparent,
         elevation: 0,
+        scrolledUnderElevation: 0,
         centerTitle: true,
         automaticallyImplyLeading: false,
         title: Text(
-          'rate_driver_title'.tr(),
-          style: const TextStyle(
+          _t('rate_driver_title', 'امتیاز به راننده'),
+          style: TextStyle(
             color: AppColors.textPrimary,
-            fontWeight: FontWeight.bold,
+            fontWeight: FontWeight.w800,
             fontSize: 18,
           ),
         ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: _isSubmitting ? null : () => Navigator.pop(context),
+            child: Text(
+              _t('skip', 'بعداً'),
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: <Widget>[
-            _buildDriverCard(),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: const <BoxShadow>[
-                  BoxShadow(
-                    color: Colors.black12,
-                    blurRadius: 6,
-                    offset: Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Column(
-                children: <Widget>[
-                  Text(
-                    'select_your_rating'.tr(),
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.textPrimary,
+      body: SafeArea(
+        child: SingleChildScrollView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+          child: Column(
+            children: <Widget>[
+              _buildDriverCard(),
+              const SizedBox(height: 14),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.fromLTRB(16, 20, 16, 18),
+                decoration: _cardDecoration(),
+                child: Column(
+                  children: <Widget>[
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 180),
+                      child: Text(
+                        _ratingLabel,
+                        key: ValueKey<int>(_rating),
+                        style: TextStyle(
+                          fontSize: _rating == 0 ? 15 : 20,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    mainAxisAlignment:
-                        MainAxisAlignment.center,
-                    children: List<Widget>.generate(
-                      5,
-                      (int index) {
-                        return IconButton(
-                          icon: Icon(
-                            index < _rating
-                                ? Icons.star_rounded
-                                : Icons.star_outline_rounded,
-                            color: index < _rating
-                                ? Colors.amber
-                                : Colors.grey.shade400,
-                            size: 38,
+                    const SizedBox(height: 14),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: List<Widget>.generate(5, (int index) {
+                        final bool filled = index < _rating;
+                        return GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: () => _setRating(index + 1),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                            child: AnimatedScale(
+                              scale: filled ? 1.0 : 0.88,
+                              duration: const Duration(milliseconds: 160),
+                              child: Icon(
+                                filled
+                                    ? Icons.star_rounded
+                                    : Icons.star_outline_rounded,
+                                color: filled
+                                    ? AppColors.warning
+                                    : AppColors.handle,
+                                size: 46,
+                              ),
+                            ),
                           ),
-                          onPressed: () {
-                            HapticFeedback.selectionClick();
-
-                            setState(() {
-                              _rating = index + 1;
-
-                              if (_rating <= 3) {
-                                _tabController.animateTo(1);
-                              } else {
-                                _tabController.animateTo(0);
-                              }
-                            });
-                          },
                         );
-                      },
+                      }),
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  TabBar(
-                    controller: _tabController,
-                    labelColor: AppColors.primaryBrand,
-                    unselectedLabelColor: Colors.grey,
-                    indicatorColor: AppColors.primaryBrand,
-                    tabs: <Widget>[
-                      Tab(
-                        text: 'positive_points'.tr(),
-                      ),
-                      Tab(
-                        text: 'negative_points'.tr(),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  // ✅ ارتفاع کمی بیشتر شد تا ردیف سوم برچسب‌ها بریده نشود
-                  SizedBox(
-                    height: 205,
-                    child: TabBarView(
-                      controller: _tabController,
-                      children: <Widget>[
-                        _buildTagsGrid(_positiveTags),
-                        _buildTagsGrid(_negativeTags),
-                      ],
+
+                    // برچسب‌ها فقط بعد از امتیاز دادن؛ مثبت یا منفی بر اساس امتیاز
+                    AnimatedSize(
+                      duration: const Duration(milliseconds: 220),
+                      alignment: Alignment.topCenter,
+                      child: _rating == 0
+                          ? const SizedBox(width: double.infinity)
+                          : Padding(
+                              padding: const EdgeInsets.only(top: 20),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: <Widget>[
+                                  Text(
+                                    _isPositiveGroup
+                                        ? _t('positive_points', 'نکات مثبت')
+                                        : _t('negative_points', 'نکات منفی'),
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppColors.textSecondary,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  Wrap(
+                                    spacing: 8,
+                                    runSpacing: 8,
+                                    children: tags
+                                        .map((String k) => _buildTagChip(k))
+                                        .toList(),
+                                  ),
+                                ],
+                              ),
+                            ),
                     ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            Align(
-              alignment: AlignmentDirectional.centerStart,
-              child: Text(
-                'comments_label'.tr(),
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textPrimary,
+                  ],
                 ),
               ),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _commentController,
-              maxLines: 3,
-              maxLength: 300,
-              decoration: InputDecoration(
-                hintText: 'comment_hint'.tr(),
-                filled: true,
-                fillColor: Colors.white,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(
-                    color: Colors.grey.shade300,
-                  ),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(
-                    color: AppColors.primaryBrand,
-                    width: 1.5,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton(
-                onPressed: (_rating == 0 || _isSubmitting)
-                    ? null
-                    : _submitRating,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primaryBrand,
-                  disabledBackgroundColor:
-                      Colors.grey.shade300,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius:
-                        BorderRadius.circular(12),
-                  ),
-                ),
-                child: _isSubmitting
-                    ? const SizedBox(
-                        width: 24,
-                        height: 24,
-                        child: CircularProgressIndicator(
-                          color: Colors.white,
-                          strokeWidth: 2,
+              const SizedBox(height: 14),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: _cardDecoration(),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      _t('comments_label', 'نظر شما (اختیاری)'),
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: _commentController,
+                      maxLines: 3,
+                      maxLength: 300,
+                      cursorColor: AppColors.primaryBrand,
+                      style: TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: 14,
+                      ),
+                      decoration: InputDecoration(
+                        hintText: _t('comment_hint', 'تجربهٔ خود را بنویسید...'),
+                        hintStyle: TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 13,
                         ),
-                      )
-                    : Text(
-                        'submit_feedback_btn'.tr(),
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
+                        counterStyle: TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 11,
+                        ),
+                        filled: true,
+                        fillColor: AppColors.backgroundLight,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: BorderSide(color: AppColors.fieldBorder),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: BorderSide(color: AppColors.fieldBorder),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: BorderSide(
+                            color: AppColors.primaryBrand,
+                            width: 1.5,
+                          ),
                         ),
                       ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+              const SizedBox(height: 22),
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: ElevatedButton(
+                  onPressed: (_rating == 0 || _isSubmitting)
+                      ? null
+                      : _submitRating,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primaryButton,
+                    disabledBackgroundColor: AppColors.fieldBorder,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                  child: _isSubmitting
+                      ? SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                            color: AppColors.buttonText,
+                            strokeWidth: 2.2,
+                          ),
+                        )
+                      : Text(
+                          _t('submit_feedback_btn', 'ثبت امتیاز'),
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                            color: _rating == 0
+                                ? AppColors.textSecondary
+                                : AppColors.buttonText,
+                          ),
+                        ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
+  BoxDecoration _cardDecoration() {
+    return BoxDecoration(
+      color: AppColors.cardBgLight,
+      borderRadius: BorderRadius.circular(20),
+      border: Border.all(color: AppColors.fieldBorder),
+    );
+  }
+
   Widget _buildDriverCard() {
+    final bool hasPhoto = widget.driverPhoto.isNotEmpty;
+
     return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-      ),
+      padding: const EdgeInsets.all(14),
+      decoration: _cardDecoration(),
       child: Row(
         children: <Widget>[
-          CircleAvatar(
-            radius: 24,
-            backgroundImage: widget.driverPhoto.isNotEmpty
-                ? NetworkImage(widget.driverPhoto)
-                : null,
-            child: widget.driverPhoto.isEmpty
-                ? const Icon(
-                    Icons.person,
-                    color: Colors.grey,
-                  )
-                : null,
+          Container(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: AppColors.fieldBorder, width: 1.2),
+            ),
+            child: CircleAvatar(
+              radius: 26,
+              backgroundColor: AppColors.backgroundLight,
+              backgroundImage:
+                  hasPhoto ? NetworkImage(widget.driverPhoto) : null,
+              onBackgroundImageError: hasPhoto ? (_, __) {} : null,
+              child: hasPhoto
+                  ? null
+                  : Icon(
+                      Icons.person_rounded,
+                      color: AppColors.textSecondary,
+                      size: 28,
+                    ),
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                Text(
-                  widget.carModel.isNotEmpty
-                      ? widget.carModel
-                      : 'rate_driver_default_car'.tr(),
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                  ),
-                ),
                 Text(
                   widget.driverName.isNotEmpty
                       ? widget.driverName
-                      : 'rate_driver_default_name'.tr(),
+                      : _t('rate_driver_default_name', 'راننده'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey.shade600,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 15,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  widget.carModel.isNotEmpty
+                      ? widget.carModel
+                      : _t('rate_driver_default_car', 'موتر'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    color: AppColors.textSecondary,
                   ),
                 ),
               ],
             ),
           ),
+          const SizedBox(width: 8),
           Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 10,
-              vertical: 6,
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
-              border: Border.all(
-                color: Colors.grey.shade400,
-              ),
-              borderRadius: BorderRadius.circular(8),
+              color: AppColors.backgroundLight,
+              border: Border.all(color: AppColors.fieldBorder),
+              borderRadius: BorderRadius.circular(10),
             ),
             child: Text(
               widget.plateNumber.isNotEmpty
                   ? widget.plateNumber
-                  : 'rate_driver_default_plate'.tr(),
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
+                  : _t('rate_driver_default_plate', '---'),
+              textDirection: TextDirection.ltr,
+              style: TextStyle(
+                fontWeight: FontWeight.w800,
                 fontSize: 13,
+                color: AppColors.textPrimary,
               ),
             ),
           ),
@@ -520,68 +614,45 @@ class _RateDriverScreenState extends State<RateDriverScreen>
     );
   }
 
-  Widget _buildTagsGrid(List<String> tags) {
-    return GridView.builder(
-      physics: const BouncingScrollPhysics(),
-      gridDelegate:
-          const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        childAspectRatio: 2.6,
-        crossAxisSpacing: 10,
-        mainAxisSpacing: 10,
-      ),
-      itemCount: tags.length,
-      itemBuilder: (
-        BuildContext context,
-        int index,
-      ) {
-        final String tagKey = tags[index];
+  Widget _buildTagChip(String tagKey) {
+    final bool isSelected = _selectedTags.contains(tagKey);
+    // مثبت = سبز، منفی = قرمز؛ فقط وقتی انتخاب شده باشد
+    final Color accent =
+        _isPositiveGroup ? AppColors.successDark : AppColors.danger;
 
-        final bool isSelected =
-            _selectedTags.contains(tagKey);
-
-        return InkWell(
-          onTap: () {
-            HapticFeedback.selectionClick();
-
-            setState(() {
-              if (isSelected) {
-                _selectedTags.remove(tagKey);
-              } else {
-                _selectedTags.add(tagKey);
-              }
-            });
-          },
-          child: Container(
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: isSelected
-                  ? const Color(0xFFE8F5E9)
-                  : const Color(0xFFF1F3F5),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color: isSelected
-                    ? Colors.green
-                    : Colors.transparent,
-                width: 1.5,
-              ),
-            ),
-            child: Text(
-              tagKey.tr(),
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: isSelected
-                    ? FontWeight.bold
-                    : FontWeight.normal,
-                color: isSelected
-                    ? Colors.green.shade800
-                    : AppColors.textPrimary,
-              ),
-            ),
-          ),
-        );
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.selectionClick();
+        setState(() {
+          if (isSelected) {
+            _selectedTags.remove(tagKey);
+          } else {
+            _selectedTags.add(tagKey);
+          }
+        });
       },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? accent.withOpacity(0.14)
+              : AppColors.backgroundLight,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected ? accent : AppColors.fieldBorder,
+            width: 1.3,
+          ),
+        ),
+        child: Text(
+          _t(tagKey, _tagFallback[tagKey] ?? tagKey),
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500,
+            color: isSelected ? accent : AppColors.textPrimary,
+          ),
+        ),
+      ),
     );
   }
 }
