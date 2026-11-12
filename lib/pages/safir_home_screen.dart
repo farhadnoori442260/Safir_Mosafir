@@ -7,7 +7,7 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:safir_passengers/global/global_var.dart';
-import 'package:safir_passengers/widgets/animated_menus.dart';
+import 'package:safir_passengers/widgets/safir_drawer.dart';
 import 'package:safir_passengers/appInfo/auth_provider.dart';
 import 'package:safir_passengers/pages/blocked_screen.dart';
 import 'package:safir_passengers/authentication/register_screen.dart';
@@ -275,19 +275,8 @@ class _SafirHomeScreenState extends State<SafirHomeScreen> {
   }
 
   Widget _buildDrawer() {
-    return Drawer(
-      backgroundColor: Colors.transparent,
-      elevation: 0,
-      width: MediaQuery.of(context).size.width,
-      child: SafeArea(
-        child: ProfileAnimatedMenu(
-          currentLanguage: context.locale.languageCode,
-          onLanguageChanged: (newLang) {
-            context.setLocale(Locale(newLang));
-          },
-        ),
-      ),
-    );
+    // منوی کناری فقط میان‌بُرهای عمومی است؛ بخش حساب در صفحهٔ پروفایل می‌ماند
+    return const SafirDrawer();
   }
 
   @override
