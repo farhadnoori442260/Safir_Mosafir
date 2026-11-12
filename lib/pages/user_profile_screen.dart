@@ -311,27 +311,34 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                     child: Column(
                       children: [
                         Container(
-                          width: 96,
-                          height: 96,
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: AppColors.primaryBrand.withOpacity(0.35),
-                              width: 2,
-                            ),
-                          ),
-                          child: ClipOval(
-                            child: Image.asset(
-                              'assets/images/default_profile.png',
-                              fit: BoxFit.contain,
-                              errorBuilder: (context, error, stackTrace) => Container(
-                                color: AppColors.backgroundLight,
-                                child: Icon(Icons.person, size: 52, color: AppColors.iconSecondary),
-                              ),
-                            ),
-                          ),
-                        ),
+  decoration: BoxDecoration(
+    shape: BoxShape.circle,
+    border: Border.all(
+      color: AppColors.fieldBorder,
+      width: 1.2,
+    ),
+  ),
+  child: SizedBox(
+    width: 62,
+    height: 62,
+    child: ClipOval(
+      child: Image.asset(
+        'assets/images/default_profile.png',
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) {
+          return Container(
+            color: AppColors.backgroundLight,
+            child: Icon(
+              Icons.person_rounded,
+              color: AppColors.textSecondary,
+              size: 32,
+            ),
+          );
+        },
+      ),
+    ),
+  ),
+),
                         const SizedBox(height: 10),
                         Row(
                           mainAxisSize: MainAxisSize.min,
@@ -1415,35 +1422,36 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 children: [
                   const SizedBox(height: 30),
                   Center(
-                    child: Container(
-                      width: 96,
-                      height: 96,
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: AppColors.primaryBrand.withOpacity(0.35),
-                          width: 2,
-                        ),
-                      ),
-                      child: ClipOval(
-                        child: Image.asset(
-                          'assets/images/default_profile.png',
-                          fit: BoxFit.contain,
-                          errorBuilder: (context, error, stackTrace) {
-                            return Container(
-                              color: AppColors.backgroundLight,
-                              child: Icon(
-                                Icons.person,
-                                size: 52,
-                                color: AppColors.iconSecondary,
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                    ),
-                  ),
+  child: Container(
+    decoration: BoxDecoration(
+      shape: BoxShape.circle,
+      border: Border.all(
+        color: AppColors.fieldBorder,
+        width: 1.2,
+      ),
+    ),
+    child: SizedBox(
+      width: 62,
+      height: 62,
+      child: ClipOval(
+        child: Image.asset(
+          'assets/images/default_profile.png',
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) {
+            return Container(
+              color: AppColors.backgroundLight,
+              child: Icon(
+                Icons.person_rounded,
+                color: AppColors.textSecondary,
+                size: 32,
+              ),
+            );
+          },
+        ),
+      ),
+    ),
+  ),
+),
                   const SizedBox(height: 25),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24),
