@@ -1210,7 +1210,7 @@ class _SettingsTile extends StatelessWidget {
                 height: 42,
                 child: Center(
                   child: IconTheme(
-                    data: IconThemeData(color: accent, size: 21),
+                    data: IconThemeData(color: accent, size: 27),
                     child: leading,
                   ),
                 ),
