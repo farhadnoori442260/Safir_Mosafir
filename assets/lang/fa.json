@@ -679,8 +679,7 @@
   "trip_driver_not_assigned": "راننده تعیین نشده",
   "trip_date_not_recorded": "تاریخ ثبت نشده",
   "trip_msg_login_required": "برای مشاهده تاریخچه وارد حساب کاربری شوید",
-  "trip_msg_error_fetching": "خطا در دریافت اطلاعات سفرها.
-اتصال اینترنت را بررسی کنید.",
+  "trip_msg_error_fetching": "خطا در دریافت اطلاعات سفرها.\nاتصال اینترنت را بررسی کنید.",
   "trip_msg_no_completed": "هنوز سفر تکمیل‌شده‌ای ندارید",
   "trip_msg_no_active": "سفر جاری ندارید",
   "trip_msg_no_cancelled": "سفر لغوشده‌ای ندارید",
