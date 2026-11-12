@@ -828,5 +828,8 @@
   "schedule_too_soon_error": "The selected time is too soon. Please choose a later time",
   "confirm_date_btn": "Confirm date",
   "follow_us": "Follow us",
-  "social_link_error": "Unable to open the link. Please try again."
+  "social_link_error": "Unable to open the link. Please try again.",
+  "help_support": "Help & Support",
+  "help_support_sub": "Contact support directly",
+  "quick_settings": "Quick settings"
 }
