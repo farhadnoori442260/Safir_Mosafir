@@ -275,7 +275,7 @@ class MessagesScreen extends StatelessWidget {
                             AppColors.originBlue),
                         const SizedBox(height: 16),
                         Text(
-                          "هیچ پیامی دریافت نشده است",
+                          "messages_empty".tr(),
                           style: TextStyle(
                             color: AppColors.textSecondary,
                             fontSize: 14,
@@ -296,7 +296,7 @@ class MessagesScreen extends StatelessWidget {
                   itemBuilder: (context, index) {
                     var data =
                         notifications[index].data() as Map<String, dynamic>;
-                    String title = data['title'] ?? 'اطلاعیه سفیر';
+                    String title = data['title'] ?? 'messages_default_title'.tr();
                     String body = data['body'] ?? '';
                     String time = '';
 
