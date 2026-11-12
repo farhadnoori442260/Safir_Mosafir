@@ -746,7 +746,7 @@
   "cargo.select_vehicle": "انتخاب نوع وسیله نقلیه",
   "cargo.payer_side": "پرداخت‌کننده کرایه",
   "cargo.sender": "فرستنده",
-  "cargo_no_insurance": "بدون بیمه",
+  "cargo.no_insurance": "بدون بیمه",
   "cargo.receiver": "گیرنده",
   "cargo.total_fare": "کرایه کل",
   "cargo.submit_order": "ثبت سفارش باربری",
