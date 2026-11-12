@@ -105,112 +105,249 @@ class InviteFriendsScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: AppColors.backgroundLight,
       appBar: _subAppBar(context, "invite_friends_title".tr()),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          children: [
-            const SizedBox(height: 20),
-            _heroIcon(Icons.card_giftcard_rounded, AppColors.warningIcon,
-                size: 128),
-            const SizedBox(height: 26),
-            Text(
-              "invite_friends_main_title".tr(),
-              textAlign: TextAlign.center,
+      body: SafeArea(
+        child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+          child: Column(
+            children: [
+              const SizedBox(height: 8),
+
+              // کارت اصلی: هدیه + عنوان + توضیح
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.fromLTRB(20, 28, 20, 24),
+                decoration: BoxDecoration(
+                  color: AppColors.cardBgLight,
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: AppColors.fieldBorder),
+                ),
+                child: Column(
+                  children: [
+                    Container(
+                      width: 84,
+                      height: 84,
+                      decoration: BoxDecoration(
+                        color: AppColors.accentOrange.withOpacity(0.14),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.card_giftcard_rounded,
+                        size: 44,
+                        color: AppColors.accentOrange,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    Text(
+                      _inviteTr(
+                          'invite_friends_main_title', 'دوستانتان را به سفیر دعوت کنید'),
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 20,
+                        color: AppColors.textPrimary,
+                        height: 1.4,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      _inviteTr('invite_friends_subtext',
+                          'کد دعوت خود را با دوستان به اشتراک بگذارید'),
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 13.5,
+                        height: 1.7,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+
+              // کد دعوت: لمس = کپی
+              Material(
+                color: AppColors.cardBgLight,
+                borderRadius: BorderRadius.circular(20),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(20),
+                  onTap: () {
+                    Clipboard.setData(ClipboardData(text: referralCode));
+                    HapticFeedback.mediumImpact();
+                    ScaffoldMessenger.of(context)
+                      ..hideCurrentSnackBar()
+                      ..showSnackBar(
+                        SnackBar(
+                          behavior: SnackBarBehavior.floating,
+                          content: Text(
+                            _inviteTr('code_copied', 'کد دعوت کپی شد'),
+                            style: TextStyle(color: AppColors.buttonText),
+                          ),
+                        ),
+                      );
+                  },
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 18),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: AppColors.fieldBorder),
+                    ),
+                    child: Column(
+                      children: [
+                        Text(
+                          _inviteTr('your_invite_code', 'کد دعوت شما'),
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          referralCode,
+                          textDirection: TextDirection.ltr,
+                          style: TextStyle(
+                            fontSize: 30,
+                            fontWeight: FontWeight.w900,
+                            color: AppColors.textPrimary,
+                            letterSpacing: 5,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.copy_rounded,
+                                size: 14, color: AppColors.textSecondary),
+                            const SizedBox(width: 6),
+                            Text(
+                              _inviteTr('tap_to_copy', 'برای کپی لمس کنید'),
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+
+              // چگونه کار می‌کند
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.cardBgLight,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: AppColors.fieldBorder),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _inviteTr('invite_how_title', 'چگونه کار می‌کند؟'),
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    _inviteStep(
+                      1,
+                      _inviteTr('invite_step_1', 'کد خود را برای دوستانتان بفرستید'),
+                    ),
+                    _inviteStep(
+                      2,
+                      _inviteTr('invite_step_2',
+                          'دوستتان هنگام ثبت‌نام، کد شما را وارد کند'),
+                      isLast: true,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 22),
+
+              // دکمهٔ اصلی: اشتراک‌گذاری
+              SizedBox(
+                width: double.infinity,
+                height: 54,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primaryButton,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                  onPressed: () {
+                    HapticFeedback.mediumImpact();
+                    Share.share(ReferralService.shareMessage);
+                  },
+                  icon: Icon(Icons.share_rounded,
+                      size: 20, color: AppColors.buttonText),
+                  label: Text(
+                    _inviteTr('share_invite_btn', 'ارسال دعوت به دوستان'),
+                    style: TextStyle(
+                      color: AppColors.buttonText,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 15.5,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _inviteStep(int n, String text, {bool isLast = false}) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: isLast ? 0 : 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 26,
+            height: 26,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: AppColors.backgroundLight,
+              shape: BoxShape.circle,
+              border: Border.all(color: AppColors.fieldBorder),
+            ),
+            child: Text(
+              '$n',
               style: TextStyle(
+                fontSize: 12.5,
                 fontWeight: FontWeight.w800,
-                fontSize: 20,
                 color: AppColors.textPrimary,
               ),
             ),
-            const SizedBox(height: 12),
-            Text(
-              "invite_friends_subtext".tr(),
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 13.5,
-                height: 1.6,
-              ),
-            ),
-            const SizedBox(height: 32),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                color: AppColors.cardBgLight,
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(
-                  color: AppColors.primaryBrand.withOpacity(0.35),
-                ),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    referralCode,
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.primaryBrand,
-                      letterSpacing: 2,
-                    ),
-                  ),
-                  ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primaryButton,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    onPressed: () {
-                      Clipboard.setData(ClipboardData(text: referralCode));
-                      HapticFeedback.mediumImpact();
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text("copy_btn".tr())),
-                      );
-                    },
-                    icon: Icon(Icons.copy_rounded,
-                        size: 16, color: AppColors.buttonText),
-                    label: Text(
-                      "copy_btn".tr(),
-                      style: TextStyle(
-                        color: AppColors.buttonText,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  )
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              height: 52,
-              child: OutlinedButton.icon(
-                style: OutlinedButton.styleFrom(
-                  side: BorderSide(color: AppColors.primaryBrand),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                ),
-                onPressed: () {
-                  HapticFeedback.mediumImpact();
-                  Share.share(ReferralService.shareMessage);
-                },
-                icon: Icon(Icons.share_rounded,
-                    size: 18, color: AppColors.primaryBrand),
-                label: Text(
-                  _inviteTr('share_invite_btn', 'ارسال دعوت به دوستان'),
-                  style: TextStyle(
-                    color: AppColors.primaryBrand,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 15,
-                  ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.only(top: 3),
+              child: Text(
+                text,
+                style: TextStyle(
+                  fontSize: 13.5,
+                  height: 1.5,
+                  color: AppColors.textPrimary,
                 ),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
