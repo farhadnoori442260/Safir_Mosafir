@@ -207,7 +207,7 @@ class InviteFriendsScreen extends StatelessWidget {
                         const SizedBox(height: 8),
                         Text(
                           referralCode,
-                          textDirection: TextDirection.ltr,
+                          textDirection: ui.TextDirection.ltr,
                           style: TextStyle(
                             fontSize: 30,
                             fontWeight: FontWeight.w900,
