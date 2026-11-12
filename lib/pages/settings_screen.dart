@@ -1207,9 +1207,7 @@ class _SafirInformationScreen extends StatelessWidget {
     final bool isRtl = languageCode != 'en';
 
     final List<String> paragraphs = content
-        .split(RegExp(r'
-s*
-'))
+        .split(RegExp(r'\n\s*\n'))
         .map((paragraph) => paragraph.trim())
         .where((paragraph) => paragraph.isNotEmpty)
         .toList();
