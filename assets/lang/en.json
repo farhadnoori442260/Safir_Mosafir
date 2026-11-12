@@ -719,7 +719,7 @@
   "intercity.passengers_count": "Number of passengers",
   "intercity.fare_cost": "Estimated fare",
   "intercity.currency": "AFN",
-  "cargo_no_insurance": "No insurance",
+  "cargo.no_insurance": "No insurance",
   "intercity.request_trip": "Request an intercity ride",
   "cargo.sender_details_title": "Sender details",
   "cargo.receiver_details_title": "Recipient details",
