@@ -831,5 +831,7 @@
   "schedule_subtitle": "تاریخ و ساعت سفر را انتخاب کنید",
   "schedule_past_error": "زمان انتخاب‌شده گذشته است",
   "schedule_too_soon_error": "زمان انتخاب‌شده خیلی نزدیک است؛ زمان دیرتری انتخاب کنید",
-  "confirm_date_btn": "تأیید تاریخ"
+  "confirm_date_btn": "تأیید تاریخ",
+  "follow_us": "ما را دنبال کنید",
+  "social_link_error": "لینک باز نشد. لطفاً دوباره تلاش کنید."
 }
