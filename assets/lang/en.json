@@ -544,13 +544,9 @@
   "discount_code_desc": "Add and use a promo code",
   "support_contact_desc": "We are always ready to help",
   "settings_desc": "Language and app settings",
-  "about_app_desc": "Safir's online app for taxi, cargo, and intercity services.
-Version: 1.0.0
-Providing safe and fast transportation services.",
-  "can_not_make_call": "Unable to make a call: {}",
-  "invite_message": "Hi! Use the Safir app to request taxis and courier services.
-Enter my referral code ({}) to get a discount!
-Download the app: https://safirapp.com/download",
+  "about_app_desc": "Safir is an online app for requesting taxis, cargo, and intercity services.\nVersion: 1.0.0\nProvider of safe and fast transport services.",
+  "can_not_make_call": "Unable to make the call: {}",
+  "invite_message": "Hello! Use the Safir app to request a taxi or courier.\nEnter my referral code ({}) to get a discount!\nDownload the app: https://safirapp.com/download",
   "back": "Back",
   "user_default": "Safir user",
   "user_account_section": "Account",
@@ -683,8 +679,7 @@ Download the app: https://safirapp.com/download",
   "trip_driver_not_assigned": "No driver assigned",
   "trip_date_not_recorded": "Date not recorded",
   "trip_msg_login_required": "Sign in to view your ride history",
-  "trip_msg_error_fetching": "Failed to retrieve ride information.
-Please check your internet connection.",
+  "trip_msg_error_fetching": "Error fetching trip information.\nPlease check your internet connection.",
   "trip_msg_no_completed": "You have no completed rides yet",
   "trip_msg_no_active": "You have no active rides",
   "trip_msg_no_cancelled": "You have no canceled rides",
