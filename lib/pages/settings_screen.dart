@@ -1278,10 +1278,18 @@ class _SafirInformationScreen extends StatelessWidget {
                                 color: accentColor.withOpacity(0.15),
                               ),
                             ),
-                            child: Icon(
-                              isAbout ? Icons.local_taxi_rounded : icon,
-                              size: 39,
-                              color: accentColor,
+                            child: isAbout
+                             ? Padding(
+                               padding: const EdgeInsets.all(6),
+                               child: Image.asset(
+                               'assets/images/legacy_192.png',
+                              fit: BoxFit.contain,
+                             ),
+                            )
+                          : Icon(
+                             icon,
+                             size: 39,
+                             color: accentColor,
                             ),
                           ),
                           const SizedBox(height: 18),
