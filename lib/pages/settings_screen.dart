@@ -4,11 +4,17 @@ import 'dart:ui' as ui;
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'package:safir_passengers/theme/app_colors.dart';
 import 'package:safir_passengers/theme/theme_controller.dart';
+
+// لینک واقعی صفحات سفیر را بین کوتیشن‌ها وارد کن.
+const String _safirFacebookUrl = '';
+const String _safirInstagramUrl = '';
 
 class SettingsScreen extends StatefulWidget {
   final String currentLanguage;
@@ -55,7 +61,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     });
 
     final SharedPreferences prefs = await SharedPreferences.getInstance();
-
     await prefs.setBool('enable_notifications', value);
   }
 
@@ -67,7 +72,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     });
 
     final SharedPreferences prefs = await SharedPreferences.getInstance();
-
     await prefs.setBool('enable_sounds', value);
   }
 
@@ -75,13 +79,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     await context.setLocale(Locale(langCode));
 
     final SharedPreferences prefs = await SharedPreferences.getInstance();
-
     await prefs.setString('selected_language', langCode);
 
     widget.onLanguageChanged?.call(langCode);
 
     if (!mounted) return;
-
     setState(() {});
   }
 
@@ -106,7 +108,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   String _localized(String key, String fallback) {
     final String value = key.tr();
-
     return value.isEmpty || value == key ? fallback : value;
   }
 
@@ -142,10 +143,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   const SizedBox(width: 10),
                   Text(
-                    _localized(
-                      'select_language_title',
-                      'انتخاب زبان',
-                    ),
+                    _localized('select_language_title', 'انتخاب زبان'),
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
@@ -163,51 +161,34 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     groupValue: selectedTempLang,
                     onChanged: (String? value) {
                       if (value == null) return;
-
-                      setDialogState(() {
-                        selectedTempLang = value;
-                      });
+                      setDialogState(() => selectedTempLang = value);
                     },
                   ),
-                  Divider(
-                    height: 1,
-                    color: AppColors.fieldBorder,
-                  ),
+                  Divider(height: 1, color: AppColors.fieldBorder),
                   _buildLanguageRadio(
                     title: _localized('lang_pashto', 'پښتو'),
                     value: 'ps',
                     groupValue: selectedTempLang,
                     onChanged: (String? value) {
                       if (value == null) return;
-
-                      setDialogState(() {
-                        selectedTempLang = value;
-                      });
+                      setDialogState(() => selectedTempLang = value);
                     },
                   ),
-                  Divider(
-                    height: 1,
-                    color: AppColors.fieldBorder,
-                  ),
+                  Divider(height: 1, color: AppColors.fieldBorder),
                   _buildLanguageRadio(
                     title: _localized('lang_english', 'English'),
                     value: 'en',
                     groupValue: selectedTempLang,
                     onChanged: (String? value) {
                       if (value == null) return;
-
-                      setDialogState(() {
-                        selectedTempLang = value;
-                      });
+                      setDialogState(() => selectedTempLang = value);
                     },
                   ),
                 ],
               ),
               actions: [
                 TextButton(
-                  onPressed: () {
-                    Navigator.pop(dialogContext);
-                  },
+                  onPressed: () => Navigator.pop(dialogContext),
                   child: Text(
                     _localized('cancel', 'انصراف'),
                     style: TextStyle(
@@ -228,7 +209,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   onPressed: () async {
                     Navigator.pop(dialogContext);
-
                     await _applyLanguageChange(selectedTempLang);
                   },
                   child: Text(
@@ -272,16 +252,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _performClearCache() async {
     if (_isLoadingCache) return;
 
-    setState(() {
-      _isLoadingCache = true;
-    });
+    setState(() => _isLoadingCache = true);
 
     try {
       final Directory tempDir = await getTemporaryDirectory();
 
       if (await tempDir.exists()) {
-        // محتوای پوشه پاک می‌شود، نه خود پوشه (حذف خود پوشه ممکن است
-        // نوشتن بعدیِ فایل‌های موقت پلاگین‌ها را خراب کند)
+        // فقط محتوای پوشه حذف می‌شود، نه خود پوشه.
         await for (final FileSystemEntity entity in tempDir.list()) {
           try {
             await entity.delete(recursive: true);
@@ -312,9 +289,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       );
     } finally {
       if (mounted) {
-        setState(() {
-          _isLoadingCache = false;
-        });
+        setState(() => _isLoadingCache = false);
       }
     }
   }
@@ -332,10 +307,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             borderRadius: BorderRadius.circular(20),
           ),
           title: Text(
-            _localized(
-              'clear_cache_title',
-              'پاکسازی حافظه موقت',
-            ),
+            _localized('clear_cache_title', 'پاکسازی حافظه موقت'),
             style: TextStyle(
               color: AppColors.textPrimary,
               fontSize: 14,
@@ -354,9 +326,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           actions: [
             TextButton(
-              onPressed: () {
-                Navigator.pop(dialogContext);
-              },
+              onPressed: () => Navigator.pop(dialogContext),
               child: Text(
                 _localized('cancel', 'انصراف'),
                 style: TextStyle(
@@ -393,86 +363,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  // این متد اکنون به‌جای دیالوگ، صفحه تمام‌صفحه باز می‌کند.
   void _showLegalDialog({
     required String title,
     required IconData icon,
     required String content,
+    Color? accentColor,
+    bool isAbout = false,
   }) {
-    showDialog(
-      context: context,
-      builder: (BuildContext dialogContext) {
-        return Directionality(
-          textDirection: ui.TextDirection.rtl,
-          child: AlertDialog(
-            backgroundColor: AppColors.cardBgLight,
-            surfaceTintColor: AppColors.cardBgLight,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
-            ),
-            titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
-            contentPadding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
-            actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-            title: Row(
-              children: [
-                Container(
-                  width: 38,
-                  height: 38,
-                  decoration: BoxDecoration(
-                    color: AppColors.primaryBrand.withOpacity(0.10),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(
-                    icon,
-                    size: 21,
-                    color: AppColors.primaryBrand,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    title,
-                    style: TextStyle(
-                      color: AppColors.textPrimary,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            content: SizedBox(
-              width: double.maxFinite,
-              child: SingleChildScrollView(
-                child: Text(
-                  content,
-                  textAlign: TextAlign.justify,
-                  style: TextStyle(
-                    fontSize: 13,
-                    height: 1.75,
-                    color: AppColors.textPrimary,
-                    fontWeight: FontWeight.w400,
-                  ),
-                ),
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(dialogContext);
-                },
-                child: Text(
-                  _localized('close', 'بستن'),
-                  style: TextStyle(
-                    color: AppColors.primaryBrand,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
+    Navigator.of(context, rootNavigator: true).push(
+      MaterialPageRoute<void>(
+        builder: (_) => _SafirInformationScreen(
+          title: title,
+          icon: icon,
+          content: content,
+          accentColor: accentColor ?? AppColors.primaryBrand,
+          isAbout: isAbout,
+        ),
+      ),
     );
   }
 
@@ -480,6 +388,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _showLegalDialog(
       title: _localized('services_safir_title', 'خدمات سفیر'),
       icon: Icons.local_taxi_rounded,
+      accentColor: const Color(0xFFF59E0B),
       content: _localized(
         'services_safir_content',
         """سفیر یک پلتفرم حمل‌ونقل شهری است که ارتباط میان مسافران و رانندگان را ساده‌تر می‌سازد.
@@ -497,6 +406,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _showLegalDialog(
       title: _localized('terms_conditions_title', 'شرایط و قوانین استفاده'),
       icon: Icons.description_outlined,
+      accentColor: const Color(0xFF6366F1),
       content: _localized(
         'terms_conditions_content',
         """با ایجاد حساب، ورود یا استفاده از اپلیکیشن سفیر، شما این شرایط و قوانین را می‌پذیرید. اگر با بخشی از این قوانین موافق نیستید، لطفاً از خدمات سفیر استفاده نکنید.
@@ -529,6 +439,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _showLegalDialog(
       title: _localized('privacy_policy_title', 'حریم خصوصی و داده‌ها'),
       icon: Icons.privacy_tip_outlined,
+      accentColor: const Color(0xFF8B5CF6),
       content: _localized(
         'privacy_policy_content',
         """حریم خصوصی کاربران برای سفیر مهم است. این برنامه ممکن است فقط برای ارائه و بهبود خدمات، اطلاعات لازم را دریافت و پردازش کند.
@@ -552,6 +463,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _showLegalDialog(
       title: _localized('about_app_title', 'دربارهٔ اپلیکیشن'),
       icon: Icons.info_outline_rounded,
+      accentColor: const Color(0xFF0EA5E9),
+      isAbout: true,
       content: _localized(
         'about_app_content',
         """سفیر یک اپلیکیشن حمل‌ونقل شهری است که برای آسان‌ترشدن ثبت و مدیریت سفر طراحی شده است.
@@ -568,6 +481,7 @@ v1.0.0 (Safir Passengers)""",
     _showLegalDialog(
       title: _localized('delete_account_title', 'حذف حساب و داده‌ها'),
       icon: Icons.delete_forever_outlined,
+      accentColor: AppColors.danger,
       content: _localized(
         'delete_account_content',
         """شما حق دارید درخواست حذف حساب سفیر و داده‌های مرتبط با آن را ثبت کنید.
@@ -611,8 +525,7 @@ v1.0.0 (Safir Passengers)""",
         : Icons.chevron_right_rounded;
 
     return Directionality(
-      textDirection:
-          isRtl ? ui.TextDirection.rtl : ui.TextDirection.ltr,
+      textDirection: isRtl ? ui.TextDirection.rtl : ui.TextDirection.ltr,
       child: Scaffold(
         backgroundColor: AppColors.backgroundLight,
         appBar: AppBar(
@@ -637,9 +550,7 @@ v1.0.0 (Safir Passengers)""",
               color: AppColors.textPrimary,
               size: 20,
             ),
-            onPressed: () {
-              Navigator.pop(context);
-            },
+            onPressed: () => Navigator.pop(context),
           ),
         ),
         body: ListView(
@@ -666,20 +577,15 @@ v1.0.0 (Safir Passengers)""",
                   ),
                 ),
                 subtitle: Text(
-                  '${_localized(
-                    'current_language_prefix',
-                    'زبان فعلی',
-                  )}: ${_getLanguageName(currentLangCode)}',
+                  '${_localized('current_language_prefix', 'زبان فعلی')}: '
+                  '${_getLanguageName(currentLangCode)}',
                   style: TextStyle(
                     fontSize: 12,
                     color: AppColors.textSecondary,
                     fontWeight: FontWeight.w400,
                   ),
                 ),
-                trailing: Icon(
-                  chevronIcon,
-                  color: AppColors.handle,
-                ),
+                trailing: Icon(chevronIcon, color: AppColors.handle),
                 onTap: _showLanguageDialog,
               ),
             ]),
@@ -709,10 +615,7 @@ v1.0.0 (Safir Passengers)""",
               ),
               _buildSettingSwitchTile(
                 icon: Icons.volume_up_outlined,
-                title: _localized(
-                  'enable_sounds_label',
-                  'افکت‌های صوتی',
-                ),
+                title: _localized('enable_sounds_label', 'افکت‌های صوتی'),
                 value: _enableSoundEffects,
                 onChanged: _toggleSound,
               ),
@@ -737,10 +640,7 @@ v1.0.0 (Safir Passengers)""",
                         color: Color(0xFFEC4899),
                       ),
                 title: Text(
-                  _localized(
-                    'clear_cache_btn',
-                    'پاکسازی حافظه موقت',
-                  ),
+                  _localized('clear_cache_btn', 'پاکسازی حافظه موقت'),
                   style: TextStyle(
                     fontWeight: FontWeight.w600,
                     fontSize: 14,
@@ -758,10 +658,7 @@ v1.0.0 (Safir Passengers)""",
                     fontWeight: FontWeight.w400,
                   ),
                 ),
-                trailing: Icon(
-                  chevronIcon,
-                  color: AppColors.handle,
-                ),
+                trailing: Icon(chevronIcon, color: AppColors.handle),
                 onTap: _isLoadingCache ? null : _clearCacheDialog,
               ),
             ]),
@@ -793,10 +690,7 @@ v1.0.0 (Safir Passengers)""",
                     color: AppColors.textSecondary,
                   ),
                 ),
-                trailing: Icon(
-                  chevronIcon,
-                  color: AppColors.handle,
-                ),
+                trailing: Icon(chevronIcon, color: AppColors.handle),
                 onTap: _showServicesDialog,
               ),
               Divider(
@@ -830,10 +724,7 @@ v1.0.0 (Safir Passengers)""",
                     color: AppColors.textSecondary,
                   ),
                 ),
-                trailing: Icon(
-                  chevronIcon,
-                  color: AppColors.handle,
-                ),
+                trailing: Icon(chevronIcon, color: AppColors.handle),
                 onTap: _showTermsDialog,
               ),
               Divider(
@@ -867,10 +758,7 @@ v1.0.0 (Safir Passengers)""",
                     color: AppColors.textSecondary,
                   ),
                 ),
-                trailing: Icon(
-                  chevronIcon,
-                  color: AppColors.handle,
-                ),
+                trailing: Icon(chevronIcon, color: AppColors.handle),
                 onTap: _showPrivacyDialog,
               ),
               Divider(
@@ -904,10 +792,7 @@ v1.0.0 (Safir Passengers)""",
                     color: AppColors.textSecondary,
                   ),
                 ),
-                trailing: Icon(
-                  chevronIcon,
-                  color: AppColors.handle,
-                ),
+                trailing: Icon(chevronIcon, color: AppColors.handle),
                 accent: AppColors.danger,
                 onTap: _showDeleteAccountDialog,
               ),
@@ -939,10 +824,7 @@ v1.0.0 (Safir Passengers)""",
                     color: AppColors.textSecondary,
                   ),
                 ),
-                trailing: Icon(
-                  chevronIcon,
-                  color: AppColors.handle,
-                ),
+                trailing: Icon(chevronIcon, color: AppColors.handle),
                 onTap: _showAboutDialog,
               ),
             ]),
@@ -979,15 +861,13 @@ v1.0.0 (Safir Passengers)""",
         activeColor: AppColors.primaryBrand,
         onChanged: onChanged,
       ),
-      onTap: () {
-        onChanged(!value);
-      },
+      onTap: () => onChanged(!value),
     );
   }
 
-  /// انتخاب تم: خودکار (سیستم) / روشن / تاریک
   Widget _buildThemeSelector() {
     final mode = ThemeController.instance.mode;
+
     final options = <MapEntry<ThemeMode, List<Object>>>[
       MapEntry(
         ThemeMode.system,
@@ -1073,10 +953,7 @@ v1.0.0 (Safir Passengers)""",
 
   Widget _buildSectionHeader(String title) {
     return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 6,
-        vertical: 8,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
       child: Text(
         title,
         style: TextStyle(
@@ -1123,9 +1000,7 @@ class _ModernSwitch extends StatelessWidget {
           ? _localizedKey('switch_active', 'فعال')
           : _localizedKey('switch_inactive', 'غیرفعال'),
       child: GestureDetector(
-        onTap: () {
-          onChanged(!value);
-        },
+        onTap: () => onChanged(!value),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
           curve: Curves.easeOut,
@@ -1172,7 +1047,7 @@ class _ModernSwitch extends StatelessWidget {
   }
 }
 
-/// ردیف تنظیمات: آیکن رنگی بدون کادر، عنوان، زیرعنوان و جزء انتهایی.
+/// ردیف تنظیمات: آیکن رنگی بدون کادر.
 class _SettingsTile extends StatelessWidget {
   const _SettingsTile({
     required this.leading,
@@ -1236,6 +1111,361 @@ class _SettingsTile extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// صفحه مشترک برای پنج بخش اطلاعاتی سفیر.
+class _SafirInformationScreen extends StatelessWidget {
+  const _SafirInformationScreen({
+    required this.title,
+    required this.icon,
+    required this.content,
+    required this.accentColor,
+    this.isAbout = false,
+  });
+
+  final String title;
+  final IconData icon;
+  final String content;
+  final Color accentColor;
+  final bool isAbout;
+
+  String _followUsLabel(BuildContext context) {
+    final String value = 'follow_us'.tr();
+
+    if (value.isNotEmpty && value != 'follow_us') {
+      return value;
+    }
+
+    switch (context.locale.languageCode) {
+      case 'en':
+        return 'Follow us';
+      case 'ps':
+      case 'pa':
+        return 'موږ تعقیب کړئ';
+      default:
+        return 'ما را دنبال کنید';
+    }
+  }
+
+  String _linkErrorLabel(BuildContext context) {
+    final String value = 'social_link_error'.tr();
+
+    if (value.isNotEmpty && value != 'social_link_error') {
+      return value;
+    }
+
+    switch (context.locale.languageCode) {
+      case 'en':
+        return 'Unable to open the link.';
+      case 'ps':
+      case 'pa':
+        return 'لینک خلاص نه شو.';
+      default:
+        return 'لینک باز نشد.';
+    }
+  }
+
+  Future<void> _openSocialLink(
+    BuildContext context,
+    String url,
+  ) async {
+    if (url.trim().isEmpty) return;
+
+    bool opened = false;
+
+    try {
+      final Uri? uri = Uri.tryParse(url.trim());
+
+      if (uri != null &&
+          uri.host.isNotEmpty &&
+          (uri.scheme == 'https' || uri.scheme == 'http')) {
+        opened = await launchUrl(
+          uri,
+          mode: LaunchMode.externalApplication,
+        );
+      }
+    } catch (error) {
+      debugPrint('Error opening social link: $error');
+    }
+
+    if (!context.mounted || opened) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(_linkErrorLabel(context)),
+        backgroundColor: AppColors.danger,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final String languageCode = context.locale.languageCode;
+    final bool isRtl = languageCode != 'en';
+
+    final List<String> paragraphs = content
+        .split(RegExp(r'
+s*
+'))
+        .map((paragraph) => paragraph.trim())
+        .where((paragraph) => paragraph.isNotEmpty)
+        .toList();
+
+    return Directionality(
+      textDirection: isRtl ? ui.TextDirection.rtl : ui.TextDirection.ltr,
+      child: Scaffold(
+        backgroundColor: AppColors.backgroundLight,
+        appBar: AppBar(
+          backgroundColor: AppColors.backgroundLight,
+          surfaceTintColor: AppColors.backgroundLight,
+          elevation: 0,
+          scrolledUnderElevation: 0,
+          centerTitle: true,
+          leading: BackButton(
+            color: AppColors.textPrimary,
+          ),
+          title: Text(
+            title,
+            maxLines: 2,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        body: SafeArea(
+          top: false,
+          child: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 700),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 22,
+                        vertical: 28,
+                      ),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            accentColor.withOpacity(0.16),
+                            accentColor.withOpacity(0.04),
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(28),
+                        border: Border.all(
+                          color: accentColor.withOpacity(0.18),
+                        ),
+                      ),
+                      child: Column(
+                        children: [
+                          Container(
+                            width: 80,
+                            height: 80,
+                            decoration: BoxDecoration(
+                              color: AppColors.cardBgLight,
+                              borderRadius: BorderRadius.circular(25),
+                              border: Border.all(
+                                color: accentColor.withOpacity(0.15),
+                              ),
+                            ),
+                            child: Icon(
+                              isAbout ? Icons.local_taxi_rounded : icon,
+                              size: 39,
+                              color: accentColor,
+                            ),
+                          ),
+                          const SizedBox(height: 18),
+                          Text(
+                            isAbout ? 'Safir' : title,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: AppColors.textPrimary,
+                              fontSize: isAbout ? 27 : 21,
+                              fontWeight: FontWeight.w800,
+                              height: 1.4,
+                            ),
+                          ),
+                          if (isAbout) ...[
+                            const SizedBox(height: 6),
+                            Text(
+                              title,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: AppColors.textSecondary,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 22),
+
+                    // متن با حفظ محتوا و جداسازی پاراگراف‌ها.
+                    Container(
+                      padding: const EdgeInsets.all(22),
+                      decoration: BoxDecoration(
+                        color: AppColors.cardBgLight,
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(
+                          color: AppColors.fieldBorder,
+                        ),
+                      ),
+                      child: SelectionArea(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            for (int i = 0; i < paragraphs.length; i++) ...[
+                              if (i > 0)
+                                const SizedBox(height: 20),
+                              Text(
+                                paragraphs[i],
+                                textAlign: TextAlign.start,
+                                style: TextStyle(
+                                  color: AppColors.textPrimary,
+                                  fontSize: 14,
+                                  height: 1.9,
+                                  fontWeight: FontWeight.w400,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    if (isAbout) ...[
+                      const SizedBox(height: 28),
+                      Text(
+                        _followUsLabel(context),
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Wrap(
+                        alignment: WrapAlignment.center,
+                        spacing: 24,
+                        runSpacing: 16,
+                        children: [
+                          _SafirSocialButton(
+                            icon: FontAwesomeIcons.facebookF,
+                            label: 'Facebook',
+                            color: const Color(0xFF1877F2),
+                            onTap: _safirFacebookUrl.trim().isEmpty
+                                ? null
+                                : () => _openSocialLink(
+                                      context,
+                                      _safirFacebookUrl,
+                                    ),
+                          ),
+                          _SafirSocialButton(
+                            icon: FontAwesomeIcons.instagram,
+                            label: 'Instagram',
+                            color: const Color(0xFFE1306C),
+                            onTap: _safirInstagramUrl.trim().isEmpty
+                                ? null
+                                : () => _openSocialLink(
+                                      context,
+                                      _safirInstagramUrl,
+                                    ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SafirSocialButton extends StatelessWidget {
+  const _SafirSocialButton({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool enabled = onTap != null;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Semantics(
+          label: label,
+          button: true,
+          enabled: enabled,
+          child: Tooltip(
+            message: label,
+            child: Material(
+              color: enabled
+                  ? color.withOpacity(0.12)
+                  : AppColors.fieldBorder.withOpacity(0.35),
+              shape: CircleBorder(
+                side: BorderSide(
+                  color: enabled
+                      ? color.withOpacity(0.24)
+                      : AppColors.fieldBorder,
+                ),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                onTap: onTap,
+                customBorder: const CircleBorder(),
+                child: SizedBox(
+                  width: 56,
+                  height: 56,
+                  child: Center(
+                    child: FaIcon(
+                      icon,
+                      size: 25,
+                      color: enabled ? color : AppColors.textSecondary,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          label,
+          style: TextStyle(
+            color: AppColors.textSecondary,
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
     );
   }
 }
