@@ -4,14 +4,10 @@ import 'package:easy_localization/easy_localization.dart'
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:share_plus/share_plus.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import 'package:safir_passengers/global/global_var.dart';
 import 'package:safir_passengers/theme/app_colors.dart';
 import 'package:safir_passengers/services/promo_service.dart';
-import 'package:safir_passengers/services/support_service.dart';
-import 'package:safir_passengers/services/referral_service.dart';
 import 'package:safir_passengers/pages/settings_screen.dart';
 import 'package:safir_passengers/pages/trips_history_page.dart';
 import 'package:safir_passengers/pages/saved_addresses_screen.dart';
@@ -56,26 +52,6 @@ void _snackOn(ScaffoldMessengerState m, String message,
       ),
     ),
   );
-}
-
-Future<void> _makeSupportCall(BuildContext context) =>
-    SupportService.call(context);
-
-Future<void> _shareInviteCode(BuildContext context) async {
-  final String shareMessage = ReferralService.shareMessage;
-
-  try {
-    await Share.share(shareMessage);
-  } catch (e) {
-    debugPrint('خطا در اشتراک‌گذاری کد دعوت: $e');
-
-    // متن فنی خطا به کاربر نشان داده نمی‌شود
-    _snack(
-      context,
-      _mt('share_failed', 'اشتراک‌گذاری انجام نشد، دوباره تلاش کنید'),
-      color: AppColors.danger,
-    );
-  }
 }
 
 void _showDiscountModal(BuildContext context) {
@@ -563,7 +539,12 @@ class _ProfileAnimatedMenuState
                   'دوستان خود را به سفیر دعوت کنید',
                 ),
                 onTap: () {
-                  _shareInviteCode(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const InviteFriendsScreen(),
+                    ),
+                  );
                 },
               ),
               _buildMenuItem(
@@ -591,8 +572,8 @@ class _ProfileAnimatedMenuState
             const SizedBox(height: 22),
             _buildSectionTitle(
               _localizedKey(
-                'services_and_support_section',
-                'خدمات و پشتیبانی',
+                'settings_and_offers_section',
+                'تنظیمات و تخفیف',
               ),
             ),
             _buildMenuGroup([
@@ -623,21 +604,6 @@ class _ProfileAnimatedMenuState
                 ),
                 onTap: () {
                   _showDiscountModal(context);
-                },
-              ),
-              _buildMenuItem(
-                icon: Icons.support_agent_rounded,
-                accent: AppColors.originBlue,
-                title: _localizedKey(
-                  'support_contact',
-                  'پشتیبانی و ارتباط با ما',
-                ),
-                subtitle: _localizedKey(
-                  'support_contact_sub',
-                  'ما همیشه آماده کمک هستیم',
-                ),
-                onTap: () {
-                  _makeSupportCall(context);
                 },
               ),
             ]),
