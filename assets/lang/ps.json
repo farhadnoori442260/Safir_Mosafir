@@ -751,6 +751,7 @@
   "cargo.select_vehicle": "د موټر ډول ټاکل",
   "cargo.payer_side": "د کرایې ورکوونکی",
   "cargo.sender": "لېږونکی",
+  "cargo_no_insurance": "له بیمې پرته",
   "cargo.receiver": "ترلاسه کوونکی",
   "cargo.total_fare": "ټوله کرایه",
   "cargo.submit_order": "د بار وړلو غوښتنه ثبتول",
