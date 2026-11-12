@@ -831,5 +831,7 @@
   "schedule_subtitle": "د سفر نېټه او وخت وټاکئ",
   "schedule_past_error": "ټاکل شوی وخت تېر شوی دی",
   "schedule_too_soon_error": "ټاکل شوی وخت ډېر نږدې دی؛ وروسته وخت وټاکئ",
-  "confirm_date_btn": "نېټه تاییدول"
+  "confirm_date_btn": "نېټه تاییدول",
+  "follow_us": "موږ تعقیب کړئ",
+  "social_link_error": "لینک خلاص نه شو. مهرباني وکړئ بیا هڅه وکړئ."
 }
