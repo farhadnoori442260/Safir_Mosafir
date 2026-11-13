@@ -23,6 +23,7 @@ import 'package:safir_passengers/global/trip_var.dart';
 import 'package:safir_passengers/theme/app_colors.dart';
 import 'package:safir_passengers/pages/saved_addresses_screen.dart' show SavedDestinationBus;
 import 'package:safir_passengers/widgets/rate_driver_sheet.dart';
+import 'package:safir_passengers/widgets/safir_drawer.dart';
 import 'search_destination_place.dart';
 
 import 'map_files/map_controller_logic.dart';
@@ -33,6 +34,7 @@ import 'map_files/cargo_sheets.dart';
 import 'map_files/trip_options_sheet.dart';
 import 'map_files/schedule_trip_sheet.dart';
 import 'map_files/promo_code_sheet.dart';
+import 'map_files/home_services_sheet.dart';
 import 'package:safir_passengers/services/promo_service.dart';
 import '../widgets/animated_menus.dart';
 import '../widgets/map_location_label.dart';
@@ -244,6 +246,10 @@ class SafirMapScreen extends StatefulWidget {
   final LatLng? targetLocation;
   final bool isPickerOnly;
 
+  /// وقتی true باشد، صفحه با «باتم‌شیت انتخاب سرویس» (هوم) شروع می‌شود و با
+  /// انتخاب هر سرویس، فقط باتم‌شیت عوض می‌شود (نقشه تکان نمی‌خورد).
+  final bool startAtHome;
+
   /// برای «تکرار / برگشت سفر» از تاریخچه: مبدأ و مقصد از قبل مشخص است و
   /// صفحه مستقیم به مرحلهٔ انتخاب سرویس و قیمت می‌رود.
   final LatLng? presetOrigin;
@@ -257,6 +263,7 @@ class SafirMapScreen extends StatefulWidget {
     this.pickerMode,
     this.targetLocation,
     this.isPickerOnly = false,
+    this.startAtHome = false,
     this.presetOrigin,
     this.presetDestination,
     this.presetOriginName,
@@ -269,6 +276,15 @@ class SafirMapScreen extends StatefulWidget {
 
 class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStateMixin {
   MapLibreMapController? _mapController;
+
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+
+  /// نوع سرویس فعلی (taxi / cargo / intercity). قابل‌تغییر است تا بدون ساختن
+  /// دوبارهٔ نقشه، با انتخاب سرویس از باتم‌شیت هوم عوض شود.
+  late String _serviceType;
+
+  /// true = باتم‌شیت اول (انتخاب سرویس) نشان داده می‌شود
+  bool _isHome = false;
 
   LatLng _currentUserLatLng = const LatLng(34.5333, 69.1667);
   double _currentGpsAccuracy = 0.0;
@@ -506,6 +522,9 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
   @override
   void initState() {
     super.initState();
+    _serviceType = widget.serviceType;
+    _isHome = widget.startAtHome && !widget.isPickerOnly && !_hasPreset;
+
     _driverAnimationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1000),
@@ -588,6 +607,61 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
   }
 
   // ════════════════════════════════════════════════════════════
+  //  🏠 باتم‌شیت اول (هوم) و انتخاب سرویس
+  // ════════════════════════════════════════════════════════════
+
+  SafirService get _homeSelected {
+    switch (_serviceType) {
+      case 'cargo':
+        return SafirService.cargo;
+      case 'intercity':
+        return SafirService.intercity;
+      default:
+        return SafirService.taxi;
+    }
+  }
+
+  /// انتخاب سرویس از باتم‌شیت هوم: نقشه همان می‌ماند، فقط باتم‌شیت به
+  /// مرحلهٔ «مبدأ و مقصد» همان سرویس تغییر می‌کند.
+  void _selectService(SafirService service) {
+    if (!_isHome) return;
+
+    final String type = service == SafirService.cargo
+        ? 'cargo'
+        : service == SafirService.intercity
+            ? 'intercity'
+            : 'taxi';
+
+    setState(() {
+      _serviceType = type;
+      selectedVehicle = type;
+      _selectedCategory = 0;
+      _selectedVehicleType = 0;
+      _currentStep = 0;
+      _isHome = false;
+      _isSheetExpanded = true;
+      _isMapMoving = false;
+    });
+
+    // آدرس مبدأ را از مرکز فعلی نقشه تازه کن
+    final LatLng? center = _mapController?.cameraPosition?.target;
+    if (center != null) {
+      _updateAddressFromCamera(center);
+    }
+  }
+
+  void _openMenu() {
+    HapticFeedback.lightImpact();
+
+    final bool isRtl = Directionality.of(context) == ui.TextDirection.rtl;
+    if (isRtl) {
+      _scaffoldKey.currentState?.openDrawer();
+    } else {
+      _scaffoldKey.currentState?.openEndDrawer();
+    }
+  }
+
+  // ════════════════════════════════════════════════════════════
   //  🚗 ردیابی زندهٔ راننده
   // ════════════════════════════════════════════════════════════
 
@@ -653,7 +727,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
   /// همان آیکن را روی ۹۰، ۱۸۰ یا ۲۷۰ بگذار.
   ({String assetPath, String imageId, double rotationOffsetDegrees})
       _resolveDriverIconInfo() {
-    if (widget.serviceType == 'cargo') {
+    if (_serviceType == 'cargo') {
       return (
         assetPath: 'assets/images/tracking_cargo.png',
         imageId: 'driver-icon-cargo',
@@ -1838,8 +1912,10 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
 
   void _onMapCameraMove() {
     // پین فقط وقتی بالا می‌آید که دست کاربر نقشه را حرکت داده باشد
+    // (در حالت هوم پین نداریم)
     if (_isUserGesture &&
         !_isProgrammaticMove &&
+        !_isHome &&
         _currentStep < 2 &&
         !_isMapMoving &&
         mounted) {
@@ -1887,7 +1963,10 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
       }
     });
 
-    if (!wasProgrammaticMove && _currentStep < 2 && _mapController != null) {
+    if (!wasProgrammaticMove &&
+        !_isHome &&
+        _currentStep < 2 &&
+        _mapController != null) {
       final LatLng? target = _mapController!.cameraPosition?.target;
       if (target != null) {
         _updateAddressFromCamera(target);
@@ -2125,7 +2204,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
 
     _animatedMapMove(currentCenter, 16.5);
 
-    if (widget.serviceType == 'cargo') {
+    if (_serviceType == 'cargo') {
       CargoSheets.showSenderDialog(
         context: context,
         nameController: _senderNameController,
@@ -2141,7 +2220,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
           });
         },
       );
-    } else if (widget.serviceType == 'intercity') {
+    } else if (_serviceType == 'intercity') {
       setState(() {
         _currentStep = 1;
         _isSheetExpanded = true;
@@ -2221,7 +2300,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
       _destinationLatLng = currentCenter;
     });
 
-    if (widget.serviceType == 'cargo') {
+    if (_serviceType == 'cargo') {
       CargoSheets.showReceiverDialog(
         context: context,
         nameController: _receiverNameController,
@@ -2265,11 +2344,11 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
   double _computeFare(double km) {
     final AppConfig cfg = AppConfigService.instance.config;
 
-    if (widget.serviceType == 'cargo') {
+    if (_serviceType == 'cargo') {
       return CargoSheets.calculateFareForVehicle(_cargoSelectedVehicle, km);
     }
 
-    if (widget.serviceType == 'intercity') {
+    if (_serviceType == 'intercity') {
       return cfg.intercityFare(km, passengers: _intercityPassengers);
     }
 
@@ -2619,7 +2698,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
           // ✅ گرد‌شده تا اعداد اعشاری بی‌معنی (مثل 7.0463000000001) ذخیره نشود
           'distance': double.parse(_tripDistanceInKm.toStringAsFixed(2)),
           'duration': _tripDurationText,
-          'service_type': widget.serviceType,
+          'service_type': _serviceType,
           'vehicle_type': selectedVehicle,
 
           // ───── گزینه‌های سفر (قبلاً ذخیره نمی‌شدند) ─────
@@ -2635,7 +2714,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
           'promo_code': _appliedPromoCode,
 
           // ───── باربری ─────
-          if (widget.serviceType == 'cargo') ...<String, dynamic>{
+          if (_serviceType == 'cargo') ...<String, dynamic>{
             'cargo_vehicle': _cargoSelectedVehicle,
             'cargo_package_type': _cargoPackageType,
             'cargo_insurance': _cargoInsurance,
@@ -2655,7 +2734,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
           },
 
           // ───── بین‌شهری ─────
-          if (widget.serviceType == 'intercity') ...<String, dynamic>{
+          if (_serviceType == 'intercity') ...<String, dynamic>{
             'intercity_date': _intercityTravelDate != null
                 ? Timestamp.fromDate(_intercityTravelDate!)
                 : null,
@@ -2921,6 +3000,20 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
     final double? lng = address.longitudePosition;
     if (lat == null || lng == null || _isConfirming) return;
 
+    // اگر باتم‌شیت اول (هوم) باز بود، با کلیک روی آدرس ذخیره‌شده (مثلاً از
+    // منوی کناری) به مرحلهٔ انتخاب مبدأ تاکسی می‌رویم
+    if (_isHome) {
+      setState(() {
+        _isHome = false;
+        _serviceType = 'taxi';
+        selectedVehicle = 'taxi';
+        _selectedCategory = 0;
+        _selectedVehicleType = 0;
+        _currentStep = 0;
+        _isSheetExpanded = true;
+      });
+    }
+
     final LatLng target = LatLng(lat, lng);
     final String? name = address.placeName ?? address.humanReadableAddress;
 
@@ -2956,7 +3049,15 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
     if (_currentStep >= 3) return;
 
     if (_currentStep == 0) {
-      Navigator.pop(context);
+      // صفحهٔ اصلی اپ: برگشت از مرحلهٔ مبدأ، باتم‌شیت اول (هوم) را نشان می‌دهد
+      if (widget.startAtHome && !widget.isPickerOnly) {
+        setState(() {
+          _isHome = true;
+          _isMapMoving = false;
+        });
+      } else {
+        Navigator.pop(context);
+      }
     } else {
       setState(() {
         _currentStep--;
@@ -3123,6 +3224,32 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
     );
   }
 
+  /// دکمهٔ گرد بالای نقشه (منو / برگشت / پروفایل) با ظاهر یکسان
+  Widget _buildRoundTopButton({
+    required VoidCallback onTap,
+    required Widget child,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 48,
+        height: 48,
+        decoration: BoxDecoration(
+          color: AppColors.cardBgLight,
+          shape: BoxShape.circle,
+          boxShadow: const [
+            BoxShadow(
+              color: Colors.black12,
+              blurRadius: 10,
+              offset: Offset(0, 3),
+            ),
+          ],
+        ),
+        child: child,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     AppInfo? appInfo;
@@ -3136,6 +3263,12 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
     Color activePinColor = _currentStep == 0 ? AppColors.originBlue : AppColors.primaryBrand;
     final double statusBarHeight = MediaQuery.of(context).padding.top;
 
+    final bool isRtl = Directionality.of(context) == ui.TextDirection.rtl;
+
+    // حالت صفحهٔ اصلی: برگشت سیستم از مرحله‌ها به باتم‌شیت اول می‌رود
+    final bool canPopRoute =
+        widget.isPickerOnly || !widget.startAtHome || _isHome;
+
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle(
         statusBarColor: AppColors.cardBgLight,
@@ -3144,308 +3277,320 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
         statusBarBrightness:
             AppColors.isDark ? Brightness.dark : Brightness.light,
       ),
-      child: Scaffold(
-        resizeToAvoidBottomInset: false,
-        body: Stack(
-          children: [
-            // 🗺️ ۱. نقشه تمام صفحه
-            RepaintBoundary(
-              child: Listener(
-                onPointerDown: (_) => _onMapPointerDown(),
-                onPointerUp: (_) => _onMapPointerReleased(),
-                onPointerCancel: (_) => _onMapPointerReleased(),
-                child: MapLibreMap(
-                  // با عوض شدن تم، نقشه با استایل مناسب دوباره ساخته می‌شود
-                  key: ValueKey('safir_map_${AppColors.isDark}'),
-                  initialCameraPosition: _mapController?.cameraPosition ??
-                      CameraPosition(
-                        target: widget.targetLocation ??
-                            widget.presetOrigin ??
-                            _currentUserLatLng,
-                        zoom: 15.0,
-                      ),
-                  styleString: AppColors.mapStyleAsset,
-                  myLocationEnabled: _currentStep < 3,
-                  // دنبال‌کردن خودکار GPS با درگ کاربر دعوا می‌کرد و نقشه می‌پرید؛
-                  // دوربین فقط با GPS اولیه و دکمه‌ی موقعیت جابه‌جا می‌شود.
-                  myLocationTrackingMode: MyLocationTrackingMode.none,
-                  myLocationRenderMode: MyLocationRenderMode.normal,
-                  trackCameraPosition: true,
-                  rotateGesturesEnabled: false,
-                  tiltGesturesEnabled: false,
-                  onMapCreated: (controller) {
-                    _mapController = controller;
-                    _isProgrammaticMove = true;
-                    if (widget.targetLocation != null) {
-                      _animatedMapMove(widget.targetLocation!, 17.8);
-                    }
-                  },
-                  onStyleLoadedCallback: () async {
-                    // با هر بار لود استایل، همهٔ آیتم‌های قبلی نقشه پاک می‌شوند؛
-                    // رفرنس‌های قدیمی باید null شوند تا از نو ساخته شوند.
-                    _addedDriverIconIds.clear();
-                    _driverIconImageIdLoaded = null;
-                    _driverLiveSymbol = null;
-                    _driverRouteLine = null;
-                    _driverTraveledLine = null;
-                    _driverTempLine = null;
-                    _tempLineBusy = false;
-                    _driverLastRenderedSegment = -1;
-                    _driverLastRenderedPoint = null;
-
-                    await initDriverSymbolLayer();
-
-                    // اگر سفر فعال بود، مسیر و آیکن دوباره رسم شوند
-                    if (_driverTripPolylinePoints.length >= 2 &&
-                        !_driverRouteStale) {
-                      await _renderDriverRouteLines(
-                        traveled: <LatLng>[],
-                        remaining: _driverTripPolylinePoints,
-                      );
-                    }
-
-                    if (_driverTripPolylinePoints.length >= 2 ||
-                        _driverRouteStale) {
-                      if (_latestDriverRaw != null) {
-                        _pendingDriverRawPosition = _latestDriverRaw;
-                        _pendingDriverRawHeading = _latestDriverHeading;
-                        unawaited(_processPendingDriverUpdate());
+      child: PopScope(
+        canPop: canPopRoute,
+        onPopInvokedWithResult: (bool didPop, dynamic result) {
+          if (!didPop) {
+            _handleBackAction();
+          }
+        },
+        child: Scaffold(
+          key: _scaffoldKey,
+          resizeToAvoidBottomInset: false,
+          drawer: (!widget.isPickerOnly && isRtl) ? const SafirDrawer() : null,
+          endDrawer: (!widget.isPickerOnly && !isRtl) ? const SafirDrawer() : null,
+          // کشیدن لبهٔ صفحه با حرکت نقشه تداخل دارد؛ منو فقط با دکمه باز می‌شود
+          drawerEnableOpenDragGesture: false,
+          endDrawerEnableOpenDragGesture: false,
+          body: Stack(
+            children: [
+              // 🗺️ ۱. نقشه تمام صفحه
+              RepaintBoundary(
+                child: Listener(
+                  onPointerDown: (_) => _onMapPointerDown(),
+                  onPointerUp: (_) => _onMapPointerReleased(),
+                  onPointerCancel: (_) => _onMapPointerReleased(),
+                  child: MapLibreMap(
+                    // با عوض شدن تم، نقشه با استایل مناسب دوباره ساخته می‌شود
+                    key: ValueKey('safir_map_${AppColors.isDark}'),
+                    initialCameraPosition: _mapController?.cameraPosition ??
+                        CameraPosition(
+                          target: widget.targetLocation ??
+                              widget.presetOrigin ??
+                              _currentUserLatLng,
+                          zoom: 15.0,
+                        ),
+                    styleString: AppColors.mapStyleAsset,
+                    myLocationEnabled: _currentStep < 3,
+                    // دنبال‌کردن خودکار GPS با درگ کاربر دعوا می‌کرد و نقشه می‌پرید؛
+                    // دوربین فقط با GPS اولیه و دکمه‌ی موقعیت جابه‌جا می‌شود.
+                    myLocationTrackingMode: MyLocationTrackingMode.none,
+                    myLocationRenderMode: MyLocationRenderMode.normal,
+                    trackCameraPosition: true,
+                    rotateGesturesEnabled: false,
+                    tiltGesturesEnabled: false,
+                    onMapCreated: (controller) {
+                      _mapController = controller;
+                      _isProgrammaticMove = true;
+                      if (widget.targetLocation != null) {
+                        _animatedMapMove(widget.targetLocation!, 17.8);
                       }
-                    }
+                    },
+                    onStyleLoadedCallback: () async {
+                      // با هر بار لود استایل، همهٔ آیتم‌های قبلی نقشه پاک می‌شوند؛
+                      // رفرنس‌های قدیمی باید null شوند تا از نو ساخته شوند.
+                      _addedDriverIconIds.clear();
+                      _driverIconImageIdLoaded = null;
+                      _driverLiveSymbol = null;
+                      _driverRouteLine = null;
+                      _driverTraveledLine = null;
+                      _driverTempLine = null;
+                      _tempLineBusy = false;
+                      _driverLastRenderedSegment = -1;
+                      _driverLastRenderedPoint = null;
 
-                    // سفر آماده (تکرار/برگشت) را فقط یک بار اعمال کن
-                    unawaited(_applyPresetTrip());
-                  },
-                  onCameraMove: (CameraPosition position) {
-                    _onMapCameraMove();
-                  },
-                  onCameraIdle: () {
-                    _handleMapIdle();
-                  },
-                  onMapClick: (_, __) {},
+                      await initDriverSymbolLayer();
+
+                      // اگر سفر فعال بود، مسیر و آیکن دوباره رسم شوند
+                      if (_driverTripPolylinePoints.length >= 2 &&
+                          !_driverRouteStale) {
+                        await _renderDriverRouteLines(
+                          traveled: <LatLng>[],
+                          remaining: _driverTripPolylinePoints,
+                        );
+                      }
+
+                      if (_driverTripPolylinePoints.length >= 2 ||
+                          _driverRouteStale) {
+                        if (_latestDriverRaw != null) {
+                          _pendingDriverRawPosition = _latestDriverRaw;
+                          _pendingDriverRawHeading = _latestDriverHeading;
+                          unawaited(_processPendingDriverUpdate());
+                        }
+                      }
+
+                      // سفر آماده (تکرار/برگشت) را فقط یک بار اعمال کن
+                      unawaited(_applyPresetTrip());
+                    },
+                    onCameraMove: (CameraPosition position) {
+                      _onMapCameraMove();
+                    },
+                    onCameraIdle: () {
+                      _handleMapIdle();
+                    },
+                    onMapClick: (_, __) {},
+                  ),
                 ),
               ),
-            ),
 
-            // 📍 ۲. پین شناور در وسط نقشه
-            if (_currentStep < 2)
-              IgnorePointer(
-                child: Center(
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      AnimatedContainer(
-                        duration: const Duration(milliseconds: 160),
-                        width: _isMapMoving ? 42 : 32,
-                        height: _isMapMoving ? 42 : 32,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: _isMapMoving
-                              ? Colors.black.withOpacity(0.08)
-                              : Colors.black.withOpacity(0.15),
-                        ),
-                        child: Center(
-                          child: Container(
-                            width: 5,
-                            height: 5,
-                            decoration: BoxDecoration(
-                              color: Colors.black.withOpacity(0.40),
-                              shape: BoxShape.circle,
-                            ),
+              // 📍 ۲. پین شناور در وسط نقشه (در حالت هوم نیست)
+              if (_currentStep < 2 && !_isHome)
+                IgnorePointer(
+                  child: Center(
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        AnimatedContainer(
+                          duration: const Duration(milliseconds: 160),
+                          width: _isMapMoving ? 42 : 32,
+                          height: _isMapMoving ? 42 : 32,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: _isMapMoving
+                                ? Colors.black.withOpacity(0.08)
+                                : Colors.black.withOpacity(0.15),
                           ),
-                        ),
-                      ),
-                      AnimatedContainer(
-                        duration: const Duration(milliseconds: 160),
-                        curve: Curves.easeOutCubic,
-                        transform: Matrix4.translationValues(
-                          0,
-                          _isMapMoving ? -45.0 : -20.0,
-                          0,
-                        ),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                              width: 30,
-                              height: 30,
+                          child: Center(
+                            child: Container(
+                              width: 5,
+                              height: 5,
                               decoration: BoxDecoration(
-                                color: activePinColor,
-                                shape: _currentStep == 0 ? BoxShape.circle : BoxShape.rectangle,
-                                borderRadius: _currentStep == 0 ? null : BorderRadius.circular(8),
-                                border: Border.all(color: Colors.white, width: 2),
-                                boxShadow: const [
-                                  BoxShadow(
-                                    color: Colors.black26,
-                                    blurRadius: 5,
-                                    offset: Offset(0, 3),
-                                  ),
-                                ],
+                                color: Colors.black.withOpacity(0.40),
+                                shape: BoxShape.circle,
                               ),
-                              child: Center(
-                                child: Container(
-                                  width: 7,
-                                  height: 7,
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    shape: _currentStep == 0 ? BoxShape.circle : BoxShape.rectangle,
-                                    borderRadius: _currentStep == 0 ? null : BorderRadius.circular(2),
+                            ),
+                          ),
+                        ),
+                        AnimatedContainer(
+                          duration: const Duration(milliseconds: 160),
+                          curve: Curves.easeOutCubic,
+                          transform: Matrix4.translationValues(
+                            0,
+                            _isMapMoving ? -45.0 : -20.0,
+                            0,
+                          ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                width: 30,
+                                height: 30,
+                                decoration: BoxDecoration(
+                                  color: activePinColor,
+                                  shape: _currentStep == 0 ? BoxShape.circle : BoxShape.rectangle,
+                                  borderRadius: _currentStep == 0 ? null : BorderRadius.circular(8),
+                                  border: Border.all(color: Colors.white, width: 2),
+                                  boxShadow: const [
+                                    BoxShadow(
+                                      color: Colors.black26,
+                                      blurRadius: 5,
+                                      offset: Offset(0, 3),
+                                    ),
+                                  ],
+                                ),
+                                child: Center(
+                                  child: Container(
+                                    width: 7,
+                                    height: 7,
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      shape: _currentStep == 0 ? BoxShape.circle : BoxShape.rectangle,
+                                      borderRadius: _currentStep == 0 ? null : BorderRadius.circular(2),
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
-                            Container(
-                              width: 2.0,
-                              height: 18,
-                              color: AppColors.textPrimary,
-                            ),
-                          ],
+                              Container(
+                                width: 2.0,
+                                height: 18,
+                                color: AppColors.textPrimary,
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-              ),
 
-            // 🔘 ۳. دکمه‌های شناور بالای صفحه
-            Positioned(
-              top: statusBarHeight + 8,
-              left: 16,
-              right: 16,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  GestureDetector(
-                    onTap: _handleBackAction,
-                    child: Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: AppColors.cardBgLight,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black12,
-                            blurRadius: 10,
-                            offset: Offset(0, 3),
-                          ),
-                        ],
-                      ),
-                      child: Icon(
-                        _currentStep == 0
-                            ? (widget.isPickerOnly ? Icons.close_rounded : Icons.home_outlined)
-                            : Icons.arrow_back,
-                        color: AppColors.textPrimary,
-                        size: 26,
-                      ),
-                    ),
-                  ),
-                  if (!widget.isPickerOnly)
-                  GestureDetector(
-                    onTap: _showAdvancedProfile,
-                    child: Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: AppColors.cardBgLight,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black12,
-                            blurRadius: 10,
-                            offset: Offset(0, 3),
-                          ),
-                        ],
-                      ),
-                      child: Stack(
-                        alignment: Alignment.center,
-                        clipBehavior: Clip.none,
-                        children: [
-                          Icon(
-                            Icons.person_outline,
-                            color: AppColors.textPrimary,
-                            size: 26,
-                          ),
-                          if (_hasNotification)
-                            Positioned(
-                              top: 3,
-                              right: 3,
-                              child: Container(
-                                width: 10,
-                                height: 10,
-                                decoration: BoxDecoration(
-                                  color: Colors.redAccent,
-                                  shape: BoxShape.circle,
-                                  border: Border.all(color: Colors.white, width: 2),
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // ⚠️ هشدار GPS در مرحله‌های بعد از انتخاب مبدأ/مقصد
-            if (_hasGpsDisruption && _currentStep >= 2)
+              // 🔘 ۳. دکمه‌های شناور بالای صفحه
               Positioned(
-                top: statusBarHeight + 68,
+                top: statusBarHeight + 8,
                 left: 16,
                 right: 16,
-                child: IgnorePointer(
-                  child: Center(child: _buildGpsBanner()),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: _isHome
+                      ? [
+                          // حالت هوم: عنوان + دکمهٔ منوی کناری (Drawer)
+                          Container(
+                            height: 48,
+                            padding: const EdgeInsets.symmetric(horizontal: 18),
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: AppColors.cardBgLight,
+                              borderRadius: BorderRadius.circular(24),
+                              boxShadow: const [
+                                BoxShadow(
+                                  color: Colors.black12,
+                                  blurRadius: 10,
+                                  offset: Offset(0, 3),
+                                ),
+                              ],
+                            ),
+                            child: Text(
+                              'Safir',
+                              style: TextStyle(
+                                color: AppColors.primaryBrand,
+                                fontSize: 18,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                          _buildRoundTopButton(
+                            onTap: _openMenu,
+                            child: Icon(
+                              Icons.menu_rounded,
+                              color: AppColors.textPrimary,
+                              size: 26,
+                            ),
+                          ),
+                        ]
+                      : [
+                          _buildRoundTopButton(
+                            onTap: _handleBackAction,
+                            child: Icon(
+                              _currentStep == 0
+                                  ? (widget.isPickerOnly
+                                      ? Icons.close_rounded
+                                      : (widget.startAtHome
+                                          ? Icons.arrow_back
+                                          : Icons.home_outlined))
+                                  : Icons.arrow_back,
+                              color: AppColors.textPrimary,
+                              size: 26,
+                            ),
+                          ),
+                          if (!widget.isPickerOnly)
+                            _buildRoundTopButton(
+                              onTap: _showAdvancedProfile,
+                              child: Stack(
+                                alignment: Alignment.center,
+                                clipBehavior: Clip.none,
+                                children: [
+                                  Icon(
+                                    Icons.person_outline,
+                                    color: AppColors.textPrimary,
+                                    size: 26,
+                                  ),
+                                  if (_hasNotification)
+                                    Positioned(
+                                      top: 3,
+                                      right: 3,
+                                      child: Container(
+                                        width: 10,
+                                        height: 10,
+                                        decoration: BoxDecoration(
+                                          color: Colors.redAccent,
+                                          shape: BoxShape.circle,
+                                          border: Border.all(color: Colors.white, width: 2),
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                        ],
                 ),
               ),
 
-            // 📄 ۵. باتم‌شیت‌ها بر اساس مراحل
-            if (widget.isPickerOnly)
-              _buildPickerPanel(),
+              // ⚠️ هشدار GPS در مرحله‌های بعد از انتخاب مبدأ/مقصد و در حالت هوم
+              if (_hasGpsDisruption && (_currentStep >= 2 || _isHome))
+                Positioned(
+                  top: statusBarHeight + 68,
+                  left: 16,
+                  right: 16,
+                  child: IgnorePointer(
+                    child: Center(child: _buildGpsBanner()),
+                  ),
+                ),
 
-            if (!widget.isPickerOnly && (_currentStep == 0 || _currentStep == 1))
-              SmartLocationSheet(
-                currentStep: _currentStep,
-                currentAddress: currentOrigin,
-                currentDestination: currentDestination,
-                isMapIdle: !_isMapMoving,
-                isExpanded: _isSheetExpanded,
-                hasGpsDisruption: _hasGpsDisruption,
-                onExpandChanged: (expanded) {
-                  setState(() => _isSheetExpanded = expanded);
-                },
-                onConfirmStep: () {
-                  if (_currentStep == 0) {
-                    _confirmOrigin();
-                  } else {
-                    _confirmDestination();
-                  }
-                },
-                onSearchOriginTap: (addr) async {
-                  final response = await Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (c) => const SearchDestinationPlace(updateDropOff: false),
-                    ),
-                  );
-                  final AddressModel? picked = _pickedAddress(response);
-                  if (picked == null || !mounted) return;
-                  await _confirmOrigin(
-                    at: LatLng(picked.latitudePosition!, picked.longitudePosition!),
-                    name: picked.placeName,
-                  );
-                },
-                onSearchDestinationTap: () async {
-                  if (widget.serviceType == 'intercity') {
-                    IntercitySheets.showCityPicker(
-                      context: context,
-                      targetCities: _intercityCities,
-                      onCitySelected: (selectedCity) {
-                        LatLng cityLatLng = LatLng(selectedCity['lat'], selectedCity['lng']);
-                        _animatedMapMove(cityLatLng, 13.0);
-                      },
-                    );
-                  } else {
+              // 📄 ۵. باتم‌شیت‌ها بر اساس مراحل
+              if (widget.isPickerOnly)
+                _buildPickerPanel(),
+
+              // 🏠 باتم‌شیت اول: انتخاب سرویس (هوم)
+              if (!widget.isPickerOnly && _isHome)
+                Align(
+                  alignment: Alignment.bottomCenter,
+                  child: HomeServicesSheet(
+                    selected: _homeSelected,
+                    onServiceSelected: _selectService,
+                    onSearchTap: () => _selectService(SafirService.taxi),
+                  ),
+                ),
+
+              if (!widget.isPickerOnly &&
+                  !_isHome &&
+                  (_currentStep == 0 || _currentStep == 1))
+                SmartLocationSheet(
+                  currentStep: _currentStep,
+                  currentAddress: currentOrigin,
+                  currentDestination: currentDestination,
+                  isMapIdle: !_isMapMoving,
+                  isExpanded: _isSheetExpanded,
+                  hasGpsDisruption: _hasGpsDisruption,
+                  onExpandChanged: (expanded) {
+                    setState(() => _isSheetExpanded = expanded);
+                  },
+                  onConfirmStep: () {
+                    if (_currentStep == 0) {
+                      _confirmOrigin();
+                    } else {
+                      _confirmDestination();
+                    }
+                  },
+                  onSearchOriginTap: (addr) async {
                     final response = await Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -3454,141 +3599,166 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
                     );
                     final AddressModel? picked = _pickedAddress(response);
                     if (picked == null || !mounted) return;
-                    // مارکر مقصد، ذخیره در AppInfo و رسم مسیر همه اینجا انجام می‌شود
-                    await _confirmDestination(
+                    await _confirmOrigin(
                       at: LatLng(picked.latitudePosition!, picked.longitudePosition!),
                       name: picked.placeName,
                     );
-                  }
-                },
-                onGpsTap: _handleGpsTap,
-                onSavedAddressSelected: _handleSavedAddressTap,
-                onPickFavoriteOnMap: () => Navigator.push<AddressModel>(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => SafirMapScreen(
-                      serviceType: widget.serviceType,
-                      isPickerOnly: true,
+                  },
+                  onSearchDestinationTap: () async {
+                    if (_serviceType == 'intercity') {
+                      IntercitySheets.showCityPicker(
+                        context: context,
+                        targetCities: _intercityCities,
+                        onCitySelected: (selectedCity) {
+                          LatLng cityLatLng = LatLng(selectedCity['lat'], selectedCity['lng']);
+                          _animatedMapMove(cityLatLng, 13.0);
+                        },
+                      );
+                    } else {
+                      final response = await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (c) => const SearchDestinationPlace(updateDropOff: false),
+                        ),
+                      );
+                      final AddressModel? picked = _pickedAddress(response);
+                      if (picked == null || !mounted) return;
+                      // مارکر مقصد، ذخیره در AppInfo و رسم مسیر همه اینجا انجام می‌شود
+                      await _confirmDestination(
+                        at: LatLng(picked.latitudePosition!, picked.longitudePosition!),
+                        name: picked.placeName,
+                      );
+                    }
+                  },
+                  onGpsTap: _handleGpsTap,
+                  onSavedAddressSelected: _handleSavedAddressTap,
+                  onPickFavoriteOnMap: () => Navigator.push<AddressModel>(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => SafirMapScreen(
+                        serviceType: _serviceType,
+                        isPickerOnly: true,
+                      ),
                     ),
                   ),
                 ),
-              ),
 
-            if (_currentStep == 2)
-              widget.serviceType == 'cargo'
-                  ? CargoSheets.buildCargoSummarySheet(
-                      context: context,
-                      fareAmount: actualFareAmount,
-                      distanceInKm: _tripDistanceInKm,
-                      selectedVehicleType: _cargoSelectedVehicle,
-                      onVehicleSelected: (vehicleId) {
-                        setState(() {
-                          _cargoSelectedVehicle = vehicleId;
-                          // قیمت واقعی همزمان با قیمت نمایش‌داده‌شده هماهنگ می‌شود
-                          actualFareAmount = CargoSheets.calculateFareForVehicle(
-                            vehicleId,
-                            _tripDistanceInKm,
-                          );
-                        });
-                      },
-                      paymentPayer: _cargoPaymentPayer,
-                      onPayerChanged: (payer) {
-                        setState(() => _cargoPaymentPayer = payer);
-                      },
-                      onRequestTrip: () => startTrip(),
-                    )
-                  : widget.serviceType == 'intercity'
-                      ? IntercitySheets.buildStep2IntercitySheet(
-                          context: context,
-                          fareAmount: actualFareAmount,
-                          distanceInKm: _tripDistanceInKm,
-                          originAddress: currentOrigin,
-                          destinationAddress: currentDestination,
-                          travelDate: _intercityTravelDate,
-                          passengerCount: _intercityPassengers,
-                          // ✅ ویرایش مبدأ/مقصد: به مرحلهٔ قبل برمی‌گردد
-                          onEditOrigin: () {
-                            _handleBackAction();
-                            _handleBackAction();
-                          },
-                          onEditDestination: _handleBackAction,
-                          onDateSelected: (date) => setState(() {
-                            _intercityTravelDate = date is DateTime ? date : null;
-                          }),
-                          onPassengersChanged: (count) => setState(() {
-                            _intercityPassengers = count;
-                            // کرایه با تعداد مسافر دوباره حساب می‌شود
-                            if (_tripDistanceInKm > 0) {
-                              actualFareAmount = _computeFare(_tripDistanceInKm);
-                            }
-                          }),
-                          onRequestTrip: () => startTrip(),
-                        )
-                      : MapBottomSheets.buildStep2(
-                          selectedCategory: _selectedCategory,
-                          selectedVehicleType: _selectedVehicleType,
-                          actualFareAmount: actualFareAmount,
-                          distanceInKm: _tripDistanceInKm,
-                          ecoFare: AppConfigService.instance.config
-                              .taxiFare(_tripDistanceInKm),
-                          vipFare: AppConfigService.instance.config
-                              .vipFare(_tripDistanceInKm),
-                          bikeFare: AppConfigService.instance.config
-                              .bikeFare(_tripDistanceInKm),
-                          safirColor: AppColors.primaryBrand,
-                          hasActiveTripOptions: _hasActiveTripOptions,
-                          isScheduled: _isScheduled,
-                          hasPromoCode: _hasPromoCode,
-                          onCategoryChanged: (cat) {
-                            setState(() {
-                              _selectedCategory = cat;
-                              _selectedVehicleType = 0;
-                              selectedVehicle = cat == 0 ? "Car" : "Bike";
-                            });
-                            _fetchRoute();
-                          },
-                          onVehicleSelected: (index, vType) {
-                            setState(() {
-                              _selectedVehicleType = index;
-                              selectedVehicle = vType;
-                            });
-                            _fetchRoute();
-                          },
-                          onRequestTrip: () => startTrip(),
-                          onTripOptionsTap: _openTripOptionsSheet,
-                          onScheduleTap: _openScheduleSheet,
-                          onPromoCodeTap: _openPromoCodeSheet,
-                        ),
+              if (_currentStep == 2)
+                _serviceType == 'cargo'
+                    ? CargoSheets.buildCargoSummarySheet(
+                        context: context,
+                        fareAmount: actualFareAmount,
+                        distanceInKm: _tripDistanceInKm,
+                        selectedVehicleType: _cargoSelectedVehicle,
+                        onVehicleSelected: (vehicleId) {
+                          setState(() {
+                            _cargoSelectedVehicle = vehicleId;
+                            // قیمت واقعی همزمان با قیمت نمایش‌داده‌شده هماهنگ می‌شود
+                            actualFareAmount = CargoSheets.calculateFareForVehicle(
+                              vehicleId,
+                              _tripDistanceInKm,
+                            );
+                          });
+                        },
+                        paymentPayer: _cargoPaymentPayer,
+                        onPayerChanged: (payer) {
+                          setState(() => _cargoPaymentPayer = payer);
+                        },
+                        onRequestTrip: () => startTrip(),
+                      )
+                    : _serviceType == 'intercity'
+                        ? IntercitySheets.buildStep2IntercitySheet(
+                            context: context,
+                            fareAmount: actualFareAmount,
+                            distanceInKm: _tripDistanceInKm,
+                            originAddress: currentOrigin,
+                            destinationAddress: currentDestination,
+                            travelDate: _intercityTravelDate,
+                            passengerCount: _intercityPassengers,
+                            // ✅ ویرایش مبدأ/مقصد: به مرحلهٔ قبل برمی‌گردد
+                            onEditOrigin: () {
+                              _handleBackAction();
+                              _handleBackAction();
+                            },
+                            onEditDestination: _handleBackAction,
+                            onDateSelected: (date) => setState(() {
+                              _intercityTravelDate = date is DateTime ? date : null;
+                            }),
+                            onPassengersChanged: (count) => setState(() {
+                              _intercityPassengers = count;
+                              // کرایه با تعداد مسافر دوباره حساب می‌شود
+                              if (_tripDistanceInKm > 0) {
+                                actualFareAmount = _computeFare(_tripDistanceInKm);
+                              }
+                            }),
+                            onRequestTrip: () => startTrip(),
+                          )
+                        : MapBottomSheets.buildStep2(
+                            selectedCategory: _selectedCategory,
+                            selectedVehicleType: _selectedVehicleType,
+                            actualFareAmount: actualFareAmount,
+                            distanceInKm: _tripDistanceInKm,
+                            ecoFare: AppConfigService.instance.config
+                                .taxiFare(_tripDistanceInKm),
+                            vipFare: AppConfigService.instance.config
+                                .vipFare(_tripDistanceInKm),
+                            bikeFare: AppConfigService.instance.config
+                                .bikeFare(_tripDistanceInKm),
+                            safirColor: AppColors.primaryBrand,
+                            hasActiveTripOptions: _hasActiveTripOptions,
+                            isScheduled: _isScheduled,
+                            hasPromoCode: _hasPromoCode,
+                            onCategoryChanged: (cat) {
+                              setState(() {
+                                _selectedCategory = cat;
+                                _selectedVehicleType = 0;
+                                selectedVehicle = cat == 0 ? "Car" : "Bike";
+                              });
+                              _fetchRoute();
+                            },
+                            onVehicleSelected: (index, vType) {
+                              setState(() {
+                                _selectedVehicleType = index;
+                                selectedVehicle = vType;
+                              });
+                              _fetchRoute();
+                            },
+                            onRequestTrip: () => startTrip(),
+                            onTripOptionsTap: _openTripOptionsSheet,
+                            onScheduleTap: _openScheduleSheet,
+                            onPromoCodeTap: _openPromoCodeSheet,
+                          ),
 
-            if (_currentStep == 3) ...[
-              MapBottomSheets.buildStep3(
-                safirColor: AppColors.primaryBrand,
-                originAddress: currentOrigin,
-                destinationAddress: currentDestination,
-                fareAmount: actualFareAmount,
-                onCancel: cancelTrip,
-              ),
-            ] else if (_currentStep == 4) ...[
-              MapBottomSheets.buildStep4(
-                AppColors.primaryBrand,
-                tripId: tripRequestRef?.id ?? "",
-                nameDriver: nameDriver,
-                photoDriver: photoDriver,
-                phoneNumberDriver: phoneNumberDriver,
-                carDetailsDriver: carDetailsDriver,
-                carColorDriver: _driverCarColor,
-                plateProvinceDriver: _driverPlateProvince,
-                plateCategoryDriver: _driverPlateCategory,
-                plateFarsiNumDriver: _driverPlateFarsiNum,
-                plateNumDriver: _driverPlateNum,
-                isTempPlateDriver: _driverIsTempPlate,
-                tripFareAmount: actualFareAmount,
-                etaMinutes: _etaMinutes > 0 ? _etaMinutes : 5,
-                isOnTrip: _lastTripStatus == TripStatus.onTrip,
-                onCancelTrip: cancelTrip,
-              ),
+              if (_currentStep == 3) ...[
+                MapBottomSheets.buildStep3(
+                  safirColor: AppColors.primaryBrand,
+                  originAddress: currentOrigin,
+                  destinationAddress: currentDestination,
+                  fareAmount: actualFareAmount,
+                  onCancel: cancelTrip,
+                ),
+              ] else if (_currentStep == 4) ...[
+                MapBottomSheets.buildStep4(
+                  AppColors.primaryBrand,
+                  tripId: tripRequestRef?.id ?? "",
+                  nameDriver: nameDriver,
+                  photoDriver: photoDriver,
+                  phoneNumberDriver: phoneNumberDriver,
+                  carDetailsDriver: carDetailsDriver,
+                  carColorDriver: _driverCarColor,
+                  plateProvinceDriver: _driverPlateProvince,
+                  plateCategoryDriver: _driverPlateCategory,
+                  plateFarsiNumDriver: _driverPlateFarsiNum,
+                  plateNumDriver: _driverPlateNum,
+                  isTempPlateDriver: _driverIsTempPlate,
+                  tripFareAmount: actualFareAmount,
+                  etaMinutes: _etaMinutes > 0 ? _etaMinutes : 5,
+                  isOnTrip: _lastTripStatus == TripStatus.onTrip,
+                  onCancelTrip: cancelTrip,
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
