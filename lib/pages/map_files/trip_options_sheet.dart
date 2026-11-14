@@ -182,7 +182,6 @@ class _TripOptionsSheetState extends State<TripOptionsSheet> {
                   title: _ot('opt_second_destination', 'مقصد دوم'),
                   subtitle: hasSecond ? _secondDestination! : '',
                   onTap: () {
-                    HapticFeedback.lightImpact();
                     Navigator.pop(context);
                     widget.onSelectSecondDestinationOnMap();
                   },
@@ -193,7 +192,6 @@ class _TripOptionsSheetState extends State<TripOptionsSheet> {
                           icon: Icon(Icons.close_rounded,
                               size: 20, color: AppColors.textSecondary),
                           onPressed: () {
-                            HapticFeedback.selectionClick();
                             setState(() => _secondDestination = null);
                           },
                         )
@@ -214,7 +212,6 @@ class _TripOptionsSheetState extends State<TripOptionsSheet> {
                             final bool sel = m == _stopMinutes;
                             return GestureDetector(
                               onTap: () {
-                                HapticFeedback.selectionClick();
                                 setState(() => _stopMinutes = m);
                               },
                               child: AnimatedContainer(
@@ -249,7 +246,6 @@ class _TripOptionsSheetState extends State<TripOptionsSheet> {
                       : null,
                   chevronTurned: _stopExpanded,
                   onTap: () {
-                    HapticFeedback.lightImpact();
                     setState(() => _stopExpanded = !_stopExpanded);
                   },
                 ),
@@ -263,7 +259,6 @@ class _TripOptionsSheetState extends State<TripOptionsSheet> {
                       'راننده منتظر می‌ماند و شما را برمی‌گرداند'),
                   value: _isRoundTrip,
                   onChanged: (val) {
-                    HapticFeedback.selectionClick();
                     setState(() => _isRoundTrip = val);
                   },
                 ),
@@ -292,7 +287,6 @@ class _TripOptionsSheetState extends State<TripOptionsSheet> {
                   value: _preferSilence,
                   isLast: true,
                   onChanged: (val) {
-                    HapticFeedback.selectionClick();
                     setState(() => _preferSilence = val);
                   },
                 ),
@@ -333,7 +327,6 @@ class _TripOptionsSheetState extends State<TripOptionsSheet> {
                               borderRadius: BorderRadius.circular(14)),
                         ),
                         onPressed: () {
-                          HapticFeedback.mediumImpact();
                           widget.onSave(
                             _secondDestination,
                             _stopMinutes,
