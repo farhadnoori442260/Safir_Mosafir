@@ -18,7 +18,6 @@ class MapWidgetsHelper {
       elevation: 0,
       child: InkWell(
         onTap: () {
-          HapticFeedback.lightImpact();
           onTap();
         },
         borderRadius: BorderRadius.circular(18),
@@ -81,7 +80,6 @@ class MapWidgetsHelper {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         ),
         onPressed: () {
-          HapticFeedback.mediumImpact();
           onTap();
         },
         child: Text(
@@ -110,7 +108,6 @@ class MapWidgetsHelper {
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: () {
-          HapticFeedback.selectionClick();
           onTap();
         },
         child: AnimatedContainer(
@@ -153,7 +150,6 @@ class MapWidgetsHelper {
     final bool isSelected = selectedVehicleType == index;
     return GestureDetector(
       onTap: () {
-        HapticFeedback.lightImpact();
         onTap();
       },
       child: AnimatedContainer(
