@@ -92,7 +92,6 @@ class _ChatPageState extends State<ChatPage> {
       return;
     }
 
-    HapticFeedback.lightImpact();
 
     setState(() {
       _isSending = true;
