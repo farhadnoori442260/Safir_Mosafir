@@ -95,7 +95,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   }
 
   Future<void> _updateWheelchair(bool val) async {
-    HapticFeedback.selectionClick();
     setState(() => _useWheelchair = val);
     User? currentUser = _auth.currentUser;
     if (currentUser != null) {
@@ -107,7 +106,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   }
 
   Future<void> _openEditProfileDrawer() async {
-    HapticFeedback.lightImpact();
 
     await Navigator.of(context).push(
       PageRouteBuilder(
@@ -129,7 +127,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   }
 
   void _showBadgeDetails(String title, String description, IconData icon, Color color) {
-    HapticFeedback.mediumImpact();
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -196,7 +193,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   }
 
   Future<void> _handleLogout({bool isSwitchAccount = false}) async {
-    HapticFeedback.mediumImpact();
 
     String title = isSwitchAccount
         ? ("switch_account_title".tr().isEmpty ? "تغییر حساب کاربری" : "switch_account_title".tr())
