@@ -324,13 +324,30 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
   StreamSubscription<Position>? _positionStreamSubscription;
 
   // ───────── وضعیت GPS ─────────
+  /// ✅ «اختلال GPS» فقط وقتی true است که GPS واقعاً خراب باشد (نه فقط ضعیف).
+  /// این مقدار از چهار علت ساخته می‌شود و در _recomputeGpsDisruption حساب می‌شود:
+  ///  ۱) سرویس موقعیت‌یابی خاموش است
+  ///  ۲) مجوز موقعیت داده نشده
+  ///  ۳) مدتی طولانی هیچ موقعیتی نیامده (بدون سیگنال)
+  ///  ۴) دقت فوق‌العاده بد است (چند صد متر؛ یعنی عملاً GPS نیست)
   bool _hasGpsDisruption = false;
+  bool _gpsServiceOff = false;
+  bool _gpsPermissionDenied = false;
+  bool _gpsNoSignal = false;
+  bool _gpsVeryPoor = false;
+  DateTime? _lastGpsFixAt;
+  DateTime? _gpsStartedAt;
+  Timer? _gpsWatchdogTimer;
   StreamSubscription<ServiceStatus>? _gpsServiceSubscription;
 
-  /// آستانه‌ها: بالاتر از ۵۰ متر = اختلال، پایین‌تر از ۳۵ متر = سالم
-  /// (دو آستانهٔ جدا برای جلوگیری از چشمک‌زدن هشدار)
-  static const double _gpsBadAccuracyMeters = 50.0;
-  static const double _gpsGoodAccuracyMeters = 35.0;
+  /// دقت بدتر از ۱۵۰ متر = اختلال؛ بهتر از ۱۰۰ متر = سالم
+  /// (دو آستانهٔ جدا برای جلوگیری از چشمک‌زدن هشدار).
+  /// دقت ۴۰ تا ۸۰ متر در شهر عادی است و دیگر هشدار نمی‌دهد.
+  static const double _gpsBadAccuracyMeters = 150.0;
+  static const double _gpsGoodAccuracyMeters = 100.0;
+
+  /// اگر این‌قدر هیچ موقعیتی نیامد، «بدون سیگنال» حساب می‌شود
+  static const Duration _gpsNoFixTimeout = Duration(seconds: 25);
 
   /// ✅ ارتفاع کل پین شناور (دایره ۳۰ + میله ۱۸). نوک پین باید دقیقاً روی
   /// مرکز نقشه بنشیند، پس پین به‌اندازهٔ «نصف ارتفاع» بالا برده می‌شود.
@@ -614,6 +631,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
     _searchTimeoutTimer?.cancel();
     _positionStreamSubscription?.cancel();
     _gpsServiceSubscription?.cancel();
+    _gpsWatchdogTimer?.cancel();
     tripStreamSubscription?.cancel();
     _driverLocationStreamSubscription?.cancel();
     _senderNameController.dispose();
@@ -706,7 +724,6 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
       _currentStep < 3;
 
   Future<void> _openForOtherSheet() async {
-    HapticFeedback.selectionClick();
 
     final Map<String, String>? result =
         await showModalBottomSheet<Map<String, String>>(
@@ -811,7 +828,6 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
             icon: Icons.person_rounded,
             onTap: () {
               if (!_rideForOther) return;
-              HapticFeedback.selectionClick();
               setState(() {
                 _rideForOther = false;
                 _otherName = '';
@@ -955,7 +971,6 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
   }
 
   void _openMenu() {
-    HapticFeedback.lightImpact();
 
     final bool isRtl = Directionality.of(context) == ui.TextDirection.rtl;
     if (isRtl) {
@@ -2037,24 +2052,93 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
   //  📍 موقعیت مسافر و وضعیت GPS
   // ════════════════════════════════════════════════════════════
 
-  void _setGpsDisruption(bool value) {
-    if (_hasGpsDisruption == value || !mounted) return;
-    setState(() => _hasGpsDisruption = value);
+  /// هشدار فقط وقتی نشان داده می‌شود که یکی از علت‌های «خرابی واقعی» فعال باشد
+  void _recomputeGpsDisruption() {
+    final bool broken = _gpsServiceOff ||
+        _gpsPermissionDenied ||
+        _gpsNoSignal ||
+        _gpsVeryPoor;
+
+    if (_hasGpsDisruption == broken || !mounted) return;
+    setState(() => _hasGpsDisruption = broken);
   }
 
-  /// تصمیم‌گیری هشدار بر اساس دقت، با دو آستانه تا هشدار چشمک نزند
-  void _evaluateGpsAccuracy(double accuracy) {
-    if (accuracy > _gpsBadAccuracyMeters) {
-      _setGpsDisruption(true);
-    } else if (accuracy <= _gpsGoodAccuracyMeters) {
-      _setGpsDisruption(false);
+  /// هر موقعیت تازه که می‌رسد: یعنی GPS کار می‌کند؛ فقط دقتِ فوق‌العاده بد
+  /// (با دو آستانه) اختلال حساب می‌شود.
+  void _onGpsFix(Position position) {
+    _lastGpsFixAt = DateTime.now();
+    _gpsNoSignal = false;
+    _gpsServiceOff = false;
+    _gpsPermissionDenied = false;
+
+    if (position.accuracy > _gpsBadAccuracyMeters) {
+      _gpsVeryPoor = true;
+    } else if (position.accuracy <= _gpsGoodAccuracyMeters) {
+      _gpsVeryPoor = false;
     }
+
+    _recomputeGpsDisruption();
+  }
+
+  /// اگر مدتی هیچ موقعیتی نیامد (سیگنال قطع شد) «بدون سیگنال» می‌شود.
+  /// چون استریم بدون فیلتر فاصله کار می‌کند، توقف کاربر باعث هشدار اشتباه نمی‌شود.
+  void _startGpsWatchdog() {
+    _gpsStartedAt = DateTime.now();
+    _gpsWatchdogTimer?.cancel();
+    _gpsWatchdogTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      if (!mounted) return;
+
+      final DateTime reference = _lastGpsFixAt ?? _gpsStartedAt ?? DateTime.now();
+      final bool stale =
+          DateTime.now().difference(reference) > _gpsNoFixTimeout;
+
+      if (stale != _gpsNoSignal) {
+        _gpsNoSignal = stale;
+        _recomputeGpsDisruption();
+      }
+    });
+  }
+
+  void _startPositionStream() {
+    _positionStreamSubscription?.cancel();
+    _positionStreamSubscription = Geolocator.getPositionStream(
+      locationSettings: AndroidSettings(
+        accuracy: LocationAccuracy.best,
+        // ✅ فیلتر فاصله حذف شد تا هر چند ثانیه حتی در حالت ایستاده موقعیت
+        // بیاید و بتوانیم «قطع‌شدن سیگنال» را درست تشخیص دهیم.
+        distanceFilter: 0,
+        intervalDuration: const Duration(seconds: 2),
+      ),
+    ).listen(
+      (Position position) {
+        if (!mounted) return;
+
+        // این مقادیر فقط در لحظهٔ نیاز خوانده می‌شوند؛ بدون setState
+        // تا کل صفحه با هر خوانش GPS rebuild نشود.
+        _currentUserLatLng = LatLng(position.latitude, position.longitude);
+        _currentGpsAccuracy = position.accuracy;
+
+        _onGpsFix(position);
+      },
+      onError: (Object e) async {
+        debugPrint('GPS stream error: $e');
+        // خطای استریم فقط وقتی اختلال است که سرویس واقعاً خاموش باشد؛
+        // وگرنه واچ‌داگ خودش بدون‌سیگنال را تشخیص می‌دهد.
+        try {
+          if (!await Geolocator.isLocationServiceEnabled()) {
+            _gpsServiceOff = true;
+            _recomputeGpsDisruption();
+          }
+        } catch (_) {}
+      },
+    );
   }
 
   Future<void> _startLiveLocationUpdates() async {
     try {
       if (!await Geolocator.isLocationServiceEnabled()) {
-        _setGpsDisruption(true);
+        _gpsServiceOff = true;
+        _recomputeGpsDisruption();
       }
 
       LocationPermission permission = await Geolocator.checkPermission();
@@ -2064,16 +2148,39 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
 
       if (permission == LocationPermission.denied ||
           permission == LocationPermission.deniedForever) {
-        _setGpsDisruption(true);
+        _gpsPermissionDenied = true;
+        _recomputeGpsDisruption();
         return;
       }
 
-      // اولین موقعیت جدا گرفته می‌شود تا خطایش، استریم را متوقف نکند
+      _startGpsWatchdog();
+
+      // خاموش/روشن‌شدن GPS در حین کار
+      _gpsServiceSubscription?.cancel();
+      _gpsServiceSubscription =
+          Geolocator.getServiceStatusStream().listen((ServiceStatus status) {
+        if (status == ServiceStatus.disabled) {
+          _gpsServiceOff = true;
+          _recomputeGpsDisruption();
+        } else {
+          // دوباره روشن شد: هشدار برداشته می‌شود و استریم از نو شروع می‌شود
+          _gpsServiceOff = false;
+          _gpsStartedAt = DateTime.now();
+          _lastGpsFixAt = null;
+          _recomputeGpsDisruption();
+          _startPositionStream();
+        }
+      });
+
+      // اولین موقعیت جدا گرفته می‌شود تا خطایش، استریم را متوقف نکند.
+      // ✅ شکست/تایم‌اوت این مرحله دیگر هشدار نمی‌دهد (کاربر داخل ساختمان یا
+      // استارت سرد GPS عادی است)؛ استریم و واچ‌داگ تصمیم می‌گیرند.
+      _startPositionStream();
+
       try {
         final Position initialPosition = await Geolocator.getCurrentPosition(
-          // ✅ دقت بیشتر برای نقطهٔ شروع (قبلاً high بود)
           desiredAccuracy: LocationAccuracy.best,
-          timeLimit: const Duration(seconds: 10),
+          timeLimit: const Duration(seconds: 15),
         );
 
         if (mounted) {
@@ -2085,7 +2192,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
             _currentGpsAccuracy = initialPosition.accuracy;
           });
 
-          _evaluateGpsAccuracy(initialPosition.accuracy);
+          _onGpsFix(initialPosition);
 
           // در سفر آماده، دوربین نباید به موقعیت کاربر برگردد
           if (!_hasPreset) {
@@ -2098,45 +2205,9 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
         }
       } catch (e) {
         debugPrint('Initial GPS fix failed: $e');
-        _setGpsDisruption(true);
       }
-
-      // خاموش‌شدن GPS در حین کار
-      _gpsServiceSubscription?.cancel();
-      _gpsServiceSubscription =
-          Geolocator.getServiceStatusStream().listen((ServiceStatus status) {
-        if (status == ServiceStatus.disabled) {
-          _setGpsDisruption(true);
-        }
-      });
-
-      _positionStreamSubscription?.cancel();
-      _positionStreamSubscription = Geolocator.getPositionStream(
-        locationSettings: AndroidSettings(
-          // ✅ دقت بیشتر در استریم (قبلاً medium بود)
-          accuracy: LocationAccuracy.best,
-          distanceFilter: 3,
-          intervalDuration: const Duration(seconds: 1),
-        ),
-      ).listen(
-        (Position position) {
-          if (!mounted) return;
-
-          // این مقادیر فقط در لحظهٔ نیاز خوانده می‌شوند؛ بدون setState
-          // تا کل صفحه با هر خوانش GPS rebuild نشود.
-          _currentUserLatLng = LatLng(position.latitude, position.longitude);
-          _currentGpsAccuracy = position.accuracy;
-
-          _evaluateGpsAccuracy(position.accuracy);
-        },
-        onError: (Object e) {
-          debugPrint('GPS stream error: $e');
-          _setGpsDisruption(true);
-        },
-      );
     } catch (e) {
       debugPrint("Error fetching GPS location stream: $e");
-      _setGpsDisruption(true);
     }
   }
 
@@ -2157,7 +2228,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
           _currentGpsAccuracy = pos.accuracy;
         });
 
-        _evaluateGpsAccuracy(pos.accuracy);
+        _onGpsFix(pos);
 
         _animatedMapMove(freshPoint, 16.8);
 
@@ -2166,10 +2237,11 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
         }
       }
     } catch (_) {
-      // زمان‌گذشته یا GPS خاموش؛ اگر سرویس خاموش است هشدار بده
+      // زمان‌گذشته یا GPS خاموش؛ فقط اگر سرویس واقعاً خاموش است هشدار بده
       try {
         if (!await Geolocator.isLocationServiceEnabled()) {
-          _setGpsDisruption(true);
+          _gpsServiceOff = true;
+          _recomputeGpsDisruption();
         }
       } catch (_) {}
     }
@@ -2617,7 +2689,6 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
   }
 
   Future<void> _confirmDestinationImpl({LatLng? at, String? name}) async {
-    HapticFeedback.mediumImpact();
 
     if (_mapController == null) return;
 
@@ -2909,7 +2980,6 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
   // ════════════════════════════════════════════════════════════
 
   void startTrip() async {
-    HapticFeedback.heavyImpact();
 
     if (_isRequestingTrip) return;
 
@@ -3277,7 +3347,6 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
   }
 
   Future<void> _cancelTripInternal() async {
-    HapticFeedback.lightImpact();
 
     if (_isCancellingTrip) return;
 
@@ -3396,7 +3465,6 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
   }
 
   void _handleBackAction() {
-    HapticFeedback.lightImpact();
 
     // وقتی سفر ثبت شده (جستجوی راننده / راننده در راه)، دکمهٔ برگشت مرحله را
     // کم نمی‌کند؛ لغو فقط با دکمهٔ «لغو سفر» انجام می‌شود. قبلاً این‌جا
@@ -3569,7 +3637,6 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
     final LatLng? target = _mapController?.cameraPosition?.target;
     if (target == null || _pickerAddress.isEmpty) return;
 
-    HapticFeedback.mediumImpact();
 
     Navigator.pop<AddressModel>(
       context,
@@ -4283,12 +4350,10 @@ class _ForOtherSheetState extends State<_ForOtherSheet> {
 
   void _submit() {
     if (!_isPhoneValid) {
-      HapticFeedback.lightImpact();
       setState(() => _showError = true);
       return;
     }
 
-    HapticFeedback.mediumImpact();
     Navigator.pop<Map<String, String>>(context, <String, String>{
       'name': _nameController.text.trim(),
       'phone': _cleanPhone,
