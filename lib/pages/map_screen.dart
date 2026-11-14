@@ -189,6 +189,38 @@ const Map<String, Map<String, String>> _mapFallbacks = {
     'fa': 'ثبت درخواست انجام نشد. دوباره تلاش کنید.',
     'en': 'Could not send the request. Please try again.',
   },
+  'ride_for_me': {'fa': 'برای خودم', 'en': 'For me', 'ps': 'زما لپاره'},
+  'ride_for_other': {
+    'fa': 'برای دیگران',
+    'en': 'For someone else',
+    'ps': 'د بل چا لپاره',
+  },
+  'other_sheet_title': {
+    'fa': 'سفر برای نفر دیگر',
+    'en': 'Ride for someone else',
+    'ps': 'د بل کس لپاره سفر',
+  },
+  'other_sheet_desc': {
+    'fa': 'شمارهٔ مسافر را وارد کنید تا راننده هنگام رسیدن با او تماس بگیرد.',
+    'en': 'Enter the passenger\'s number so the driver can call them on arrival.',
+    'ps': 'د مسافر شمېره ولیکئ ترڅو ډرایور د رسیدو پر مهال ورسره اړیکه ونیسي.',
+  },
+  'other_name_hint': {
+    'fa': 'نام مسافر (اختیاری)',
+    'en': 'Passenger name (optional)',
+    'ps': 'د مسافر نوم (اختیاري)',
+  },
+  'other_phone_hint': {
+    'fa': 'شمارهٔ تماس مسافر',
+    'en': 'Passenger phone number',
+    'ps': 'د مسافر د اړیکې شمېره',
+  },
+  'other_phone_invalid': {
+    'fa': 'شمارهٔ تماس معتبر نیست.',
+    'en': 'Please enter a valid phone number.',
+    'ps': 'د اړیکې شمېره سمه نه ده.',
+  },
+  'cancel': {'fa': 'انصراف', 'en': 'Cancel', 'ps': 'لغوه'},
   'no_driver_found_msg': {
     'fa': 'راننده‌ای برای سفر شما پیدا نشد. لطفاً دوباره تلاش کنید.',
     'en': 'No driver was found for your trip. Please try again.',
@@ -445,6 +477,11 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
   DateTime? _scheduledDateTime;
   String? _appliedPromoCode;
 
+  // ───────── سفر برای نفر دیگر (فقط تاکسی شهری) ─────────
+  bool _rideForOther = false;
+  String _otherName = '';
+  String _otherPhone = '';
+
   bool get _hasActiveTripOptions =>
       _secondDestinationAddress != null ||
       _stopDurationMinutes > 0 ||
@@ -641,6 +678,9 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
       _isHome = false;
       _isSheetExpanded = true;
       _isMapMoving = false;
+      _rideForOther = false;
+      _otherName = '';
+      _otherPhone = '';
     });
 
     // آدرس مبدأ را از مرکز فعلی نقشه تازه کن
@@ -648,6 +688,263 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
     if (center != null) {
       _updateAddressFromCamera(center);
     }
+  }
+
+  // ════════════════════════════════════════════════════════════
+  //  👥 سفر برای نفر دیگر
+  // ════════════════════════════════════════════════════════════
+
+  bool get _showRideForToggle =>
+      !widget.isPickerOnly &&
+      !_isHome &&
+      _serviceType == 'taxi' &&
+      _currentStep < 3;
+
+  Future<void> _openForOtherSheet() async {
+    HapticFeedback.selectionClick();
+
+    final Map<String, String>? result =
+        await showModalBottomSheet<Map<String, String>>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (BuildContext sheetContext) => _ForOtherSheet(
+        initialName: _otherName,
+        initialPhone: _otherPhone,
+        title: _mapTr(context, 'other_sheet_title'),
+        description: _mapTr(context, 'other_sheet_desc'),
+        nameHint: _mapTr(context, 'other_name_hint'),
+        phoneHint: _mapTr(context, 'other_phone_hint'),
+        invalidPhoneText: _mapTr(context, 'other_phone_invalid'),
+        confirmText: _mapTr(context, 'confirm'),
+        cancelText: _mapTr(context, 'cancel'),
+      ),
+    );
+
+    if (result == null || !mounted) return;
+
+    setState(() {
+      _rideForOther = true;
+      _otherName = result['name'] ?? '';
+      _otherPhone = result['phone'] ?? '';
+    });
+  }
+
+  Widget _buildRideForToggle() {
+    Widget segment({
+      required String label,
+      required bool selected,
+      required IconData icon,
+      required VoidCallback onTap,
+    }) {
+      return Flexible(
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            height: 38,
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            decoration: BoxDecoration(
+              color: selected ? AppColors.primaryBrand : Colors.transparent,
+              borderRadius: BorderRadius.circular(19),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  icon,
+                  size: 16,
+                  color: selected
+                      ? AppColors.buttonText
+                      : AppColors.textSecondary,
+                ),
+                const SizedBox(width: 5),
+                Flexible(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: selected
+                          ? AppColors.buttonText
+                          : AppColors.textSecondary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      height: 44,
+      margin: const EdgeInsets.symmetric(horizontal: 8),
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: AppColors.cardBgLight,
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: const [
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 10,
+            offset: Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          segment(
+            label: _mapTr(context, 'ride_for_me'),
+            selected: !_rideForOther,
+            icon: Icons.person_rounded,
+            onTap: () {
+              if (!_rideForOther) return;
+              HapticFeedback.selectionClick();
+              setState(() {
+                _rideForOther = false;
+                _otherName = '';
+                _otherPhone = '';
+              });
+            },
+          ),
+          segment(
+            label: _mapTr(context, 'ride_for_other'),
+            selected: _rideForOther,
+            icon: Icons.group_rounded,
+            onTap: _openForOtherSheet,
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ════════════════════════════════════════════════════════════
+  //  ⭐ بعد از پایان سفر: صفحهٔ امتیاز، سپس برگشت به هوم
+  // ════════════════════════════════════════════════════════════
+
+  Future<void> _openRatingAndReset(String driverId) async {
+    if (!mounted) return;
+
+    final String tripId = tripRequestRef?.id ?? '';
+
+    await Navigator.push<void>(
+      context,
+      MaterialPageRoute<void>(
+        builder: (_) => RateDriverScreen(
+          tripId: tripId,
+          driverId: driverId,
+          driverName: nameDriver,
+          carModel: carDetailsDriver,
+          plateNumber: _driverPlateFarsiNum.isNotEmpty
+              ? _driverPlateFarsiNum
+              : _driverPlateNum,
+          driverPhoto: photoDriver,
+        ),
+      ),
+    );
+
+    if (!mounted) return;
+
+    if (widget.startAtHome && !widget.isPickerOnly) {
+      await _resetToHomeAfterTrip();
+    } else {
+      // رفتار قبلی: نقشه بسته می‌شود و به صفحهٔ قبل برمی‌گردد
+      Navigator.pop(context);
+    }
+  }
+
+  /// همهٔ وضعیت سفر را پاک می‌کند و باتم‌شیت اول (هوم) را دوباره نشان می‌دهد
+  Future<void> _resetToHomeAfterTrip() async {
+    _searchTimeoutTimer?.cancel();
+
+    await tripStreamSubscription?.cancel();
+    tripStreamSubscription = null;
+
+    await _stopListeningToDriverLocation();
+
+    final MapLibreMapController? c = _mapController;
+    if (c != null) {
+      try {
+        if (_originSymbol != null) await c.removeSymbol(_originSymbol!);
+      } catch (_) {}
+      try {
+        if (_destinationSymbol != null) {
+          await c.removeSymbol(_destinationSymbol!);
+        }
+      } catch (_) {}
+      try {
+        await c.clearLines();
+      } catch (_) {}
+    }
+
+    _originSymbol = null;
+    _destinationSymbol = null;
+    _routePolylinePoints.clear();
+
+    tripRequestRef = null;
+    _lastTripStatus = null;
+    _isTripFinished = false;
+    _isRequestingTrip = false;
+    _isCancellingTrip = false;
+    _hasPlayedAcceptedSound = false;
+    _hasPlayedArrivedSound = false;
+    _tripOriginLatLng = null;
+    _tripDestinationLatLng = null;
+
+    _tripDistanceInKm = 0.0;
+    actualFareAmount = 50.0;
+    _tripDurationText = '';
+    _estimatedArrivalTime = '--:--';
+
+    _secondDestinationAddress = null;
+    _stopDurationMinutes = 0;
+    _isRoundTrip = false;
+    _hasExtraLuggage = false;
+    _preferSilence = false;
+    _scheduledDateTime = null;
+    _appliedPromoCode = null;
+    _intercityTravelDate = null;
+    _intercityPassengers = 1;
+
+    _senderNameController.clear();
+    _senderPhoneController.clear();
+    _senderAddressController.clear();
+    _senderUnitController.clear();
+    _senderFloorController.clear();
+    _senderNoteController.clear();
+    _receiverNameController.clear();
+    _receiverPhoneController.clear();
+    _receiverAddressController.clear();
+    _receiverUnitController.clear();
+    _receiverFloorController.clear();
+    _receiverNoteController.clear();
+
+    if (!mounted) return;
+
+    setState(() {
+      _originLatLng = null;
+      _destinationLatLng = null;
+      _rideForOther = false;
+      _otherName = '';
+      _otherPhone = '';
+      _serviceType = 'taxi';
+      selectedVehicle = 'taxi';
+      _selectedCategory = 0;
+      _selectedVehicleType = 0;
+      _currentStep = 0;
+      _isHome = true;
+      _isMapMoving = false;
+      _isSheetExpanded = true;
+    });
+
+    _animatedMapMove(_currentUserLatLng, 15.0);
   }
 
   void _openMenu() {
@@ -2713,6 +3010,20 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
               : null,
           'promo_code': _appliedPromoCode,
 
+          // ───── سفر برای نفر دیگر ─────
+          // راننده باید هنگام رسیدن با «contact_phone» تماس بگیرد
+          'ride_for_other': _serviceType == 'taxi' && _rideForOther,
+          'contact_phone': (_serviceType == 'taxi' && _rideForOther)
+              ? _otherPhone
+              : passengerPhoneVal,
+          'contact_name': (_serviceType == 'taxi' && _rideForOther)
+              ? (_otherName.isNotEmpty ? _otherName : 'مسافر')
+              : passengerNameVal,
+          if (_serviceType == 'taxi' && _rideForOther) ...<String, dynamic>{
+            'other_passenger_name': _otherName,
+            'other_passenger_phone': _otherPhone,
+          },
+
           // ───── باربری ─────
           if (_serviceType == 'cargo') ...<String, dynamic>{
             'cargo_vehicle': _cargoSelectedVehicle,
@@ -2828,19 +3139,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
             _stopListeningToDriverLocation();
 
             if (mounted) {
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => RateDriverScreen(
-                    tripId: tripRequestRef?.id ?? "",
-                    driverId: driverId,
-                    driverName: nameDriver,
-                    carModel: carDetailsDriver,
-                    plateNumber: _driverPlateFarsiNum.isNotEmpty ? _driverPlateFarsiNum : _driverPlateNum,
-                    driverPhoto: photoDriver,
-                  ),
-                ),
-              );
+              unawaited(_openRatingAndReset(driverId));
             }
           }
         });
@@ -3512,6 +3811,14 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
                             ),
                           ),
                           if (!widget.isPickerOnly)
+                            Expanded(
+                              child: Center(
+                                child: _showRideForToggle
+                                    ? _buildRideForToggle()
+                                    : const SizedBox.shrink(),
+                              ),
+                            ),
+                          if (!widget.isPickerOnly)
                             _buildRoundTopButton(
                               onTap: _showAdvancedProfile,
                               child: Stack(
@@ -3847,5 +4154,258 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
 
     double bearing = atan2(y, x);
     return (bearing * 180 / pi + 360) % 360;
+  }
+}
+
+
+/// باتم‌شیت گرفتن شمارهٔ نفر دیگر (برای سفر «برای دیگران»)
+class _ForOtherSheet extends StatefulWidget {
+  const _ForOtherSheet({
+    required this.initialName,
+    required this.initialPhone,
+    required this.title,
+    required this.description,
+    required this.nameHint,
+    required this.phoneHint,
+    required this.invalidPhoneText,
+    required this.confirmText,
+    required this.cancelText,
+  });
+
+  final String initialName;
+  final String initialPhone;
+  final String title;
+  final String description;
+  final String nameHint;
+  final String phoneHint;
+  final String invalidPhoneText;
+  final String confirmText;
+  final String cancelText;
+
+  @override
+  State<_ForOtherSheet> createState() => _ForOtherSheetState();
+}
+
+class _ForOtherSheetState extends State<_ForOtherSheet> {
+  late final TextEditingController _nameController;
+  late final TextEditingController _phoneController;
+  bool _showError = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController(text: widget.initialName);
+    _phoneController = TextEditingController(text: widget.initialPhone);
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _phoneController.dispose();
+    super.dispose();
+  }
+
+  String get _cleanPhone =>
+      _phoneController.text.replaceAll(RegExp(r'[\s\-()]'), '');
+
+  bool get _isPhoneValid => RegExp(r'^\+?\d{9,15}$').hasMatch(_cleanPhone);
+
+  void _submit() {
+    if (!_isPhoneValid) {
+      HapticFeedback.lightImpact();
+      setState(() => _showError = true);
+      return;
+    }
+
+    HapticFeedback.mediumImpact();
+    Navigator.pop<Map<String, String>>(context, <String, String>{
+      'name': _nameController.text.trim(),
+      'phone': _cleanPhone,
+    });
+  }
+
+  InputDecoration _decoration(String hint, IconData icon) {
+    return InputDecoration(
+      hintText: hint,
+      hintStyle: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+      prefixIcon: Icon(icon, color: AppColors.primaryBrand, size: 22),
+      counterText: '',
+      filled: true,
+      fillColor: AppColors.backgroundLight,
+      contentPadding: const EdgeInsets.symmetric(vertical: 14),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: BorderSide(color: AppColors.fieldBorder),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: BorderSide(color: AppColors.fieldBorder),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: BorderSide(color: AppColors.primaryBrand, width: 1.5),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppColors.cardBgLight,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+        child: SafeArea(
+          top: false,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: AppColors.handle,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Row(
+                  children: [
+                    Icon(Icons.group_rounded,
+                        color: AppColors.primaryBrand, size: 24),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        widget.title,
+                        style: TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: 17,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  widget.description,
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 13,
+                    height: 1.6,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _nameController,
+                  maxLength: 40,
+                  textInputAction: TextInputAction.next,
+                  cursorColor: AppColors.primaryBrand,
+                  style: TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 14,
+                  ),
+                  decoration:
+                      _decoration(widget.nameHint, Icons.person_outline_rounded),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _phoneController,
+                  maxLength: 16,
+                  keyboardType: TextInputType.phone,
+                  textDirection: ui.TextDirection.ltr,
+                  textInputAction: TextInputAction.done,
+                  cursorColor: AppColors.primaryBrand,
+                  inputFormatters: <TextInputFormatter>[
+                    FilteringTextInputFormatter.allow(RegExp(r'[0-9+\s\-]')),
+                  ],
+                  onChanged: (_) {
+                    if (_showError) setState(() => _showError = false);
+                  },
+                  onSubmitted: (_) => _submit(),
+                  style: TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  decoration:
+                      _decoration(widget.phoneHint, Icons.phone_rounded),
+                ),
+                if (_showError)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8, right: 4, left: 4),
+                    child: Text(
+                      widget.invalidPhoneText,
+                      style: TextStyle(
+                        color: AppColors.danger,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                const SizedBox(height: 18),
+                Row(
+                  children: [
+                    Expanded(
+                      child: SizedBox(
+                        height: 50,
+                        child: OutlinedButton(
+                          onPressed: () => Navigator.pop(context),
+                          style: OutlinedButton.styleFrom(
+                            side: BorderSide(color: AppColors.fieldBorder),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                          ),
+                          child: Text(
+                            widget.cancelText,
+                            style: TextStyle(
+                              color: AppColors.textPrimary,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      flex: 2,
+                      child: SizedBox(
+                        height: 50,
+                        child: ElevatedButton(
+                          onPressed: _submit,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primaryButton,
+                            foregroundColor: AppColors.buttonText,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                          ),
+                          child: Text(
+                            widget.confirmText,
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
