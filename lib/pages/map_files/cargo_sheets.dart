@@ -1,6 +1,7 @@
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:safir_passengers/services/app_config_service.dart';
 import '../../theme/app_colors.dart';
 import '../../global/global_var.dart';
@@ -613,13 +614,41 @@ class _CargoPartyScreenState extends State<_CargoPartyScreen> {
   }
 
   void _useMyInfo() {
-    setState(() {
-      if (widget.onUseMyInfoPressed != null) {
+    if (widget.onUseMyInfoPressed != null) {
+      setState(() {
         widget.onUseMyInfoPressed!();
-      } else {
-        widget.nameController.text = userName;
-        widget.phoneController.text = userPhone;
-      }
+        _nameError = null;
+        _phoneError = null;
+      });
+      return;
+    }
+
+    // ✅ اول متغیرهای سراسری (global_var)، اگر خالی بودند از حساب Firebase
+    // (همان منبعی که موقع ثبت سفر نام و شماره مسافر از آن خوانده می‌شود)
+    final User? authUser = FirebaseAuth.instance.currentUser;
+
+    final String name = userName.trim().isNotEmpty
+        ? userName.trim()
+        : (authUser?.displayName ?? '').trim();
+
+    final String phone = userPhone.trim().isNotEmpty
+        ? userPhone.trim()
+        : (authUser?.phoneNumber ?? '').trim();
+
+    if (name.isEmpty && phone.isEmpty) {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('اطلاعات حساب شما پیدا نشد. لطفاً دستی وارد کنید.'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      if (name.isNotEmpty) widget.nameController.text = name;
+      if (phone.isNotEmpty) widget.phoneController.text = phone;
 
       _nameError = null;
       _phoneError = null;
