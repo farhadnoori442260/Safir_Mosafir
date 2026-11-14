@@ -173,7 +173,6 @@ class InviteFriendsScreen extends StatelessWidget {
                   borderRadius: BorderRadius.circular(20),
                   onTap: () {
                     Clipboard.setData(ClipboardData(text: referralCode));
-                    HapticFeedback.mediumImpact();
                     ScaffoldMessenger.of(context)
                       ..hideCurrentSnackBar()
                       ..showSnackBar(
@@ -287,7 +286,6 @@ class InviteFriendsScreen extends StatelessWidget {
                     ),
                   ),
                   onPressed: () {
-                    HapticFeedback.mediumImpact();
                     Share.share(ReferralService.shareMessage);
                   },
                   icon: Icon(Icons.share_rounded,
