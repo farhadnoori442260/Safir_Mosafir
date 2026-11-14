@@ -332,6 +332,11 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
   static const double _gpsBadAccuracyMeters = 50.0;
   static const double _gpsGoodAccuracyMeters = 35.0;
 
+  /// ✅ ارتفاع کل پین شناور (دایره ۳۰ + میله ۱۸). نوک پین باید دقیقاً روی
+  /// مرکز نقشه بنشیند، پس پین به‌اندازهٔ «نصف ارتفاع» بالا برده می‌شود.
+  static const double _pinTotalHeight = 48.0;
+  static const double _pinLiftWhenMoving = 25.0;
+
   LatLng? _originLatLng;
   LatLng? _destinationLatLng;
 
@@ -863,6 +868,8 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
   /// همهٔ وضعیت سفر را پاک می‌کند و باتم‌شیت اول (هوم) را دوباره نشان می‌دهد
   Future<void> _resetToHomeAfterTrip() async {
     _searchTimeoutTimer?.cancel();
+    _debounceTimer?.cancel();
+    _geocodeRequestId++;
 
     await tripStreamSubscription?.cancel();
     tripStreamSubscription = null;
@@ -2064,7 +2071,8 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
       // اولین موقعیت جدا گرفته می‌شود تا خطایش، استریم را متوقف نکند
       try {
         final Position initialPosition = await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.high,
+          // ✅ دقت بیشتر برای نقطهٔ شروع (قبلاً high بود)
+          desiredAccuracy: LocationAccuracy.best,
           timeLimit: const Duration(seconds: 10),
         );
 
@@ -2083,7 +2091,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
           if (!_hasPreset) {
             _animatedMapMove(target, 15.0);
 
-            if (_currentStep < 2) {
+            if (_currentStep < 2 && !_isHome) {
               _updateAddressFromCamera(target);
             }
           }
@@ -2105,7 +2113,8 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
       _positionStreamSubscription?.cancel();
       _positionStreamSubscription = Geolocator.getPositionStream(
         locationSettings: AndroidSettings(
-          accuracy: LocationAccuracy.medium,
+          // ✅ دقت بیشتر در استریم (قبلاً medium بود)
+          accuracy: LocationAccuracy.best,
           distanceFilter: 3,
           intervalDuration: const Duration(seconds: 1),
         ),
@@ -2137,7 +2146,8 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
 
     try {
       final Position pos = await Geolocator.getCurrentPosition(
-        timeLimit: const Duration(seconds: 3),
+        desiredAccuracy: LocationAccuracy.best,
+        timeLimit: const Duration(seconds: 4),
       );
 
       final LatLng freshPoint = LatLng(pos.latitude, pos.longitude);
@@ -2271,10 +2281,18 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
     }
   }
 
+  /// ✅ ژئوکدینگ معکوس مرکز نقشه.
+  ///
+  /// اصلاح مهم: مرحله‌ای که درخواست در آن شروع شده ذخیره می‌شود و اگر تا
+  /// رسیدن پاسخ مرحله عوض شده باشد (مثلاً کاربر مبدأ را تأیید کرده)، پاسخ
+  /// دور ریخته می‌شود. قبلاً پاسخ دیررسیده، مختصات «مبدأ» را روی «مقصد»
+  /// (یا برعکس) می‌نوشت و مارکر/سفر با چند متر خطا ثبت می‌شد.
   void _updateAddressFromCamera(LatLng center) {
     if (widget.isPickerOnly && mounted && !_pickerLoading) {
       setState(() => _pickerLoading = true);
     }
+
+    final int stepAtRequest = _currentStep;
 
     _debounceTimer?.cancel();
     _debounceTimer = Timer(const Duration(milliseconds: 300), () async {
@@ -2288,8 +2306,9 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
             .get(url, headers: {'User-Agent': 'safir_passengers'})
             .timeout(const Duration(seconds: 8));
 
-        // پاسخ کهنه (کاربر نقشه را دوباره جابه‌جا کرده) نادیده گرفته می‌شود
+        // پاسخ کهنه (کاربر نقشه را دوباره جابه‌جا کرده یا تأیید زده) نادیده گرفته می‌شود
         if (requestId != _geocodeRequestId) return;
+        if (!widget.isPickerOnly && stepAtRequest != _currentStep) return;
 
         if (response.statusCode == 200 && mounted) {
           final data = json.decode(response.body);
@@ -2352,6 +2371,98 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
     });
   }
 
+  /// با تأیید مبدأ/مقصد، هر ژئوکدینگ در راه باطل می‌شود
+  void _cancelPendingGeocode() {
+    _debounceTimer?.cancel();
+    _geocodeRequestId++;
+  }
+
+  // ───────── مارکرهای مبدأ و مقصد ─────────
+
+  Future<void> _addOriginMarker(LatLng point) async {
+    final MapLibreMapController? c = _mapController;
+    if (c == null) return;
+
+    final Uint8List bytes = _originLabelBytes ??=
+        await widgetToImageBytes(MapOriginLabel(labelText: 'origin'.tr()));
+    if (_mapController == null) return;
+
+    await c.addImage('origin-marker-icon', bytes);
+
+    if (_originSymbol != null) {
+      try {
+        await c.removeSymbol(_originSymbol!);
+      } catch (_) {}
+    }
+
+    _originSymbol = await c.addSymbol(
+      SymbolOptions(
+        geometry: point,
+        iconImage: 'origin-marker-icon',
+        iconAnchor: 'bottom',
+      ),
+    );
+  }
+
+  Future<void> _addDestinationMarker(LatLng point) async {
+    final MapLibreMapController? c = _mapController;
+    if (c == null) return;
+
+    final Uint8List bytes = await widgetToImageBytes(
+      MapDestinationLabel(
+        labelText: 'destination'.tr(),
+        arrivalTime: _estimatedArrivalTime,
+      ),
+    );
+    if (_mapController == null) return;
+
+    await c.addImage('dest-marker-icon', bytes);
+
+    if (_destinationSymbol != null) {
+      try {
+        await c.removeSymbol(_destinationSymbol!);
+      } catch (_) {}
+    }
+
+    _destinationSymbol = await c.addSymbol(
+      SymbolOptions(
+        geometry: point,
+        iconImage: 'dest-marker-icon',
+        iconAnchor: 'bottom',
+      ),
+    );
+  }
+
+  /// ✅ وقتی استایل نقشه دوباره لود می‌شود (مثلاً با عوض‌شدن تم)، مارکرها و
+  /// خط مسیر پیش‌نمایش پاک می‌شوند؛ این تابع آن‌ها را سر جای خودشان برمی‌گرداند.
+  Future<void> _restoreTripMarkers() async {
+    _originSymbol = null;
+    _destinationSymbol = null;
+
+    try {
+      if (_originLatLng != null) {
+        await _addOriginMarker(_originLatLng!);
+      }
+      if (_destinationLatLng != null) {
+        await _addDestinationMarker(_destinationLatLng!);
+      }
+
+      if (_currentStep == 2 &&
+          _routePolylinePoints.length >= 2 &&
+          _mapController != null) {
+        await _mapController!.addLine(
+          LineOptions(
+            geometry: _routePolylinePoints,
+            lineColor: AppColors.routeLineHex,
+            lineWidth: 5.5,
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('Error restoring markers: $e');
+    }
+  }
+
   /// مبدأ و مقصد آمادهٔ «تکرار/برگشت سفر» را روی نقشه می‌گذارد
   Future<void> _applyPresetTrip() async {
     if (_presetApplied || !_hasPreset || _mapController == null || !mounted) {
@@ -2391,39 +2502,8 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
     );
 
     try {
-      final Uint8List originBytes =
-          await widgetToImageBytes(MapOriginLabel(labelText: 'origin'.tr()));
-      await _mapController!.addImage('origin-marker-icon', originBytes);
-
-      if (_originSymbol != null) {
-        await _mapController!.removeSymbol(_originSymbol!);
-      }
-      _originSymbol = await _mapController!.addSymbol(
-        SymbolOptions(
-          geometry: origin,
-          iconImage: 'origin-marker-icon',
-          iconAnchor: 'bottom',
-        ),
-      );
-
-      final Uint8List destinationBytes = await widgetToImageBytes(
-        MapDestinationLabel(
-          labelText: 'destination'.tr(),
-          arrivalTime: _estimatedArrivalTime,
-        ),
-      );
-      await _mapController!.addImage('dest-marker-icon', destinationBytes);
-
-      if (_destinationSymbol != null) {
-        await _mapController!.removeSymbol(_destinationSymbol!);
-      }
-      _destinationSymbol = await _mapController!.addSymbol(
-        SymbolOptions(
-          geometry: destination,
-          iconImage: 'dest-marker-icon',
-          iconAnchor: 'bottom',
-        ),
-      );
+      await _addOriginMarker(origin);
+      await _addDestinationMarker(destination);
     } catch (e) {
       debugPrint('Error adding preset markers: $e');
     }
@@ -2457,6 +2537,9 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
 
     if (_mapController == null) return;
 
+    // ✅ هر ژئوکدینگ نیمه‌کاره باطل شود تا بعد از تأیید، مختصات را عوض نکند
+    _cancelPendingGeocode();
+
     LatLng? center = at;
     if (center == null) {
       final camera = await _mapController!.queryCameraPosition();
@@ -2478,20 +2561,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
       ),
     );
 
-    // تصویر برچسب مبدأ ثابت است؛ فقط یک بار ساخته می‌شود
-    final Uint8List bytes = _originLabelBytes ??=
-        await widgetToImageBytes(MapOriginLabel(labelText: 'origin'.tr()));
-    if (_mapController == null) return;
-    await _mapController!.addImage('origin-marker-icon', bytes);
-
-    if (_originSymbol != null) await _mapController!.removeSymbol(_originSymbol!);
-    _originSymbol = await _mapController!.addSymbol(
-      SymbolOptions(
-        geometry: currentCenter,
-        iconImage: 'origin-marker-icon',
-        iconAnchor: 'bottom',
-      ),
-    );
+    await _addOriginMarker(currentCenter);
 
     if (!mounted) return;
 
@@ -2553,6 +2623,9 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
 
     if (_mapController == null) return;
 
+    // ✅ هر ژئوکدینگ نیمه‌کاره باطل شود
+    _cancelPendingGeocode();
+
     LatLng? center = at;
     if (center == null) {
       final camera = await _mapController!.queryCameraPosition();
@@ -2574,22 +2647,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
       ),
     );
 
-    final bytes = await widgetToImageBytes(
-      MapDestinationLabel(
-        labelText: 'destination'.tr(),
-        arrivalTime: _estimatedArrivalTime,
-      ),
-    );
-    await _mapController!.addImage('dest-marker-icon', bytes);
-
-    if (_destinationSymbol != null) await _mapController!.removeSymbol(_destinationSymbol!);
-    _destinationSymbol = await _mapController!.addSymbol(
-      SymbolOptions(
-        geometry: currentCenter,
-        iconImage: 'dest-marker-icon',
-        iconAnchor: 'bottom',
-      ),
-    );
+    await _addDestinationMarker(currentCenter);
 
     if (!mounted) return;
 
@@ -3347,6 +3405,9 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
     // مرحله کم می‌شد ولی سفر فعال می‌ماند و صفحه به هم می‌ریخت.
     if (_currentStep >= 3) return;
 
+    // ✅ با برگشتن به مرحلهٔ قبل، ژئوکدینگ در راه باطل شود
+    _cancelPendingGeocode();
+
     if (_currentStep == 0) {
       // صفحهٔ اصلی اپ: برگشت از مرحلهٔ مبدأ، باتم‌شیت اول (هوم) را نشان می‌دهد
       if (widget.startAtHome && !widget.isPickerOnly) {
@@ -3640,6 +3701,9 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
 
                       await initDriverSymbolLayer();
 
+                      // ✅ مارکر مبدأ/مقصد و خط پیش‌نمایش را بعد از لود دوباره استایل برگردان
+                      await _restoreTripMarkers();
+
                       // اگر سفر فعال بود، مسیر و آیکن دوباره رسم شوند
                       if (_driverTripPolylinePoints.length >= 2 &&
                           !_driverRouteStale) {
@@ -3673,11 +3737,18 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
               ),
 
               // 📍 ۲. پین شناور در وسط نقشه (در حالت هوم نیست)
+              //
+              // ✅ نوک پین دقیقاً روی مرکز نقشه است:
+              //   ارتفاع پین = ۴۸ (دایره ۳۰ + میله ۱۸) و Column وسط‌چین است،
+              //   پس برای اینکه «انتهای میله» روی مرکز بنشیند باید نصف ارتفاع
+              //   (۲۴) به بالا برود. هنگام حرکت ۲۵ پیکسل بیشتر بالا می‌رود.
+              //   (قبلاً مقدار ۲۰ بود و نوک پین ۴ پیکسل پایین‌تر از مرکز می‌ماند.)
               if (_currentStep < 2 && !_isHome)
                 IgnorePointer(
                   child: Center(
                     child: Stack(
                       alignment: Alignment.center,
+                      clipBehavior: Clip.none,
                       children: [
                         AnimatedContainer(
                           duration: const Duration(milliseconds: 160),
@@ -3705,7 +3776,9 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
                           curve: Curves.easeOutCubic,
                           transform: Matrix4.translationValues(
                             0,
-                            _isMapMoving ? -45.0 : -20.0,
+                            _isMapMoving
+                                ? -(_pinTotalHeight / 2 + _pinLiftWhenMoving)
+                                : -(_pinTotalHeight / 2),
                             0,
                           ),
                           child: Column(
