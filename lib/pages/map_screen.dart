@@ -2141,7 +2141,6 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
   }
 
   Future<void> _handleGpsTap() async {
-    HapticFeedback.lightImpact();
     _animatedMapMove(_currentUserLatLng, 16.8);
 
     try {
@@ -2533,7 +2532,6 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
   }
 
   Future<void> _confirmOriginImpl({LatLng? at, String? name}) async {
-    HapticFeedback.mediumImpact();
 
     if (_mapController == null) return;
 
