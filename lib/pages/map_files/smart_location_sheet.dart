@@ -163,12 +163,10 @@ class _SmartLocationSheetState
   }
 
   void _toggleExpanded() {
-    HapticFeedback.selectionClick();
     _setExpanded(!_expanded);
   }
 
   void _handleGpsTap() {
-    HapticFeedback.lightImpact();
     widget.onGpsTap();
 
     if (!widget.hasGpsDisruption) {
@@ -181,7 +179,6 @@ class _SmartLocationSheetState
   }
 
   Future<void> _startAddingFavoritePlace() async {
-    HapticFeedback.lightImpact();
 
     // مرحله ۱: انتخاب روی نقشه + دکمه‌ی تأیید
     final AddressModel? selectedAddress =
@@ -271,7 +268,6 @@ class _SmartLocationSheetState
         'updatedAt': FieldValue.serverTimestamp(),
       });
 
-      HapticFeedback.mediumImpact();
 
       // آدرس جدید از طریق stream به‌صورت چیپ افقی ظاهر می‌شود.
       messenger.showSnackBar(
@@ -303,7 +299,6 @@ class _SmartLocationSheetState
   }
 
   Future<void> _openSavedAddressesManager() async {
-    HapticFeedback.selectionClick();
 
     // کلیک روی هر آدرس همان رفتار چیپ‌ها را دارد: در مرحلهٔ اول مبدأ و
     // در مرحلهٔ دوم مقصد انتخاب می‌شود
@@ -330,7 +325,6 @@ class _SmartLocationSheetState
       return;
     }
 
-    HapticFeedback.mediumImpact();
     widget.onSavedAddressSelected?.call(address);
   }
 
