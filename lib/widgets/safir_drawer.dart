@@ -9,6 +9,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import 'package:safir_passengers/authentication/register_screen.dart';
 import 'package:safir_passengers/global/global_var.dart';
+import 'package:safir_passengers/services/driver_app_launcher.dart';
 import 'package:safir_passengers/services/support_service.dart';
 import 'package:safir_passengers/theme/app_colors.dart';
 import 'package:safir_passengers/theme/theme_controller.dart';
@@ -16,9 +17,10 @@ import 'package:safir_passengers/widgets/animated_menus.dart';
 
 /// 📂 منوی کناری صفحهٔ اصلی.
 ///
-/// فقط میان‌بُرهای عمومی اپ: تغییر سریع زبان و تم، پشتیبانی، دربارهٔ سفیر،
-/// امتیاز به اپ و خروج. موارد مربوط به حساب (سفرها، آدرس‌ها، دعوت، پیام‌ها،
-/// تنظیمات، کد تخفیف) فقط در صفحهٔ پروفایل هستند و اینجا تکرار نمی‌شوند.
+/// فقط میان‌بُرهای عمومی اپ: تغییر سریع زبان و تم، ثبت‌نام راننده، پشتیبانی،
+/// دربارهٔ سفیر، امتیاز به اپ و خروج. موارد مربوط به حساب (سفرها، آدرس‌ها،
+/// دعوت، پیام‌ها، تنظیمات، کد تخفیف) فقط در صفحهٔ پروفایل هستند و اینجا
+/// تکرار نمی‌شوند.
 class SafirDrawer extends StatelessWidget {
   const SafirDrawer({super.key});
 
@@ -409,6 +411,19 @@ class SafirDrawer extends StatelessWidget {
                   // ۳. عمومی
                   _sectionTitle(_tr('drawer_general', 'عمومی')),
                   _card([
+                    _DrawerTile(
+                      icon: Icons.assignment_ind_rounded,
+                      color: AppColors.primaryBrand,
+                      title: _tr('home_become_driver', 'راننده سفیر شوید'),
+                      subtitle: _tr(
+                        'register_subtitle',
+                        'ثبت‌نام موتر و راننده',
+                      ),
+                      onTap: () {
+                        Navigator.pop(context);
+                        DriverAppLauncher.open();
+                      },
+                    ),
                     _DrawerTile(
                       icon: Icons.support_agent_rounded,
                       color: AppColors.originBlue,
