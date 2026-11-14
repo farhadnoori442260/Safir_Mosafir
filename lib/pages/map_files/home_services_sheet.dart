@@ -22,6 +22,13 @@ class HomeServicesSheet extends StatelessWidget {
   final ValueChanged<SafirService> onServiceSelected;
   final VoidCallback onSearchTap;
 
+  /// عکس آیکن هر سرویس (PNG شفاف). اگر فایل پیدا نشد، آیکن پیش‌فرض نشان داده می‌شود.
+  static const Map<SafirService, String> serviceImages = {
+    SafirService.taxi: 'assets/images/home_taxi.png',
+    SafirService.cargo: 'assets/images/home_cargo.png',
+    SafirService.intercity: 'assets/images/home_intercity.png',
+  };
+
   String _t(String key, String fallback) {
     final String value = key.tr();
     return value.isEmpty || value == key ? fallback : value;
@@ -75,6 +82,7 @@ class HomeServicesSheet extends StatelessWidget {
                       const SizedBox(width: 10),
                     Expanded(
                       child: _ServiceTile(
+                        imagePath: serviceImages[s],
                         icon: _iconOf(s),
                         label: _labelOf(s),
                         selected: s == selected,
@@ -162,12 +170,14 @@ class _SearchField extends StatelessWidget {
 
 class _ServiceTile extends StatelessWidget {
   const _ServiceTile({
+    required this.imagePath,
     required this.icon,
     required this.label,
     required this.selected,
     required this.onTap,
   });
 
+  final String? imagePath;
   final IconData icon;
   final String label;
   final bool selected;
@@ -184,7 +194,7 @@ class _ServiceTile extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 220),
         curve: Curves.easeOut,
-        height: 88,
+        height: 92,
         decoration: BoxDecoration(
           gradient: selected
               ? LinearGradient(
@@ -212,12 +222,26 @@ class _ServiceTile extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              icon,
-              size: 30,
-              color: selected ? AppColors.buttonText : brand,
+            SizedBox(
+              height: 38,
+              child: imagePath == null
+                  ? Icon(
+                      icon,
+                      size: 30,
+                      color: selected ? AppColors.buttonText : brand,
+                    )
+                  : Image.asset(
+                      imagePath!,
+                      height: 38,
+                      fit: BoxFit.contain,
+                      errorBuilder: (_, __, ___) => Icon(
+                        icon,
+                        size: 30,
+                        color: selected ? AppColors.buttonText : brand,
+                      ),
+                    ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             Text(
               label,
               maxLines: 1,
