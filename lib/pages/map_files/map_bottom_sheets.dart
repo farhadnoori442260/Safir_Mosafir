@@ -37,19 +37,15 @@ class MapBottomSheets {
       currentAddress: liveMarkerAddress,
       currentDestination: secondaryAddress,
       onConfirmStep: () {
-        HapticFeedback.mediumImpact();
         onConfirmLocation();
       },
       onSearchOriginTap: (_) {
-        HapticFeedback.lightImpact();
         onSearchTap();
       },
       onSearchDestinationTap: () {
-        HapticFeedback.lightImpact();
         onSearchTap();
       },
       onGpsTap: () {
-        HapticFeedback.selectionClick();
         onGpsTap?.call();
       },
       isMapIdle: isMapIdle,
@@ -691,13 +687,11 @@ class MapBottomSheets {
                 DriverInfoCard(
                   driverData: driverData,
                   onCallPressed: () {
-                    HapticFeedback.lightImpact();
                     if (phoneNumberDriver.isNotEmpty) {
                       launchUrl(Uri.parse('tel:$phoneNumberDriver'));
                     }
                   },
                   onMessagePressed: () {
-                    HapticFeedback.lightImpact();
                     Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -710,7 +704,6 @@ class MapBottomSheets {
                     );
                   },
                   onPaymentPressed: () {
-                    HapticFeedback.mediumImpact();
                     _showPaymentSheet(context, tripId, tripFareAmount);
                   },
                 ),
@@ -726,7 +719,6 @@ class MapBottomSheets {
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
                       onPressed: () {
-                        HapticFeedback.mediumImpact();
                         if (onCancelTrip != null) {
                           _showCancelReasonDialog(
                             context,
