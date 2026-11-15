@@ -1073,7 +1073,7 @@ class _SlideServiceCapsuleState extends State<_SlideServiceCapsule>
                                     blendMode: BlendMode.dstIn,
                                     child: Opacity(
                                       opacity:
-                                          palette.isDark ? 0.10 : 0.17,
+                                          palette.isDark ? 0.20 : 0.30,
                                       child: Image.asset(
                                         widget.service.image,
                                         fit: BoxFit.cover,
