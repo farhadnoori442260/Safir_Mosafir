@@ -2,14 +2,12 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:easy_localization/easy_localization.dart' hide TextDirection;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:safir_passengers/authentication/register_screen.dart';
 import 'package:safir_passengers/global/global_var.dart';
-import 'package:safir_passengers/services/driver_app_launcher.dart';
 import 'package:safir_passengers/services/support_service.dart';
 import 'package:safir_passengers/theme/app_colors.dart';
 import 'package:safir_passengers/theme/theme_controller.dart';
@@ -17,7 +15,7 @@ import 'package:safir_passengers/widgets/animated_menus.dart';
 
 /// 📂 منوی کناری صفحهٔ اصلی.
 ///
-/// فقط میان‌بُرهای عمومی اپ: تغییر سریع زبان و تم، ثبت‌نام راننده، پشتیبانی،
+/// فقط میان‌بُرهای عمومی اپ: تغییر سریع زبان و تم، پشتیبانی،
 /// دربارهٔ سفیر، امتیاز به اپ و خروج. موارد مربوط به حساب (سفرها، آدرس‌ها،
 /// دعوت، پیام‌ها، تنظیمات، کد تخفیف) فقط در صفحهٔ پروفایل هستند و اینجا
 /// تکرار نمی‌شوند.
@@ -312,7 +310,6 @@ class SafirDrawer extends StatelessWidget {
                 child: InkWell(
                   borderRadius: BorderRadius.circular(20),
                   onTap: () {
-                    HapticFeedback.selectionClick();
                     _openProfile(context);
                   },
                   child: Container(
@@ -412,19 +409,6 @@ class SafirDrawer extends StatelessWidget {
                   _sectionTitle(_tr('drawer_general', 'عمومی')),
                   _card([
                     _DrawerTile(
-                      icon: Icons.assignment_ind_rounded,
-                      color: AppColors.primaryBrand,
-                      title: _tr('home_become_driver', 'راننده سفیر شوید'),
-                      subtitle: _tr(
-                        'register_subtitle',
-                        'ثبت‌نام موتر و راننده',
-                      ),
-                      onTap: () {
-                        Navigator.pop(context);
-                        DriverAppLauncher.open();
-                      },
-                    ),
-                    _DrawerTile(
                       icon: Icons.support_agent_rounded,
                       color: AppColors.originBlue,
                       title: _tr('help_support', 'مرکز کمک و پشتیبانی'),
@@ -461,7 +445,6 @@ class SafirDrawer extends StatelessWidget {
                 child: InkWell(
                   borderRadius: BorderRadius.circular(16),
                   onTap: () {
-                    HapticFeedback.mediumImpact();
                     _signOut(context);
                   },
                   child: Padding(
@@ -554,7 +537,6 @@ class _DrawerTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: () {
-        HapticFeedback.selectionClick();
         onTap();
       },
       child: Padding(
@@ -629,7 +611,6 @@ class _LanguageQuickSwitch extends StatelessWidget {
   const _LanguageQuickSwitch();
 
   Future<void> _set(BuildContext context, String code) async {
-    HapticFeedback.selectionClick();
     await context.setLocale(Locale(code));
     try {
       final SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -709,7 +690,6 @@ class _ThemeQuickSwitch extends StatelessWidget {
                 _chip(
                   selected: mode == m,
                   onTap: () async {
-                    HapticFeedback.selectionClick();
                     await ThemeController.instance.setMode(m);
                   },
                   child: Column(
