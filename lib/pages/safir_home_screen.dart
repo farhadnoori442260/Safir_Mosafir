@@ -169,7 +169,7 @@ class _SafirHomeScreenState extends State<SafirHomeScreen> {
         subtitle: _tr('taxi_subtitle'),
         image: 'assets/images/taxi_banner.png',
         icon: Icons.directions_car_rounded,
-        iconAsset: 'assets/icons/home_taxi.png',
+        iconAsset: 'assets/icon/home_taxi.png',
       ),
       _HomeService(
         id: 'cargo',
@@ -177,7 +177,7 @@ class _SafirHomeScreenState extends State<SafirHomeScreen> {
         subtitle: _tr('cargo_subtitle'),
         image: 'assets/images/cargo_banner.png',
         icon: Icons.local_shipping_rounded,
-        iconAsset: 'assets/icons/home_cargo.png',
+        iconAsset: 'assets/icon/home_cargo.png',
       ),
       _HomeService(
         id: 'intercity',
@@ -185,7 +185,7 @@ class _SafirHomeScreenState extends State<SafirHomeScreen> {
         subtitle: _tr('intercity_subtitle'),
         image: 'assets/images/intercity_banner.png',
         icon: Icons.route_rounded,
-        iconAsset: 'assets/icons/home_intercity.png',
+        iconAsset: 'assets/icon/home_intercity.png',
       ),
     ];
   }
