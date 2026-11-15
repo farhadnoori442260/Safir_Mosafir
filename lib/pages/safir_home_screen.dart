@@ -19,6 +19,18 @@ import 'package:safir_passengers/theme/app_colors.dart';
 
 import 'map_screen.dart';
 
+/// ─────────────────────────────────────────────────────────────
+///  آیکن‌های اختصاصی سرویس‌ها (برای هر سه، PNG شفاف حدود ۱۲۸ تا ۱۹۲ پیکسل):
+///    assets/icons/home_taxi.png
+///    assets/icons/home_cargo.png
+///    assets/icons/home_intercity.png
+///
+///  • آیکن‌های «سفید تک‌رنگ» → false (روی دایرهٔ سبز می‌نشینند)
+///  • آیکن‌های «رنگی/سه‌بعدی» → true (دایره روشن می‌شود و آیکن رنگ خودش را دارد)
+///  اگر فایل پیدا نشد، خودکار آیکن پیش‌فرض متریال نمایش داده می‌شود.
+/// ─────────────────────────────────────────────────────────────
+const bool _kColoredHomeIcons = false;
+
 class SafirHomeScreen extends StatefulWidget {
   const SafirHomeScreen({super.key});
 
@@ -157,6 +169,7 @@ class _SafirHomeScreenState extends State<SafirHomeScreen> {
         subtitle: _tr('taxi_subtitle'),
         image: 'assets/images/taxi_banner.png',
         icon: Icons.directions_car_rounded,
+        iconAsset: 'assets/icons/home_taxi.png',
       ),
       _HomeService(
         id: 'cargo',
@@ -164,6 +177,7 @@ class _SafirHomeScreenState extends State<SafirHomeScreen> {
         subtitle: _tr('cargo_subtitle'),
         image: 'assets/images/cargo_banner.png',
         icon: Icons.local_shipping_rounded,
+        iconAsset: 'assets/icons/home_cargo.png',
       ),
       _HomeService(
         id: 'intercity',
@@ -171,6 +185,7 @@ class _SafirHomeScreenState extends State<SafirHomeScreen> {
         subtitle: _tr('intercity_subtitle'),
         image: 'assets/images/intercity_banner.png',
         icon: Icons.route_rounded,
+        iconAsset: 'assets/icons/home_intercity.png',
       ),
     ];
   }
@@ -435,15 +450,32 @@ class _SafirHomeScreenState extends State<SafirHomeScreen> {
                               crossAxisAlignment:
                                   CrossAxisAlignment.stretch,
                               children: [
-                                for (final service in services) ...[
-                                  _SlideServiceCapsule(
-                                    key: ValueKey(service.id),
-                                    service: service,
-                                    enabled: !_openingService,
-                                    hint: _tr('home_slide_hint'),
-                                    openLabel: _tr('home_open_service'),
-                                    onCompleted: () =>
-                                        _navigateToService(service.id),
+                                for (int i = 0; i < services.length; i++) ...[
+                                  // ورود پلکانی: هر کپسول کمی دیرتر بالا می‌آید
+                                  TweenAnimationBuilder<double>(
+                                    key: ValueKey('enter_${services[i].id}'),
+                                    tween: Tween<double>(begin: 0, end: 1),
+                                    duration:
+                                        Duration(milliseconds: 520 + i * 140),
+                                    curve: Curves.easeOutCubic,
+                                    builder: (context, t, child) {
+                                      return Opacity(
+                                        opacity: t,
+                                        child: Transform.translate(
+                                          offset: Offset(0, 28 * (1 - t)),
+                                          child: child,
+                                        ),
+                                      );
+                                    },
+                                    child: _SlideServiceCapsule(
+                                      key: ValueKey(services[i].id),
+                                      service: services[i],
+                                      enabled: !_openingService,
+                                      hint: _tr('home_slide_hint'),
+                                      openLabel: _tr('home_open_service'),
+                                      onCompleted: () =>
+                                          _navigateToService(services[i].id),
+                                    ),
                                   ),
                                   const SizedBox(height: 12),
                                 ],
@@ -828,6 +860,7 @@ class _HomeService {
     required this.subtitle,
     required this.image,
     required this.icon,
+    required this.iconAsset,
   });
 
   final String id;
@@ -835,6 +868,7 @@ class _HomeService {
   final String subtitle;
   final String image;
   final IconData icon;
+  final String iconAsset;
 }
 
 class _SlideServiceCapsule extends StatefulWidget {
@@ -859,12 +893,15 @@ class _SlideServiceCapsule extends StatefulWidget {
 }
 
 class _SlideServiceCapsuleState extends State<_SlideServiceCapsule>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   static const double _handleSize = 60;
   static const double _inset = 10;
   static const double _threshold = 0.85;
 
   late final AnimationController _controller;
+
+  /// تپش آرام دایره وقتی کاربر دست نمی‌زند (برای دعوت به کشیدن)
+  late final AnimationController _idle;
 
   bool _dragging = false;
   bool _busy = false;
@@ -877,6 +914,13 @@ class _SlideServiceCapsuleState extends State<_SlideServiceCapsule>
       vsync: this,
       duration: const Duration(milliseconds: 240),
     );
+
+    // فاز تپش هر کپسول متفاوت است تا سه‌تا هم‌زمان نتپند
+    _idle = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1700),
+      value: (widget.service.id.hashCode.abs() % 100) / 100,
+    )..repeat(reverse: true);
   }
 
   @override
@@ -891,6 +935,7 @@ class _SlideServiceCapsuleState extends State<_SlideServiceCapsule>
 
   @override
   void dispose() {
+    _idle.dispose();
     _controller.dispose();
     super.dispose();
   }
@@ -990,9 +1035,15 @@ class _SlideServiceCapsuleState extends State<_SlideServiceCapsule>
                         .toDouble();
 
                 return AnimatedBuilder(
-                  animation: _controller,
+                  animation: Listenable.merge([_controller, _idle]),
                   builder: (context, _) {
                     final progress = _controller.value;
+
+                    // تپش فقط وقتی فعال است که کاربر دست نزده است
+                    final double pulse =
+                        (_dragging || _busy || progress > 0.02)
+                            ? 0.0
+                            : Curves.easeInOut.transform(_idle.value);
                     final handleLeft = _inset + travel * progress;
                     final textOpacity =
                         (1 - progress * 1.7).clamp(0.0, 1.0).toDouble();
@@ -1109,7 +1160,7 @@ class _SlideServiceCapsuleState extends State<_SlideServiceCapsule>
                           ),
 
                           Positioned(
-                            right: 12,
+                            right: 12 - 5 * pulse,
                             top: (cardHeight - 29) / 2 - 6,
                             child: Opacity(
                               opacity: 1 - progress,
@@ -1188,7 +1239,7 @@ class _SlideServiceCapsuleState extends State<_SlideServiceCapsule>
                                           }
                                         : null,
                                 onHorizontalDragCancel: _reset,
-                                child: _buildJellyHandle(palette),
+                                child: _buildJellyHandle(palette, pulse),
                               ),
                             ),
                           ),
@@ -1205,7 +1256,39 @@ class _SlideServiceCapsuleState extends State<_SlideServiceCapsule>
     );
   }
 
-  Widget _buildJellyHandle(_HomePalette palette) {
+  /// آیکن اختصاصی؛ اگر فایل نبود آیکن متریال
+  Widget _buildHandleIcon() {
+    const List<Shadow> shadows = [
+      Shadow(
+        color: Color(0x44004130),
+        blurRadius: 5,
+        offset: Offset(0, 2),
+      ),
+    ];
+
+    final Widget fallback = Icon(
+      _busy ? Icons.check_rounded : widget.service.icon,
+      color: _kColoredHomeIcons ? AppColors.primaryBrand : Colors.white,
+      size: 30,
+      shadows: _kColoredHomeIcons ? null : shadows,
+    );
+
+    if (_busy) return fallback;
+
+    return Image.asset(
+      widget.service.iconAsset,
+      width: 36,
+      height: 36,
+      fit: BoxFit.contain,
+      filterQuality: FilterQuality.high,
+      // آیکن سفید تک‌رنگ: هر رنگی که فایل داشته باشد سفید می‌شود
+      color: _kColoredHomeIcons ? null : Colors.white,
+      colorBlendMode: _kColoredHomeIcons ? null : BlendMode.srcIn,
+      errorBuilder: (_, __, ___) => fallback,
+    );
+  }
+
+  Widget _buildJellyHandle(_HomePalette palette, double pulse) {
     final brand = AppColors.primaryBrand;
 
     return AnimatedContainer(
@@ -1224,22 +1307,38 @@ class _SlideServiceCapsuleState extends State<_SlideServiceCapsule>
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            Color.lerp(brand, Colors.white, 0.65)!,
-            Color.lerp(brand, Colors.white, 0.24)!,
-            brand,
-          ],
+          colors: _kColoredHomeIcons
+              ? [
+                  Colors.white,
+                  Color.lerp(Colors.white, brand, 0.10)!,
+                  Color.lerp(Colors.white, brand, 0.24)!,
+                ]
+              : [
+                  Color.lerp(brand, Colors.white, 0.65)!,
+                  Color.lerp(brand, Colors.white, 0.24)!,
+                  brand,
+                ],
           stops: const [0, 0.48, 1],
         ),
         border: Border.all(
-          color: Colors.white.withOpacity(0.78),
+          color: _kColoredHomeIcons
+              ? brand.withOpacity(0.35)
+              : Colors.white.withOpacity(0.78),
           width: 1.3,
         ),
         boxShadow: [
           BoxShadow(
-            color: brand.withOpacity(_dragging ? 0.38 : 0.25),
-            blurRadius: _dragging ? 16 : 10,
+            color: brand.withOpacity(
+              _dragging ? 0.38 : 0.25 + 0.20 * pulse,
+            ),
+            blurRadius: _dragging ? 16 : 10 + 8 * pulse,
             offset: const Offset(0, 5),
+          ),
+          // حلقهٔ نرمِ تپنده دور دایره
+          BoxShadow(
+            color: brand.withOpacity(0.22 * (1 - pulse) * pulse * 4),
+            blurRadius: 0,
+            spreadRadius: 6 * pulse,
           ),
           BoxShadow(
             color: Colors.white.withOpacity(
@@ -1293,20 +1392,7 @@ class _SlideServiceCapsuleState extends State<_SlideServiceCapsule>
                 ),
               ),
             ),
-            Center(
-              child: Icon(
-                _busy ? Icons.check_rounded : widget.service.icon,
-                color: Colors.white,
-                size: 30,
-                shadows: const [
-                  Shadow(
-                    color: Color(0x44004130),
-                    blurRadius: 5,
-                    offset: Offset(0, 2),
-                  ),
-                ],
-              ),
-            ),
+            Center(child: _buildHandleIcon()),
           ],
         ),
       ),
