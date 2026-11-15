@@ -1,3 +1,6 @@
+import 'dart:math' show max;
+import 'dart:ui' show ImageFilter;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -33,6 +36,15 @@ class _SafirHomeScreenState extends State<SafirHomeScreen> {
       GlobalKey<ScaffoldState>();
 
   bool _openingService = false;
+
+  // ───── هدر و نوار پایین ثابت ─────
+  static const double _headerContentHeight = 48;
+  static const double _driverBarHeight = 120;
+
+  final ScrollController _scroll = ScrollController();
+
+  /// ۰ = بالای صفحه (هدر شفاف)، ۱ = اسکرول‌شده (هدر شیشه‌ای)
+  final ValueNotifier<double> _headerBlend = ValueNotifier<double>(0);
 
   static const Map<String, Map<String, String>> _fallbacks = {
     'home_slogan': {
@@ -100,8 +112,46 @@ class _SafirHomeScreenState extends State<SafirHomeScreen> {
   @override
   void initState() {
     super.initState();
+    _scroll.addListener(_onScroll);
     _loadCurrentUserInfo();
     _checkUserStatusInBackground();
+  }
+
+  @override
+  void dispose() {
+    _scroll.removeListener(_onScroll);
+    _scroll.dispose();
+    _headerBlend.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    final double offset = _scroll.hasClients ? _scroll.offset : 0;
+    final double next = (offset / 80).clamp(0.0, 1.0).toDouble();
+
+    if ((next - _headerBlend.value).abs() > 0.01) {
+      _headerBlend.value = next;
+    }
+  }
+
+  /// ✅ فاصلهٔ امن بالا/پایین. اگر ویجت‌های بالاتر padding را مصرف کرده باشند
+  /// (علت افتادن هدر روی نوار وضعیت)، از خود پنجرهٔ سیستم خوانده می‌شود.
+  double _safeTop(BuildContext context) {
+    final MediaQueryData media = MediaQuery.of(context);
+    final MediaQueryData window = MediaQueryData.fromView(View.of(context));
+    return max(
+      media.padding.top,
+      max(media.viewPadding.top, window.padding.top),
+    );
+  }
+
+  double _safeBottom(BuildContext context) {
+    final MediaQueryData media = MediaQuery.of(context);
+    final MediaQueryData window = MediaQueryData.fromView(View.of(context));
+    return max(
+      media.padding.bottom,
+      max(media.viewPadding.bottom, window.padding.bottom),
+    );
   }
 
   String _tr(String key) {
@@ -294,8 +344,14 @@ class _SafirHomeScreenState extends State<SafirHomeScreen> {
   Widget build(BuildContext context) {
     final palette = _HomePalette.of(context);
     final services = _services();
-    final media = MediaQuery.of(context);
-    final isRTL = Directionality.of(context) == TextDirection.rtl;
+    final bool isRTL = Directionality.of(context) == TextDirection.rtl;
+
+    final double topInset = _safeTop(context);
+    final double bottomInset = _safeBottom(context);
+
+    // ارتفاع هدر ثابت و نوار ثابت پایین
+    final double headerHeight = topInset + 8 + _headerContentHeight + 10;
+    final double bottomBarHeight = bottomInset + _driverBarHeight;
 
     return Scaffold(
       key: _scaffoldKey,
@@ -312,122 +368,132 @@ class _SafirHomeScreenState extends State<SafirHomeScreen> {
                 .clamp(245.0, 355.0)
                 .toDouble();
 
-            final pictureSpace =
-                (heroHeight - media.padding.top - 112)
-                    .clamp(65.0, 240.0)
-                    .toDouble();
+            final pictureSpace = (heroHeight - headerHeight - 24)
+                .clamp(65.0, 240.0)
+                .toDouble();
 
-            return SingleChildScrollView(
-              physics: const BouncingScrollPhysics(),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  minHeight: constraints.maxHeight,
-                ),
-                child: Stack(
-                  children: [
-                    Positioned.fill(
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 250),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [
-                              palette.backgroundTop,
-                              palette.background,
-                            ],
-                          ),
-                        ),
-                      ),
+            return Stack(
+              children: [
+                // ───── محتوای قابل اسکرول ─────
+                SingleChildScrollView(
+                  controller: _scroll,
+                  physics: const BouncingScrollPhysics(),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minHeight: constraints.maxHeight,
                     ),
-                    Positioned(
-                      top: 0,
-                      left: 0,
-                      right: 0,
-                      height: heroHeight + 55,
-                      child: _buildHeroBackground(palette),
-                    ),
-                    Positioned(
-                      top: 0,
-                      left: 0,
-                      right: 0,
-                      height: media.padding.top + 160,
-                      child: const IgnorePointer(
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [
-                                Color(0x6600181D),
-                                Colors.transparent,
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                    child: Stack(
                       children: [
-                        SizedBox(height: media.padding.top + 12),
-                        _buildHeader(palette),
-                        const SizedBox(height: 10),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 24,
-                          ),
-                          child: Text(
-                            _tr('home_slogan'),
-                            textAlign: TextAlign.right,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
-                              shadows: [
-                                Shadow(
-                                  color: Colors.black54,
-                                  blurRadius: 10,
-                                  offset: Offset(0, 2),
-                                ),
-                              ],
+                        Positioned.fill(
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 250),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  palette.backgroundTop,
+                                  palette.background,
+                                ],
+                              ),
                             ),
                           ),
                         ),
-                        SizedBox(height: pictureSpace),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                          ),
-                          child: Column(
-                            crossAxisAlignment:
-                                CrossAxisAlignment.stretch,
-                            children: [
-                              for (final service in services) ...[
-                                _SlideServiceCapsule(
-                                  key: ValueKey(service.id),
-                                  service: service,
-                                  enabled: !_openingService,
-                                  hint: _tr('home_slide_hint'),
-                                  openLabel: _tr('home_open_service'),
-                                  onCompleted: () =>
-                                      _navigateToService(service.id),
+                        Positioned(
+                          top: 0,
+                          left: 0,
+                          right: 0,
+                          height: heroHeight + 55,
+                          child: _buildHeroBackground(palette),
+                        ),
+                        Positioned(
+                          top: 0,
+                          left: 0,
+                          right: 0,
+                          height: topInset + 160,
+                          child: const IgnorePointer(
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  colors: [
+                                    Color(0x6600181D),
+                                    Colors.transparent,
+                                  ],
                                 ),
-                                const SizedBox(height: 14),
-                              ],
-                              _buildTrustBadge(palette),
-                              const SizedBox(height: 16),
-                              _buildDriverCard(palette),
-                            ],
+                              ),
+                            ),
                           ),
                         ),
-                        const HomeAdvertisementsSection(),
-                        SizedBox(height: media.padding.bottom + 24),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            // جای هدر ثابت
+                            SizedBox(height: headerHeight),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 24,
+                              ),
+                              child: Text(
+                                _tr('home_slogan'),
+                                textAlign: TextAlign.right,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                  shadows: [
+                                    Shadow(
+                                      color: Colors.black54,
+                                      blurRadius: 10,
+                                      offset: Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            SizedBox(height: pictureSpace),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                              ),
+                              child: Column(
+                                crossAxisAlignment:
+                                    CrossAxisAlignment.stretch,
+                                children: [
+                                  for (final service in services) ...[
+                                    _SlideServiceCapsule(
+                                      key: ValueKey(service.id),
+                                      service: service,
+                                      enabled: !_openingService,
+                                      hint: _tr('home_slide_hint'),
+                                      openLabel: _tr('home_open_service'),
+                                      onCompleted: () =>
+                                          _navigateToService(service.id),
+                                    ),
+                                    const SizedBox(height: 14),
+                                  ],
+                                  _buildTrustBadge(palette),
+                                ],
+                              ),
+                            ),
+                            const HomeAdvertisementsSection(),
+
+                            // جای نوار ثابت پایین (کارت راننده)
+                            SizedBox(height: bottomBarHeight + 8),
+                          ],
+                        ),
                       ],
                     ),
-                  ],
+                  ),
                 ),
-              ),
+
+                // ───── هدر ثابت ─────
+                _buildTopBar(palette, topInset),
+
+                // ───── کارت ثبت‌نام راننده: همیشه پایین صفحه ─────
+                _buildBottomDriverBar(palette, bottomInset),
+              ],
             );
           },
         ),
@@ -488,71 +554,173 @@ class _SafirHomeScreenState extends State<SafirHomeScreen> {
     );
   }
 
-  Widget _buildHeader(_HomePalette palette) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Directionality(
-        textDirection: TextDirection.ltr,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(
-                  color: Colors.white.withOpacity(0.85),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.22),
-                    blurRadius: 18,
-                    offset: const Offset(0, 7),
+  /// هدر ثابت: بالای صفحه شفاف است و با اسکرول به شیشهٔ مات تبدیل می‌شود.
+  Widget _buildTopBar(_HomePalette palette, double topInset) {
+    return Positioned(
+      top: 0,
+      left: 0,
+      right: 0,
+      child: ValueListenableBuilder<double>(
+        valueListenable: _headerBlend,
+        builder: (context, blend, _) {
+          final double sigma = 0.01 + 16 * blend;
+
+          return ClipRect(
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: palette.backgroundTop.withOpacity(0.80 * blend),
+                  border: Border(
+                    bottom: BorderSide(
+                      color: Colors.white.withOpacity(0.10 * blend),
+                    ),
                   ),
+                ),
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(16, topInset + 8, 16, 10),
+                  child: Directionality(
+                    textDirection: TextDirection.ltr,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        _buildMenuButton(),
+                        _buildBrandMark(),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildMenuButton() {
+    return Container(
+      width: _headerContentHeight,
+      height: _headerContentHeight,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: Colors.white.withOpacity(0.16),
+        border: Border.all(color: Colors.white.withOpacity(0.30)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.20),
+            blurRadius: 14,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        shape: const CircleBorder(),
+        clipBehavior: Clip.antiAlias,
+        child: IconButton(
+          tooltip: MaterialLocalizations.of(context).openAppDrawerTooltip,
+          onPressed: _openMenu,
+          icon: const Icon(
+            Icons.menu_rounded,
+            color: Colors.white,
+            size: 24,
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// برند مدرن: نشان کوچک + نوشتهٔ حروف‌بازِ SAFIR روی شیشه
+  Widget _buildBrandMark() {
+    final Color brand = AppColors.primaryBrand;
+
+    return Container(
+      height: _headerContentHeight - 4,
+      padding: const EdgeInsets.fromLTRB(6, 0, 18, 0),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(26),
+        color: Colors.white.withOpacity(0.16),
+        border: Border.all(color: Colors.white.withOpacity(0.30)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.20),
+            blurRadius: 14,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color.lerp(brand, Colors.white, 0.35)!,
+                  brand,
                 ],
               ),
-              child: Material(
-                color: Colors.transparent,
-                borderRadius: BorderRadius.circular(18),
-                clipBehavior: Clip.antiAlias,
-                child: IconButton(
-                  tooltip: MaterialLocalizations.of(context)
-                      .openAppDrawerTooltip,
-                  onPressed: _openMenu,
-                  padding: const EdgeInsets.all(13),
-                  icon: const Icon(
-                    Icons.menu_rounded,
-                    color: Color(0xFF17201D),
-                    size: 25,
-                  ),
+              boxShadow: [
+                BoxShadow(
+                  color: brand.withOpacity(0.45),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
                 ),
-              ),
+              ],
             ),
-            Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 10,
-              ),
-              decoration: BoxDecoration(
-                color: palette.surface,
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: palette.border),
-                boxShadow: palette.shadows,
-              ),
-              child: Text(
-                'Safir',
-                textDirection: TextDirection.ltr,
-                style: TextStyle(
-                  color: palette.brandText,
-                  fontSize: 27,
-                  height: 1.15,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0.4,
-                ),
-              ),
+            child: const Icon(
+              Icons.near_me_rounded,
+              color: Colors.white,
+              size: 18,
             ),
-          ],
+          ),
+          const SizedBox(width: 10),
+          const Text(
+            'SAFIR',
+            textDirection: TextDirection.ltr,
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 15,
+              height: 1.1,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 3.2,
+              shadows: [
+                Shadow(color: Colors.black38, blurRadius: 6),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// کارت ثبت‌نام راننده همیشه پایین صفحه می‌ماند و با محتوا اسکرول نمی‌شود
+  Widget _buildBottomDriverBar(_HomePalette palette, double bottomInset) {
+    return Positioned(
+      left: 0,
+      right: 0,
+      bottom: 0,
+      child: Container(
+        padding: EdgeInsets.fromLTRB(16, 28, 16, bottomInset + 12),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              palette.background.withOpacity(0),
+              palette.background.withOpacity(0.92),
+              palette.background,
+            ],
+            stops: const [0, 0.38, 1],
+          ),
         ),
+        child: _buildDriverCard(palette),
       ),
     );
   }
@@ -884,7 +1052,6 @@ class _SlideServiceCapsuleState extends State<_SlideServiceCapsule>
 
       if (!mounted) return;
 
-      HapticFeedback.lightImpact();
       await widget.onCompleted();
     } on TickerCanceled {
       // ویجت هنگام اجرای انیمیشن از درخت خارج شده است.
