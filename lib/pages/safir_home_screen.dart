@@ -64,9 +64,9 @@ class _SafirHomeScreenState extends State<SafirHomeScreen> {
       'ps': 'د سفیر ډرایور شئ',
     },
     'home_city_taxi': {
-      'fa': 'سفیر',
-      'en': 'Safir',
-      'ps': 'سفیر',
+      'fa': 'تکسی شهری',
+      'en': 'City taxi',
+      'ps': 'ښاري ټکسي',
     },
     'taxi_subtitle': {
       'fa': 'درخواست موتر برای شهر',
@@ -998,7 +998,7 @@ class _SlideServiceCapsuleState extends State<_SlideServiceCapsule>
 
     final double cardHeight = 102 + ((textScale - 1) * 38);
     final double handleTop = (cardHeight - _handleSize) / 2;
-    final double lineTop = cardHeight - 24;
+    final double lineTop = cardHeight - 29;
 
     return Semantics(
       button: true,
@@ -1123,7 +1123,7 @@ class _SlideServiceCapsuleState extends State<_SlideServiceCapsule>
                             left: 80,
                             right: 35,
                             top: 14,
-                            bottom: 31,
+                            bottom: 35,
                             child: IgnorePointer(
                               child: Opacity(
                                 opacity: textOpacity,
@@ -1176,7 +1176,7 @@ class _SlideServiceCapsuleState extends State<_SlideServiceCapsule>
                           Positioned(
                             left: 80,
                             right: 24,
-                            bottom: 6,
+                            bottom: 5,
                             child: IgnorePointer(
                               child: Opacity(
                                 opacity: textOpacity,
@@ -1269,7 +1269,7 @@ class _SlideServiceCapsuleState extends State<_SlideServiceCapsule>
     final Widget fallback = Icon(
       _busy ? Icons.check_rounded : widget.service.icon,
       color: _kColoredHomeIcons ? AppColors.primaryBrand : Colors.white,
-      size: 30,
+      size: 34,
       shadows: _kColoredHomeIcons ? null : shadows,
     );
 
@@ -1277,8 +1277,8 @@ class _SlideServiceCapsuleState extends State<_SlideServiceCapsule>
 
     return Image.asset(
       widget.service.iconAsset,
-      width: 36,
-      height: 36,
+      width: 42,
+      height: 42,
       fit: BoxFit.contain,
       filterQuality: FilterQuality.high,
       // آیکن سفید تک‌رنگ: هر رنگی که فایل داشته باشد سفید می‌شود
@@ -1288,8 +1288,15 @@ class _SlideServiceCapsuleState extends State<_SlideServiceCapsule>
     );
   }
 
+  /// دستهٔ شیشه‌ایِ «قطره‌ای»: گرادیان شعاعی زنده، انعکاس نور بالا-چپ،
+  /// لکهٔ درخشان، شکست نور پایین و تیرگی نرم لبهٔ پایین برای عمق.
+  /// در حالت تاریک کمی روشن‌تر و پرنورتر است تا گم نشود.
   Widget _buildJellyHandle(_HomePalette palette, double pulse) {
-    final brand = AppColors.primaryBrand;
+    final Color brand = AppColors.primaryBrand;
+    final bool dark = palette.isDark;
+
+    final Color base = dark ? Color.lerp(brand, Colors.white, 0.16)! : brand;
+    final double radius = _dragging ? 25 : 30;
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
@@ -1303,80 +1310,123 @@ class _SlideServiceCapsuleState extends State<_SlideServiceCapsule>
         1,
       ),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(_dragging ? 25 : 30),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: _kColoredHomeIcons
-              ? [
+        borderRadius: BorderRadius.circular(radius),
+        gradient: _kColoredHomeIcons
+            ? LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
                   Colors.white,
                   Color.lerp(Colors.white, brand, 0.10)!,
                   Color.lerp(Colors.white, brand, 0.24)!,
-                ]
-              : [
-                  Color.lerp(brand, Colors.white, 0.65)!,
-                  Color.lerp(brand, Colors.white, 0.24)!,
-                  brand,
                 ],
-          stops: const [0, 0.48, 1],
-        ),
+                stops: const [0, 0.48, 1],
+              )
+            : RadialGradient(
+                center: const Alignment(-0.38, -0.5),
+                radius: 1.15,
+                colors: [
+                  Color.lerp(base, Colors.white, 0.60)!,
+                  Color.lerp(base, Colors.white, 0.18)!,
+                  base,
+                  Color.lerp(base, Colors.black, dark ? 0.20 : 0.26)!,
+                ],
+                stops: const [0, 0.30, 0.68, 1],
+              ),
         border: Border.all(
           color: _kColoredHomeIcons
               ? brand.withOpacity(0.35)
-              : Colors.white.withOpacity(0.78),
-          width: 1.3,
+              : Colors.white.withOpacity(dark ? 0.55 : 0.85),
+          width: 1.5,
         ),
         boxShadow: [
+          // درخشش رنگی زیر دسته (در تاریک قوی‌تر)
           BoxShadow(
-            color: brand.withOpacity(
-              _dragging ? 0.38 : 0.25 + 0.20 * pulse,
+            color: base.withOpacity(
+              _dragging ? 0.55 : (dark ? 0.50 : 0.36) + 0.10 * pulse,
             ),
-            blurRadius: _dragging ? 16 : 10 + 8 * pulse,
-            offset: const Offset(0, 5),
+            blurRadius: _dragging ? 20 : 14 + 4 * pulse,
+            offset: const Offset(0, 6),
           ),
-          // حلقهٔ نرمِ تپنده دور دایره
+          // حلقهٔ نرم و کم‌رنگِ تپش
           BoxShadow(
-            color: brand.withOpacity(0.22 * (1 - pulse) * pulse * 4),
+            color: brand.withOpacity(0.14 * pulse),
             blurRadius: 0,
-            spreadRadius: 6 * pulse,
+            spreadRadius: 5 * pulse,
           ),
-          BoxShadow(
-            color: Colors.white.withOpacity(
-              palette.isDark ? 0.08 : 0.65,
+          if (!dark)
+            BoxShadow(
+              color: Colors.white.withOpacity(0.70),
+              blurRadius: 3,
+              offset: const Offset(-1, -2),
             ),
-            blurRadius: 3,
-            offset: const Offset(-1, -2),
-          ),
         ],
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(_dragging ? 25 : 30),
+        borderRadius: BorderRadius.circular(radius),
         child: Stack(
           fit: StackFit.expand,
           children: [
-            Positioned(
-              top: 2,
-              left: 4,
-              right: 4,
-              height: 31,
+            // عمق: تیره‌شدن نرم لبهٔ پایین
+            const Positioned.fill(
               child: DecoratedBox(
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(28),
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                     colors: [
-                      Colors.white.withOpacity(0.55),
+                      Color(0x00000000),
+                      Color(0x00000000),
+                      Color(0x2A000000),
+                    ],
+                    stops: [0, 0.60, 1],
+                  ),
+                ),
+              ),
+            ),
+
+            // انعکاس بزرگِ بالا-چپ (حالت قطره)
+            Positioned(
+              top: 3,
+              left: 6,
+              width: 34,
+              height: 24,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  borderRadius: const BorderRadius.all(
+                    Radius.elliptical(34, 24),
+                  ),
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.white.withOpacity(dark ? 0.55 : 0.70),
                       Colors.white.withOpacity(0),
                     ],
                   ),
                 ),
               ),
             ),
+
+            // لکهٔ درخشان کوچک
             Positioned(
-              left: 13,
-              right: 13,
-              bottom: 3,
+              top: 7,
+              left: 12,
+              width: 10,
+              height: 6,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.92),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+              ),
+            ),
+
+            // شکست نور در پایین
+            Positioned(
+              left: 14,
+              right: 12,
+              bottom: 4,
               height: 13,
               child: DecoratedBox(
                 decoration: BoxDecoration(
@@ -1385,13 +1435,14 @@ class _SlideServiceCapsuleState extends State<_SlideServiceCapsule>
                     begin: Alignment.bottomCenter,
                     end: Alignment.topCenter,
                     colors: [
-                      Colors.white.withOpacity(0.20),
+                      Colors.white.withOpacity(0.34),
                       Colors.transparent,
                     ],
                   ),
                 ),
               ),
             ),
+
             Center(child: _buildHandleIcon()),
           ],
         ),
