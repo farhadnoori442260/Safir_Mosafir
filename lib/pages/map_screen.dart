@@ -34,7 +34,6 @@ import 'map_files/cargo_sheets.dart';
 import 'map_files/trip_options_sheet.dart';
 import 'map_files/schedule_trip_sheet.dart';
 import 'map_files/promo_code_sheet.dart';
-import 'map_files/home_services_sheet.dart';
 import 'package:safir_passengers/services/promo_service.dart';
 import '../widgets/animated_menus.dart';
 import '../widgets/map_location_label.dart';
@@ -582,7 +581,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
   void initState() {
     super.initState();
     _serviceType = widget.serviceType;
-    _isHome = widget.startAtHome && !widget.isPickerOnly && !_hasPreset;
+    _isHome = false; // هوم صفحهٔ جداست (home_screen)
 
     _driverAnimationController = AnimationController(
       vsync: this,
@@ -664,53 +663,6 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
         backgroundColor: color,
       ),
     );
-  }
-
-  // ════════════════════════════════════════════════════════════
-  //  🏠 باتم‌شیت اول (هوم) و انتخاب سرویس
-  // ════════════════════════════════════════════════════════════
-
-  SafirService get _homeSelected {
-    switch (_serviceType) {
-      case 'cargo':
-        return SafirService.cargo;
-      case 'intercity':
-        return SafirService.intercity;
-      default:
-        return SafirService.taxi;
-    }
-  }
-
-  /// انتخاب سرویس از باتم‌شیت هوم: نقشه همان می‌ماند، فقط باتم‌شیت به
-  /// مرحلهٔ «مبدأ و مقصد» همان سرویس تغییر می‌کند.
-  void _selectService(SafirService service) {
-    if (!_isHome) return;
-
-    final String type = service == SafirService.cargo
-        ? 'cargo'
-        : service == SafirService.intercity
-            ? 'intercity'
-            : 'taxi';
-
-    setState(() {
-      _serviceType = type;
-      selectedVehicle = type;
-      _selectedCategory = 0;
-      _selectedVehicleType = 0;
-      _currentStep = 0;
-      _isHome = false;
-      _isSheetExpanded = true;
-      _isMapMoving = false;
-      _rideForOther = false;
-      _otherName = '';
-      _otherPhone = '';
-    });
-
-    // آدرس مبدأ را از مرکز فعلی نقشه تازه کن
-    final LatLng? center = _mapController?.cameraPosition?.target;
-    if (center != null) {
-      _updateAddressFromCamera(center);
-    }
   }
 
   // ════════════════════════════════════════════════════════════
@@ -873,12 +825,8 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
 
     if (!mounted) return;
 
-    if (widget.startAtHome && !widget.isPickerOnly) {
-      await _resetToHomeAfterTrip();
-    } else {
-      // رفتار قبلی: نقشه بسته می‌شود و به صفحهٔ قبل برمی‌گردد
-      Navigator.pop(context);
-    }
+    // بعد از امتیاز، نقشه بسته می‌شود و به صفحهٔ هوم برمی‌گردد
+    Navigator.pop(context);
   }
 
   /// همهٔ وضعیت سفر را پاک می‌کند و باتم‌شیت اول (هوم) را دوباره نشان می‌دهد
@@ -3475,15 +3423,8 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
     _cancelPendingGeocode();
 
     if (_currentStep == 0) {
-      // صفحهٔ اصلی اپ: برگشت از مرحلهٔ مبدأ، باتم‌شیت اول (هوم) را نشان می‌دهد
-      if (widget.startAtHome && !widget.isPickerOnly) {
-        setState(() {
-          _isHome = true;
-          _isMapMoving = false;
-        });
-      } else {
-        Navigator.pop(context);
-      }
+      // برگشت از مرحلهٔ مبدأ: به صفحهٔ هوم برمی‌گردد
+      Navigator.pop(context);
     } else {
       setState(() {
         _currentStep--;
@@ -3691,8 +3632,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
     final bool isRtl = Directionality.of(context) == ui.TextDirection.rtl;
 
     // حالت صفحهٔ اصلی: برگشت سیستم از مرحله‌ها به باتم‌شیت اول می‌رود
-    final bool canPopRoute =
-        widget.isPickerOnly || !widget.startAtHome || _isHome;
+    final bool canPopRoute = true;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle(
@@ -3940,9 +3880,7 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
                               _currentStep == 0
                                   ? (widget.isPickerOnly
                                       ? Icons.close_rounded
-                                      : (widget.startAtHome
-                                          ? Icons.arrow_back
-                                          : Icons.home_outlined))
+                                      : Icons.arrow_back)
                                   : Icons.arrow_back,
                               color: AppColors.textPrimary,
                               size: 26,
@@ -4003,17 +3941,6 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
               // 📄 ۵. باتم‌شیت‌ها بر اساس مراحل
               if (widget.isPickerOnly)
                 _buildPickerPanel(),
-
-              // 🏠 باتم‌شیت اول: انتخاب سرویس (هوم)
-              if (!widget.isPickerOnly && _isHome)
-                Align(
-                  alignment: Alignment.bottomCenter,
-                  child: HomeServicesSheet(
-                    selected: _homeSelected,
-                    onServiceSelected: _selectService,
-                    onSearchTap: () => _selectService(SafirService.taxi),
-                  ),
-                ),
 
               if (!widget.isPickerOnly &&
                   !_isHome &&
