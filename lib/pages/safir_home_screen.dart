@@ -64,9 +64,9 @@ class _SafirHomeScreenState extends State<SafirHomeScreen> {
       'ps': 'د سفیر ډرایور شئ',
     },
     'home_city_taxi': {
-      'fa': 'تکسی شهری',
-      'en': 'City taxi',
-      'ps': 'ښاري ټکسي',
+      'fa': 'سفیر',
+      'en': 'Safir',
+      'ps': 'سفیر',
     },
     'taxi_subtitle': {
       'fa': 'درخواست موتر برای شهر',
