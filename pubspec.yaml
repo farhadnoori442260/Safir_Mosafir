@@ -91,6 +91,7 @@ flutter:
 
   assets:
     - assets/images/
+    - assets/icons/
     - assets/vehicles/
     - assets/lang/
     - assets/audio/fa/
