@@ -3,7 +3,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import 'package:safir_passengers/theme/app_colors.dart';
 
@@ -95,7 +94,6 @@ class _RateDriverScreenState extends State<RateDriverScreen> {
   }
 
   void _setRating(int value) {
-    HapticFeedback.selectionClick();
     setState(() {
       _rating = value;
       // برچسب‌های گروه دیگر (مثبت/منفی) نباید همراه امتیاز ثبت شوند
@@ -109,6 +107,15 @@ class _RateDriverScreenState extends State<RateDriverScreen> {
   void dispose() {
     _commentController.dispose();
     super.dispose();
+  }
+
+  /// بعد از امتیاز (یا «بعداً») به صفحهٔ هوم برمی‌گردد:
+  /// همهٔ صفحه‌های روی هوم (از جمله نقشه) بسته می‌شوند.
+  void _goHome() {
+    if (!mounted) {
+      return;
+    }
+    Navigator.of(context).popUntil((Route<dynamic> route) => route.isFirst);
   }
 
   Future<void> _submitRating() async {
@@ -134,7 +141,6 @@ class _RateDriverScreenState extends State<RateDriverScreen> {
       _isSubmitting = true;
     });
 
-    HapticFeedback.mediumImpact();
 
     try {
       final FirebaseFirestore firestore =
@@ -241,7 +247,7 @@ class _RateDriverScreenState extends State<RateDriverScreen> {
         ),
       );
 
-      Navigator.pop(context);
+      _goHome();
     } on FirebaseException catch (e) {
       debugPrint(
         'Driver rating Firebase error: '
@@ -320,7 +326,7 @@ class _RateDriverScreenState extends State<RateDriverScreen> {
         ),
         actions: <Widget>[
           TextButton(
-            onPressed: _isSubmitting ? null : () => Navigator.pop(context),
+            onPressed: _isSubmitting ? null : _goHome,
             child: Text(
               _t('skip', 'بعداً'),
               style: TextStyle(
@@ -623,7 +629,6 @@ class _RateDriverScreenState extends State<RateDriverScreen> {
 
     return GestureDetector(
       onTap: () {
-        HapticFeedback.selectionClick();
         setState(() {
           if (isSelected) {
             _selectedTags.remove(tagKey);
