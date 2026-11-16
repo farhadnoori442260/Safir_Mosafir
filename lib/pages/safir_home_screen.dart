@@ -19,16 +19,8 @@ import 'package:safir_passengers/theme/app_colors.dart';
 
 import 'map_screen.dart';
 
-/// ─────────────────────────────────────────────────────────────
-///  آیکن‌های اختصاصی سرویس‌ها (برای هر سه، PNG شفاف حدود ۱۲۸ تا ۱۹۲ پیکسل):
-///    assets/icons/home_taxi.png
-///    assets/icons/home_cargo.png
-///    assets/icons/home_intercity.png
-///
-///  • آیکن‌های «سفید تک‌رنگ» → false (روی دایرهٔ سبز می‌نشینند)
-///  • آیکن‌های «رنگی/سه‌بعدی» → true (دایره روشن می‌شود و آیکن رنگ خودش را دارد)
-///  اگر فایل پیدا نشد، خودکار آیکن پیش‌فرض متریال نمایش داده می‌شود.
-/// ─────────────────────────────────────────────────────────────
+/// false: آیکن‌های خدمات سفید روی زمینهٔ سبز.
+/// true: آیکن‌های رنگی روی زمینهٔ روشن.
 const bool _kColoredHomeIcons = false;
 
 class SafirHomeScreen extends StatefulWidget {
@@ -44,13 +36,13 @@ class _SafirHomeScreenState extends State<SafirHomeScreen> {
   static const String driverCardImage =
       'assets/images/register_banner.png';
 
+  static const double _barHeight = 46;
+
   final GlobalKey<ScaffoldState> _scaffoldKey =
       GlobalKey<ScaffoldState>();
 
   bool _openingService = false;
-
-  /// ارتفاع دکمه‌ها و نوار جستجوی بالای صفحه
-  static const double _barHeight = 46;
+  bool _driverPressed = false;
 
   static const Map<String, Map<String, String>> _fallbacks = {
     'home_slogan': {
@@ -141,11 +133,10 @@ class _SafirHomeScreenState extends State<SafirHomeScreen> {
         key;
   }
 
-  /// ✅ فاصلهٔ امن بالا/پایین. اگر ویجت‌های بالاتر padding را مصرف کرده باشند
-  /// (علت افتادن هدر روی نوار وضعیت)، از خود پنجرهٔ سیستم خوانده می‌شود.
   double _safeTop(BuildContext context) {
-    final MediaQueryData media = MediaQuery.of(context);
-    final MediaQueryData window = MediaQueryData.fromView(View.of(context));
+    final media = MediaQuery.of(context);
+    final window = MediaQueryData.fromView(View.of(context));
+
     return max(
       media.padding.top,
       max(media.viewPadding.top, window.padding.top),
@@ -153,8 +144,9 @@ class _SafirHomeScreenState extends State<SafirHomeScreen> {
   }
 
   double _safeBottom(BuildContext context) {
-    final MediaQueryData media = MediaQuery.of(context);
-    final MediaQueryData window = MediaQueryData.fromView(View.of(context));
+    final media = MediaQuery.of(context);
+    final window = MediaQueryData.fromView(View.of(context));
+
     return max(
       media.padding.bottom,
       max(media.viewPadding.bottom, window.padding.bottom),
@@ -266,7 +258,10 @@ class _SafirHomeScreenState extends State<SafirHomeScreen> {
   Future<void> _navigateToService(String serviceId) async {
     if (!mounted || _openingService) return;
 
-    setState(() => _openingService = true);
+    setState(() {
+      _openingService = true;
+      _driverPressed = false;
+    });
 
     try {
       if (serviceId == 'register') {
@@ -328,7 +323,6 @@ class _SafirHomeScreenState extends State<SafirHomeScreen> {
   void _openMenu() {
     final isRTL = Directionality.of(context) == TextDirection.rtl;
 
-    // منو همیشه از سمت چپ باز می‌شود.
     if (isRTL) {
       _scaffoldKey.currentState?.openEndDrawer();
     } else {
@@ -340,10 +334,9 @@ class _SafirHomeScreenState extends State<SafirHomeScreen> {
   Widget build(BuildContext context) {
     final palette = _HomePalette.of(context);
     final services = _services();
-    final bool isRTL = Directionality.of(context) == TextDirection.rtl;
-
-    final double topInset = _safeTop(context);
-    final double bottomInset = _safeBottom(context);
+    final isRTL = Directionality.of(context) == TextDirection.rtl;
+    final topInset = _safeTop(context);
+    final bottomInset = _safeBottom(context);
 
     return Scaffold(
       key: _scaffoldKey,
@@ -356,27 +349,28 @@ class _SafirHomeScreenState extends State<SafirHomeScreen> {
         value: SystemUiOverlayStyle.light,
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final double heroHeight = (constraints.maxHeight * 0.55)
+            final heroHeight = (constraints.maxHeight * 0.55)
                 .clamp(260.0, 460.0)
                 .toDouble();
 
-            // فاصلهٔ آزاد بین اسلوگان و کپسول‌ها (فضای عکس). ارتفاع بخش‌های
-            // ثابت از روی اندازه‌ها حساب می‌شود؛ ۲۴ پیکسل حاشیهٔ اطمینان
-            // می‌ماند تا خطای تخمین باعث اسکرول نشود.
-            final double textScale = MediaQuery.textScalerOf(context)
+            final textScale = MediaQuery.textScalerOf(context)
                 .scale(1)
                 .clamp(1.0, 1.8)
                 .toDouble();
-            final double capsuleHeight = 102 + (textScale - 1) * 38;
-            final double fixedHeight = topInset +
+
+            final capsuleHeight = 102 + (textScale - 1) * 38;
+            final driverHeight = 72 + (textScale - 1) * 28;
+
+            final fixedHeight = topInset +
                 8 +
                 _barHeight +
                 services.length * (capsuleHeight + 12) +
                 2 +
-                (64 + (textScale - 1) * 28) +
+                driverHeight +
                 bottomInset +
                 14;
-            final double spacerHeight =
+
+            final spacerHeight =
                 max(0.0, constraints.maxHeight - fixedHeight - 24);
 
             return Stack(
@@ -422,72 +416,79 @@ class _SafirHomeScreenState extends State<SafirHomeScreen> {
                     ),
                   ),
                 ),
-
-                // ✅ صفحهٔ ثابت: اگر محتوا جا شود هیچ اسکرولی ندارد (Clamping یعنی
-                // بدون کش‌آمدن). فقط در گوشی‌های خیلی کوتاه اسکرول می‌شود تا
-                // چیزی بریده نشود.
                 SingleChildScrollView(
                   physics: const ClampingScrollPhysics(),
                   child: ConstrainedBox(
                     constraints: BoxConstraints(
                       minHeight: constraints.maxHeight,
                     ),
-                    child: Padding(
-                      padding: EdgeInsets.zero,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          SizedBox(height: topInset + 8),
-                          _buildTopBar(),
-                          // فضای عکس: هر چه جا بماند همین‌جا می‌رود
-                          SizedBox(height: spacerHeight),
-
-                          Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                            ),
-                            child: Column(
-                              crossAxisAlignment:
-                                  CrossAxisAlignment.stretch,
-                              children: [
-                                for (int i = 0; i < services.length; i++) ...[
-                                  // ورود پلکانی: هر کپسول کمی دیرتر بالا می‌آید
-                                  TweenAnimationBuilder<double>(
-                                    key: ValueKey('enter_${services[i].id}'),
-                                    tween: Tween<double>(begin: 0, end: 1),
-                                    duration:
-                                        Duration(milliseconds: 520 + i * 140),
-                                    curve: Curves.easeOutCubic,
-                                    builder: (context, t, child) {
-                                      return Opacity(
-                                        opacity: t,
-                                        child: Transform.translate(
-                                          offset: Offset(0, 28 * (1 - t)),
-                                          child: child,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        SizedBox(height: topInset + 8),
+                        _buildTopBar(),
+                        SizedBox(height: spacerHeight),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                          ),
+                          child: Column(
+                            crossAxisAlignment:
+                                CrossAxisAlignment.stretch,
+                            children: [
+                              for (int i = 0;
+                                  i < services.length;
+                                  i++) ...[
+                                TweenAnimationBuilder<double>(
+                                  key: ValueKey(
+                                    'enter_${services[i].id}',
+                                  ),
+                                  tween: Tween<double>(
+                                    begin: 0,
+                                    end: 1,
+                                  ),
+                                  duration: Duration(
+                                    milliseconds: 520 + i * 140,
+                                  ),
+                                  curve: Curves.easeOutCubic,
+                                  builder: (context, t, child) {
+                                    return Opacity(
+                                      opacity: t,
+                                      child: Transform.translate(
+                                        offset: Offset(
+                                          0,
+                                          28 * (1 - t),
                                         ),
-                                      );
-                                    },
-                                    child: _SlideServiceCapsule(
-                                      key: ValueKey(services[i].id),
-                                      service: services[i],
-                                      enabled: !_openingService,
-                                      hint: _tr('home_slide_hint'),
-                                      openLabel: _tr('home_open_service'),
-                                      onCompleted: () =>
-                                          _navigateToService(services[i].id),
+                                        child: child,
+                                      ),
+                                    );
+                                  },
+                                  child: _SlideServiceCapsule(
+                                    key: ValueKey(services[i].id),
+                                    service: services[i],
+                                    enabled: !_openingService,
+                                    hint: _tr('home_slide_hint'),
+                                    openLabel:
+                                        _tr('home_open_service'),
+                                    onCompleted: () =>
+                                        _navigateToService(
+                                      services[i].id,
                                     ),
                                   ),
-                                  const SizedBox(height: 12),
-                                ],
-                                const HomeAdvertisementsSection(),
-                                const SizedBox(height: 2),
-                                _buildDriverCard(palette),
+                                ),
+                                const SizedBox(height: 12),
                               ],
-                            ),
+                              const HomeAdvertisementsSection(),
+                              const SizedBox(height: 2),
+                              _buildDriverCard(
+                                palette,
+                                driverHeight,
+                              ),
+                            ],
                           ),
-                          SizedBox(height: bottomInset + 14),
-                        ],
-                      ),
+                        ),
+                        SizedBox(height: bottomInset + 14),
+                      ],
                     ),
                   ),
                 ),
@@ -524,7 +525,6 @@ class _SafirHomeScreenState extends State<SafirHomeScreen> {
             errorBuilder: (_, error, ___) {
               debugPrint('خطا در بارگذاری عکس هوم: $error');
 
-              // عمداً هیچ موتر جداگانه‌ای اضافه نمی‌شود.
               return DecoratedBox(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
@@ -552,34 +552,46 @@ class _SafirHomeScreenState extends State<SafirHomeScreen> {
     );
   }
 
-  /// شیشهٔ مات واقعی (blur + رنگ نیمه‌شفاف)
   Widget _glass({
     required Widget child,
     required double radius,
     double? width,
     double height = _barHeight,
   }) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(radius),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-        child: Container(
-          width: width,
-          height: height,
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.16),
-            borderRadius: BorderRadius.circular(radius),
-            border: Border.all(color: Colors.white.withOpacity(0.30)),
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(radius),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.12),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
           ),
-          child: child,
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(radius),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+          child: Container(
+            width: width,
+            height: height,
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.16),
+              borderRadius: BorderRadius.circular(radius),
+              border: Border.all(
+                color: Colors.white.withOpacity(0.30),
+              ),
+            ),
+            child: child,
+          ),
         ),
       ),
     );
   }
 
-  /// ردیف بالا: [منو]  [کجا می‌روید؟]  [SAFIR]
   Widget _buildTopBar() {
-    final TextDirection appDirection = Directionality.of(context);
+    final appDirection = Directionality.of(context);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -589,7 +601,9 @@ class _SafirHomeScreenState extends State<SafirHomeScreen> {
           children: [
             _buildMenuButton(),
             const SizedBox(width: 10),
-            Expanded(child: _buildSearchBar(appDirection)),
+            Expanded(
+              child: _buildSearchBar(appDirection),
+            ),
             const SizedBox(width: 10),
             _buildBrandMark(),
           ],
@@ -601,7 +615,8 @@ class _SafirHomeScreenState extends State<SafirHomeScreen> {
   Widget _buildMenuButton() {
     return Semantics(
       button: true,
-      label: MaterialLocalizations.of(context).openAppDrawerTooltip,
+      label:
+          MaterialLocalizations.of(context).openAppDrawerTooltip,
       child: _glass(
         radius: _barHeight / 2,
         width: _barHeight,
@@ -622,7 +637,6 @@ class _SafirHomeScreenState extends State<SafirHomeScreen> {
     );
   }
 
-  /// نوار «کجا می‌روید؟»؛ لمس آن مستقیم به تاکسی شهری می‌رود
   Widget _buildSearchBar(TextDirection appDirection) {
     return Semantics(
       button: true,
@@ -632,11 +646,15 @@ class _SafirHomeScreenState extends State<SafirHomeScreen> {
         child: Material(
           color: Colors.transparent,
           child: InkWell(
-            onTap: _openingService ? null : () => _navigateToService('car'),
+            onTap: _openingService
+                ? null
+                : () => _navigateToService('car'),
             child: Directionality(
               textDirection: appDirection,
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 14),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                ),
                 child: Row(
                   children: [
                     const Icon(
@@ -651,7 +669,7 @@ class _SafirHomeScreenState extends State<SafirHomeScreen> {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          color: Colors.white.withOpacity(0.92),
+                          color: Colors.white.withOpacity(0.94),
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
                         ),
@@ -667,7 +685,6 @@ class _SafirHomeScreenState extends State<SafirHomeScreen> {
     );
   }
 
-  /// برند: فقط نوشتهٔ جمع‌وجور روی شیشه (بدون آیکن)
   Widget _buildBrandMark() {
     return _glass(
       radius: _barHeight / 2,
@@ -684,7 +701,10 @@ class _SafirHomeScreenState extends State<SafirHomeScreen> {
               fontWeight: FontWeight.w800,
               letterSpacing: 2.6,
               shadows: [
-                Shadow(color: Colors.black38, blurRadius: 6),
+                Shadow(
+                  color: Colors.black38,
+                  blurRadius: 6,
+                ),
               ],
             ),
           ),
@@ -693,84 +713,123 @@ class _SafirHomeScreenState extends State<SafirHomeScreen> {
     );
   }
 
-  /// کارت ثبت‌نام راننده: عمداً «ثانویه» (شیشه‌ای و کم‌ارتفاع) تا با سه سرویس
-  /// اصلی رقابت نکند.
-  Widget _buildDriverCard(_HomePalette palette) {
+  Widget _buildDriverCard(
+    _HomePalette palette,
+    double minHeight,
+  ) {
     final isRTL = Directionality.of(context) == TextDirection.rtl;
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(22),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-        child: Material(
-          color: Colors.white.withOpacity(0.10),
-          child: InkWell(
-            onTap: _openingService
-                ? null
-                : () => _navigateToService('register'),
-            child: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 14,
-                vertical: 10,
-              ),
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: palette.shadows,
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: Material(
+            color: Colors.transparent,
+            child: Ink(
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(22),
-                border: Border.all(color: Colors.white.withOpacity(0.22)),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 44,
-                    height: 44,
-                    padding: const EdgeInsets.all(7),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.14),
-                      borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(24),
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Colors.white.withOpacity(
+                      palette.isDark ? 0.14 : 0.22,
                     ),
-                    child: Image.asset(
-                      driverCardImage,
-                      fit: BoxFit.contain,
-                      errorBuilder: (_, __, ___) {
-                        return const Icon(
-                          Icons.assignment_ind_rounded,
-                          color: Colors.white,
-                          size: 26,
-                        );
-                      },
+                    Colors.white.withOpacity(
+                      palette.isDark ? 0.07 : 0.11,
                     ),
+                  ],
+                ),
+                border: Border.all(
+                  color: Colors.white.withOpacity(
+                    palette.isDark ? 0.23 : 0.35,
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                ),
+              ),
+              child: InkWell(
+                onHighlightChanged: (pressed) {
+                  if (!mounted || _driverPressed == pressed) {
+                    return;
+                  }
+
+                  setState(() => _driverPressed = pressed);
+                },
+                onTap: _openingService
+                    ? null
+                    : () => _navigateToService('register'),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    minHeight: minHeight,
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 13,
+                      vertical: 11,
+                    ),
+                    child: Row(
                       children: [
-                        Text(
-                          _tr('home_become_driver'),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 13.5,
-                            fontWeight: FontWeight.w800,
+                        _JellyBadge(
+                          size: 46,
+                          pressed: _driverPressed,
+                          isDark: palette.isDark,
+                          child: Image.asset(
+                            driverCardImage,
+                            width: 29,
+                            height: 29,
+                            fit: BoxFit.contain,
+                            filterQuality: FilterQuality.high,
+                            errorBuilder: (_, __, ___) {
+                              return const Icon(
+                                Icons.assignment_ind_rounded,
+                                color: Colors.white,
+                                size: 27,
+                              );
+                            },
                           ),
                         ),
-                        const SizedBox(height: 3),
-                        Text(
-                          _tr('register_subtitle'),
-                          style: const TextStyle(
-                            color: Colors.white70,
-                            fontSize: 10.5,
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment:
+                                CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _tr('home_become_driver'),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 13.5,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                _tr('register_subtitle'),
+                                style: TextStyle(
+                                  color: Colors.white.withOpacity(0.82),
+                                  fontSize: 10.5,
+                                ),
+                              ),
+                            ],
                           ),
+                        ),
+                        const SizedBox(width: 6),
+                        Icon(
+                          isRTL
+                              ? Icons.chevron_left_rounded
+                              : Icons.chevron_right_rounded,
+                          color: Colors.white.withOpacity(0.9),
+                          size: 23,
                         ),
                       ],
                     ),
                   ),
-                  Icon(
-                    isRTL
-                        ? Icons.chevron_left_rounded
-                        : Icons.chevron_right_rounded,
-                    color: Colors.white70,
-                  ),
-                ],
+                ),
               ),
             ),
           ),
@@ -780,7 +839,6 @@ class _SafirHomeScreenState extends State<SafirHomeScreen> {
   }
 }
 
-/// رنگ برند از AppColors و رنگ سطوح از تم فعال گرفته می‌شود.
 class _HomePalette {
   const _HomePalette({
     required this.isDark,
@@ -802,7 +860,9 @@ class _HomePalette {
       isDark: isDark,
       surface: scheme.surface,
       text: scheme.onSurface,
-      secondary: scheme.onSurface.withOpacity(0.65),
+      secondary: scheme.onSurface.withOpacity(
+        isDark ? 0.74 : 0.70,
+      ),
       border: isDark
           ? Colors.white.withOpacity(0.13)
           : Colors.white.withOpacity(0.85),
@@ -841,12 +901,16 @@ class _HomePalette {
 
   List<BoxShadow> get shadows => [
         BoxShadow(
-          color: Colors.black.withOpacity(isDark ? 0.36 : 0.20),
-          blurRadius: 20,
-          offset: const Offset(0, 8),
+          color: Colors.black.withOpacity(
+            isDark ? 0.32 : 0.17,
+          ),
+          blurRadius: 18,
+          offset: const Offset(0, 7),
         ),
         BoxShadow(
-          color: Colors.black.withOpacity(isDark ? 0.12 : 0.05),
+          color: Colors.black.withOpacity(
+            isDark ? 0.12 : 0.04,
+          ),
           blurRadius: 4,
           offset: const Offset(0, 2),
         ),
@@ -871,6 +935,150 @@ class _HomeService {
   final String iconAsset;
 }
 
+/// ظاهر مشترک دستگیره‌های خدمات و آیکن ثبت‌نام راننده.
+class _JellyBadge extends StatelessWidget {
+  const _JellyBadge({
+    required this.size,
+    required this.child,
+    required this.isDark,
+    this.pressed = false,
+    this.coloredIcon = false,
+  });
+
+  final double size;
+  final Widget child;
+  final bool isDark;
+  final bool pressed;
+  final bool coloredIcon;
+
+  @override
+  Widget build(BuildContext context) {
+    final brand = AppColors.primaryBrand;
+
+    final base = isDark
+        ? Color.lerp(brand, Colors.white, 0.10)!
+        : brand;
+
+    final top = Color.lerp(base, Colors.white, 0.27)!;
+    final bottom = Color.lerp(base, Colors.black, 0.16)!;
+    final radius = size * (pressed ? 0.39 : 0.46);
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOutCubic,
+      width: size,
+      height: size,
+      transformAlignment: Alignment.center,
+      transform: Matrix4.diagonal3Values(
+        pressed ? 1.045 : 1,
+        pressed ? 0.95 : 1,
+        1,
+      ),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(radius),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: coloredIcon
+              ? [
+                  Color.lerp(Colors.white, brand, 0.05)!,
+                  Color.lerp(Colors.white, brand, 0.12)!,
+                  Color.lerp(Colors.white, brand, 0.23)!,
+                ]
+              : [
+                  top,
+                  base,
+                  bottom,
+                ],
+          stops: const [0, 0.48, 1],
+        ),
+        border: Border.all(
+          color: coloredIcon
+              ? brand.withOpacity(0.25)
+              : Color.lerp(base, Colors.white, 0.57)!,
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(
+              isDark ? 0.24 : 0.14,
+            ),
+            blurRadius: pressed ? 10 : 7,
+            offset: Offset(0, pressed ? 5 : 3),
+          ),
+          BoxShadow(
+            color: brand.withOpacity(
+              pressed ? 0.22 : 0.12,
+            ),
+            blurRadius: pressed ? 12 : 7,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(radius),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            // لمعان باریک بالا؛ از مرکز علامت فاصله دارد.
+            Positioned(
+              left: size * 0.18,
+              right: size * 0.18,
+              top: size * 0.055,
+              height: size * 0.10,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(size),
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.white.withOpacity(
+                        coloredIcon ? 0.65 : 0.40,
+                      ),
+                      Colors.white.withOpacity(0),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+            // نور لبهٔ چپ، بدون لکهٔ سفید روی آیکن.
+            Positioned(
+              top: size * 0.23,
+              bottom: size * 0.25,
+              left: size * 0.045,
+              width: size * 0.045,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(size),
+                  color: Colors.white.withOpacity(0.15),
+                ),
+              ),
+            ),
+
+            // بازتاب ضعیف لبهٔ پایین.
+            Positioned(
+              left: size * 0.25,
+              right: size * 0.25,
+              bottom: size * 0.045,
+              height: size * 0.045,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(size),
+                  color: Colors.white.withOpacity(0.13),
+                ),
+              ),
+            ),
+
+            Center(child: child),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _SlideServiceCapsule extends StatefulWidget {
   const _SlideServiceCapsule({
     super.key,
@@ -892,16 +1100,14 @@ class _SlideServiceCapsule extends StatefulWidget {
       _SlideServiceCapsuleState();
 }
 
-class _SlideServiceCapsuleState extends State<_SlideServiceCapsule>
-    with TickerProviderStateMixin {
+class _SlideServiceCapsuleState
+    extends State<_SlideServiceCapsule>
+    with SingleTickerProviderStateMixin {
   static const double _handleSize = 60;
   static const double _inset = 10;
   static const double _threshold = 0.85;
 
   late final AnimationController _controller;
-
-  /// تپش آرام دایره وقتی کاربر دست نمی‌زند (برای دعوت به کشیدن)
-  late final AnimationController _idle;
 
   bool _dragging = false;
   bool _busy = false;
@@ -914,28 +1120,26 @@ class _SlideServiceCapsuleState extends State<_SlideServiceCapsule>
       vsync: this,
       duration: const Duration(milliseconds: 240),
     );
-
-    // فاز تپش هر کپسول متفاوت است تا سه‌تا هم‌زمان نتپند
-    _idle = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1700),
-      value: (widget.service.id.hashCode.abs() % 100) / 100,
-    )..repeat(reverse: true);
   }
 
   @override
-  void didUpdateWidget(covariant _SlideServiceCapsule oldWidget) {
+  void didUpdateWidget(
+    covariant _SlideServiceCapsule oldWidget,
+  ) {
     super.didUpdateWidget(oldWidget);
 
     if (!widget.enabled && !_busy) {
       _dragging = false;
-      _controller.reverse();
+
+      _controller.animateTo(
+        0,
+        curve: Curves.easeOutCubic,
+      );
     }
   }
 
   @override
   void dispose() {
-    _idle.dispose();
     _controller.dispose();
     super.dispose();
   }
@@ -972,7 +1176,7 @@ class _SlideServiceCapsuleState extends State<_SlideServiceCapsule>
 
       await widget.onCompleted();
     } on TickerCanceled {
-      // ویجت هنگام اجرای انیمیشن از درخت خارج شده است.
+      // خروج ویجت از صفحه هنگام انیمیشن.
     } catch (error, stackTrace) {
       debugPrint('خطا در باز کردن خدمت: $error');
       debugPrintStack(stackTrace: stackTrace);
@@ -989,16 +1193,52 @@ class _SlideServiceCapsuleState extends State<_SlideServiceCapsule>
     }
   }
 
+  Widget _buildHandleIcon() {
+    final iconColor = _kColoredHomeIcons
+        ? AppColors.primaryBrand
+        : Colors.white;
+
+    final fallback = Icon(
+      _busy ? Icons.check_rounded : widget.service.icon,
+      color: iconColor,
+      size: 31,
+      shadows: _kColoredHomeIcons
+          ? null
+          : const [
+              Shadow(
+                color: Color(0x33002E23),
+                blurRadius: 3,
+                offset: Offset(0, 1),
+              ),
+            ],
+    );
+
+    if (_busy) return fallback;
+
+    return Image.asset(
+      widget.service.iconAsset,
+      width: 37,
+      height: 37,
+      fit: BoxFit.contain,
+      filterQuality: FilterQuality.high,
+      color: _kColoredHomeIcons ? null : Colors.white,
+      colorBlendMode:
+          _kColoredHomeIcons ? null : BlendMode.srcIn,
+      errorBuilder: (_, __, ___) => fallback,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final palette = _HomePalette.of(context);
 
-    final textScale =
-        MediaQuery.textScalerOf(context).scale(1).clamp(1.0, 1.8);
+    final textScale = MediaQuery.textScalerOf(context)
+        .scale(1)
+        .clamp(1.0, 1.8)
+        .toDouble();
 
-    final double cardHeight = 102 + ((textScale - 1) * 38);
-    final double handleTop = (cardHeight - _handleSize) / 2;
-    final double lineTop = cardHeight - 29;
+    final cardHeight = 102 + (textScale - 1) * 38;
+    final handleTop = (cardHeight - _handleSize) / 2;
 
     return Semantics(
       button: true,
@@ -1030,23 +1270,22 @@ class _SlideServiceCapsuleState extends State<_SlideServiceCapsule>
             child: LayoutBuilder(
               builder: (context, constraints) {
                 final travel =
-                    (constraints.maxWidth - _inset * 2 - _handleSize)
+                    (constraints.maxWidth -
+                            _inset * 2 -
+                            _handleSize)
                         .clamp(1.0, double.infinity)
                         .toDouble();
 
                 return AnimatedBuilder(
-                  animation: Listenable.merge([_controller, _idle]),
+                  animation: _controller,
                   builder: (context, _) {
                     final progress = _controller.value;
+                    final handleLeft =
+                        _inset + travel * progress;
 
-                    // تپش فقط وقتی فعال است که کاربر دست نزده است
-                    final double pulse =
-                        (_dragging || _busy || progress > 0.02)
-                            ? 0.0
-                            : Curves.easeInOut.transform(_idle.value);
-                    final handleLeft = _inset + travel * progress;
-                    final textOpacity =
-                        (1 - progress * 1.7).clamp(0.0, 1.0).toDouble();
+                    final textOpacity = (1 - progress * 1.7)
+                        .clamp(0.0, 1.0)
+                        .toDouble();
 
                     return SizedBox(
                       height: cardHeight,
@@ -1072,13 +1311,17 @@ class _SlideServiceCapsuleState extends State<_SlideServiceCapsule>
                                     },
                                     blendMode: BlendMode.dstIn,
                                     child: Opacity(
-                                      opacity:
-                                          palette.isDark ? 0.20 : 0.30,
+                                      opacity: palette.isDark
+                                          ? 0.17
+                                          : 0.24,
                                       child: Image.asset(
                                         widget.service.image,
                                         fit: BoxFit.cover,
-                                        errorBuilder: (_, __, ___) =>
-                                            const SizedBox.shrink(),
+                                        errorBuilder:
+                                            (_, __, ___) {
+                                          return const SizedBox
+                                              .shrink();
+                                        },
                                       ),
                                     ),
                                   ),
@@ -1087,43 +1330,39 @@ class _SlideServiceCapsuleState extends State<_SlideServiceCapsule>
                             ),
                           ),
 
-                          // لمعان ظریف روی سطح کپسول.
                           Positioned(
                             top: 1,
-                            left: 22,
-                            right: 22,
+                            left: 25,
+                            right: 25,
                             child: Container(
                               height: 1,
                               color: Colors.white.withOpacity(
-                                palette.isDark ? 0.14 : 0.85,
+                                palette.isDark ? 0.12 : 0.70,
                               ),
                             ),
                           ),
 
+                          // پیشرفت فقط هنگام کشیدن نمایان است.
                           Positioned(
                             left: _inset + _handleSize / 2,
-                            right: _inset + _handleSize / 2,
-                            top: lineTop,
-                            child: Container(
-                              height: 1.5,
-                              color: palette.brandText.withOpacity(0.13),
-                            ),
-                          ),
-                          Positioned(
-                            left: _inset + _handleSize / 2,
-                            top: lineTop,
+                            top: cardHeight - 29,
                             width: travel * progress,
                             child: Container(
-                              height: 1.5,
-                              color: palette.brandText.withOpacity(0.6),
+                              height: 2,
+                              decoration: BoxDecoration(
+                                color: palette.brandText
+                                    .withOpacity(0.50),
+                                borderRadius:
+                                    BorderRadius.circular(2),
+                              ),
                             ),
                           ),
 
                           Positioned(
                             left: 80,
                             right: 35,
-                            top: 14,
-                            bottom: 35,
+                            top: 12,
+                            bottom: 32,
                             child: IgnorePointer(
                               child: Opacity(
                                 opacity: textOpacity,
@@ -1134,19 +1373,22 @@ class _SlideServiceCapsuleState extends State<_SlideServiceCapsule>
                                     Text(
                                       widget.service.title,
                                       maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
+                                      overflow:
+                                          TextOverflow.ellipsis,
                                       textAlign: TextAlign.center,
                                       style: TextStyle(
                                         color: palette.text,
                                         fontSize: 18,
-                                        fontWeight: FontWeight.w800,
+                                        fontWeight:
+                                            FontWeight.w800,
                                       ),
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
                                       widget.service.subtitle,
                                       maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
+                                      overflow:
+                                          TextOverflow.ellipsis,
                                       textAlign: TextAlign.center,
                                       style: TextStyle(
                                         color: palette.secondary,
@@ -1160,15 +1402,17 @@ class _SlideServiceCapsuleState extends State<_SlideServiceCapsule>
                           ),
 
                           Positioned(
-                            right: 12 - 5 * pulse,
+                            right: 12,
                             top: (cardHeight - 29) / 2 - 6,
-                            child: Opacity(
-                              opacity: 1 - progress,
-                              child: Icon(
-                                Icons.chevron_right_rounded,
-                                textDirection: TextDirection.ltr,
-                                color: palette.brandText,
-                                size: 29,
+                            child: IgnorePointer(
+                              child: Opacity(
+                                opacity: 1 - progress,
+                                child: Icon(
+                                  Icons.chevron_right_rounded,
+                                  textDirection: TextDirection.ltr,
+                                  color: palette.brandText,
+                                  size: 29,
+                                ),
                               ),
                             ),
                           ),
@@ -1176,7 +1420,7 @@ class _SlideServiceCapsuleState extends State<_SlideServiceCapsule>
                           Positioned(
                             left: 80,
                             right: 24,
-                            bottom: 5,
+                            bottom: 8,
                             child: IgnorePointer(
                               child: Opacity(
                                 opacity: textOpacity,
@@ -1187,7 +1431,8 @@ class _SlideServiceCapsuleState extends State<_SlideServiceCapsule>
                                   textAlign: TextAlign.center,
                                   style: TextStyle(
                                     color: palette.secondary,
-                                    fontSize: 9,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w500,
                                   ),
                                 ),
                               ),
@@ -1204,14 +1449,20 @@ class _SlideServiceCapsuleState extends State<_SlideServiceCapsule>
                                     widget.enabled && !_busy
                                         ? (_) {
                                             _controller.stop();
-                                            setState(
-                                              () => _dragging = true,
-                                            );
+
+                                            setState(() {
+                                              _dragging = true;
+                                            });
                                           }
                                         : null,
                                 onHorizontalDragUpdate:
                                     widget.enabled && !_busy
                                         ? (details) {
+                                            if (_busy ||
+                                                !widget.enabled) {
+                                              return;
+                                            }
+
                                             final next =
                                                 _controller.value +
                                                     details.delta.dx /
@@ -1239,7 +1490,13 @@ class _SlideServiceCapsuleState extends State<_SlideServiceCapsule>
                                           }
                                         : null,
                                 onHorizontalDragCancel: _reset,
-                                child: _buildJellyHandle(palette, pulse),
+                                child: _JellyBadge(
+                                  size: _handleSize,
+                                  isDark: palette.isDark,
+                                  pressed: _dragging,
+                                  coloredIcon: _kColoredHomeIcons,
+                                  child: _buildHandleIcon(),
+                                ),
                               ),
                             ),
                           ),
@@ -1251,200 +1508,6 @@ class _SlideServiceCapsuleState extends State<_SlideServiceCapsule>
               },
             ),
           ),
-        ),
-      ),
-    );
-  }
-
-  /// آیکن اختصاصی؛ اگر فایل نبود آیکن متریال
-  Widget _buildHandleIcon() {
-    const List<Shadow> shadows = [
-      Shadow(
-        color: Color(0x44004130),
-        blurRadius: 5,
-        offset: Offset(0, 2),
-      ),
-    ];
-
-    final Widget fallback = Icon(
-      _busy ? Icons.check_rounded : widget.service.icon,
-      color: _kColoredHomeIcons ? AppColors.primaryBrand : Colors.white,
-      size: 34,
-      shadows: _kColoredHomeIcons ? null : shadows,
-    );
-
-    if (_busy) return fallback;
-
-    return Image.asset(
-      widget.service.iconAsset,
-      width: 42,
-      height: 42,
-      fit: BoxFit.contain,
-      filterQuality: FilterQuality.high,
-      // آیکن سفید تک‌رنگ: هر رنگی که فایل داشته باشد سفید می‌شود
-      color: _kColoredHomeIcons ? null : Colors.white,
-      colorBlendMode: _kColoredHomeIcons ? null : BlendMode.srcIn,
-      errorBuilder: (_, __, ___) => fallback,
-    );
-  }
-
-  /// دستهٔ شیشه‌ایِ «قطره‌ای»: گرادیان شعاعی زنده، انعکاس نور بالا-چپ،
-  /// لکهٔ درخشان، شکست نور پایین و تیرگی نرم لبهٔ پایین برای عمق.
-  /// در حالت تاریک کمی روشن‌تر و پرنورتر است تا گم نشود.
-  Widget _buildJellyHandle(_HomePalette palette, double pulse) {
-    final Color brand = AppColors.primaryBrand;
-    final bool dark = palette.isDark;
-
-    final Color base = dark ? Color.lerp(brand, Colors.white, 0.16)! : brand;
-    final double radius = _dragging ? 25 : 30;
-
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
-      curve: Curves.easeOutCubic,
-      width: _handleSize,
-      height: _handleSize,
-      transformAlignment: Alignment.center,
-      transform: Matrix4.diagonal3Values(
-        _dragging ? 1.055 : 1,
-        _dragging ? 0.95 : 1,
-        1,
-      ),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(radius),
-        gradient: _kColoredHomeIcons
-            ? LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Colors.white,
-                  Color.lerp(Colors.white, brand, 0.10)!,
-                  Color.lerp(Colors.white, brand, 0.24)!,
-                ],
-                stops: const [0, 0.48, 1],
-              )
-            : RadialGradient(
-                center: const Alignment(-0.38, -0.5),
-                radius: 1.15,
-                colors: [
-                  Color.lerp(base, Colors.white, 0.60)!,
-                  Color.lerp(base, Colors.white, 0.18)!,
-                  base,
-                  Color.lerp(base, Colors.black, dark ? 0.20 : 0.26)!,
-                ],
-                stops: const [0, 0.30, 0.68, 1],
-              ),
-        border: Border.all(
-          color: _kColoredHomeIcons
-              ? brand.withOpacity(0.35)
-              : Colors.white.withOpacity(dark ? 0.55 : 0.85),
-          width: 1.5,
-        ),
-        boxShadow: [
-          // درخشش رنگی زیر دسته (در تاریک قوی‌تر)
-          BoxShadow(
-            color: base.withOpacity(
-              _dragging ? 0.55 : (dark ? 0.50 : 0.36) + 0.10 * pulse,
-            ),
-            blurRadius: _dragging ? 20 : 14 + 4 * pulse,
-            offset: const Offset(0, 6),
-          ),
-          // حلقهٔ نرم و کم‌رنگِ تپش
-          BoxShadow(
-            color: brand.withOpacity(0.14 * pulse),
-            blurRadius: 0,
-            spreadRadius: 5 * pulse,
-          ),
-          if (!dark)
-            BoxShadow(
-              color: Colors.white.withOpacity(0.70),
-              blurRadius: 3,
-              offset: const Offset(-1, -2),
-            ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(radius),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            // عمق: تیره‌شدن نرم لبهٔ پایین
-            const Positioned.fill(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Color(0x00000000),
-                      Color(0x00000000),
-                      Color(0x2A000000),
-                    ],
-                    stops: [0, 0.60, 1],
-                  ),
-                ),
-              ),
-            ),
-
-            // انعکاس بزرگِ بالا-چپ (حالت قطره)
-            Positioned(
-              top: 3,
-              left: 6,
-              width: 34,
-              height: 24,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  borderRadius: const BorderRadius.all(
-                    Radius.elliptical(34, 24),
-                  ),
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.white.withOpacity(dark ? 0.55 : 0.70),
-                      Colors.white.withOpacity(0),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-
-            // لکهٔ درخشان کوچک
-            Positioned(
-              top: 7,
-              left: 12,
-              width: 10,
-              height: 6,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.92),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-              ),
-            ),
-
-            // شکست نور در پایین
-            Positioned(
-              left: 14,
-              right: 12,
-              bottom: 4,
-              height: 13,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(20),
-                  gradient: LinearGradient(
-                    begin: Alignment.bottomCenter,
-                    end: Alignment.topCenter,
-                    colors: [
-                      Colors.white.withOpacity(0.34),
-                      Colors.transparent,
-                    ],
-                  ),
-                ),
-              ),
-            ),
-
-            Center(child: _buildHandleIcon()),
-          ],
         ),
       ),
     );
