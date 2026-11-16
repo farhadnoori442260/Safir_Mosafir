@@ -109,13 +109,14 @@ class _RateDriverScreenState extends State<RateDriverScreen> {
     super.dispose();
   }
 
-  /// بعد از امتیاز (یا «بعداً») به صفحهٔ هوم برمی‌گردد:
-  /// همهٔ صفحه‌های روی هوم (از جمله نقشه) بسته می‌شوند.
+  /// بعد از امتیاز (یا «بعداً») فقط همین صفحه بسته می‌شود. صفحهٔ نقشه که این
+  /// صفحه را باز کرده، خودش بعد از برگشت بسته می‌شود و به هوم می‌رسی.
+  /// (قبلاً popUntil(isFirst) بود که به صفحهٔ سیاهِ اولین مسیر اپ می‌رفت.)
   void _goHome() {
     if (!mounted) {
       return;
     }
-    Navigator.of(context).popUntil((Route<dynamic> route) => route.isFirst);
+    Navigator.of(context).pop();
   }
 
   Future<void> _submitRating() async {
