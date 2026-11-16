@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:intl/intl.dart' show NumberFormat;
 import 'package:loading_animation_widget/loading_animation_widget.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -179,7 +178,6 @@ class MapBottomSheets {
                   padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
                 onPressed: () {
-                  HapticFeedback.lightImpact();
                   onBidPricePressed?.call();
                 },
                 icon: Icon(
@@ -305,7 +303,6 @@ class MapBottomSheets {
                   padding: const EdgeInsets.symmetric(vertical: 13),
                 ),
                 onPressed: () {
-                  HapticFeedback.mediumImpact();
                   _showCancelReasonDialog(
                     context,
                     onCancel,
@@ -445,7 +442,6 @@ class MapBottomSheets {
                       activeColor: AppColors.danger,
                       contentPadding: EdgeInsets.zero,
                       onChanged: (value) {
-                        HapticFeedback.selectionClick();
                         setModalState(() {
                           selectedReasonKey = value;
                         });
@@ -470,7 +466,6 @@ class MapBottomSheets {
                           onPressed: selectedReasonKey == null
                               ? null
                               : () async {
-                                  HapticFeedback.mediumImpact();
                                   final String reasonKey = selectedReasonKey!;
 
                                   if (context.mounted) {
@@ -608,12 +603,24 @@ class MapBottomSheets {
         tripId: tripId,
         driverName: nameDriver,
         driverPhoto: photoDriver,
-        child: DraggableScrollableSheet(
-        initialChildSize: 0.38,
-        minChildSize: 0.22,
-        maxChildSize: 0.65,
+        child: LayoutBuilder(builder: (context, box) {
+        // ✅ کف کشو بر اساس پیکسل: همیشه نوار ETA + کارت راننده (نام و تماس) دیده شود
+        // سقف هم محدود است تا کشو روی کل نقشه نیاید.
+        final double h = box.maxHeight.isFinite && box.maxHeight > 0
+            ? box.maxHeight
+            : MediaQuery.of(context).size.height;
+        final double minFrac = (230.0 / h).clamp(0.26, 0.45).toDouble();
+        final double maxFrac =
+            (0.62).clamp(minFrac + 0.10, 0.80).toDouble();
+        final double midFrac =
+            (0.40).clamp(minFrac + 0.04, maxFrac - 0.04).toDouble();
+
+        return DraggableScrollableSheet(
+        initialChildSize: midFrac,
+        minChildSize: minFrac,
+        maxChildSize: maxFrac,
         snap: true,
-        snapSizes: const [0.22, 0.38, 0.65],
+        snapSizes: [minFrac, midFrac, maxFrac],
         expand: false,
         builder: (context, scrollController) {
           final Map<String, dynamic> driverData = {
@@ -740,7 +747,8 @@ class MapBottomSheets {
             ),
           );
         },
-      ),
+      );
+        }),
       ),
     );
   }
@@ -1129,7 +1137,6 @@ class _Step2SheetState extends State<_Step2Sheet> {
 
   void _setExpanded(bool value) {
     if (_expanded == value) return;
-    HapticFeedback.selectionClick();
     setState(() => _expanded = value);
   }
 
@@ -1259,7 +1266,6 @@ class _Step2SheetState extends State<_Step2Sheet> {
                         safirColor: w.safirColor,
                         cardBgColor: AppColors.cardBackground,
                         onTap: () {
-                          HapticFeedback.selectionClick();
                           w.onVehicleSelected(
                             visible[i].index,
                             visible[i].vehicleType,
@@ -1284,7 +1290,6 @@ class _Step2SheetState extends State<_Step2Sheet> {
                           title: 'opt_ride_options'.tr(),
                           isActive: w.hasActiveTripOptions,
                           onTap: () {
-                            HapticFeedback.lightImpact();
                             w.onTripOptionsTap();
                           },
                         ),
@@ -1296,7 +1301,6 @@ class _Step2SheetState extends State<_Step2Sheet> {
                           title: 'opt_schedule'.tr(),
                           isActive: w.isScheduled,
                           onTap: () {
-                            HapticFeedback.lightImpact();
                             w.onScheduleTap();
                           },
                         ),
@@ -1308,7 +1312,6 @@ class _Step2SheetState extends State<_Step2Sheet> {
                           title: 'opt_promo_code'.tr(),
                           isActive: w.hasPromoCode,
                           onTap: () {
-                            HapticFeedback.lightImpact();
                             w.onPromoCodeTap();
                           },
                         ),
@@ -1421,7 +1424,6 @@ class _PaymentSheetState extends State<_PaymentSheet> {
   Future<void> _sendRequest() async {
     if (_sending || widget.tripId.isEmpty) return;
 
-    HapticFeedback.mediumImpact();
     setState(() => _sending = true);
 
     final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
