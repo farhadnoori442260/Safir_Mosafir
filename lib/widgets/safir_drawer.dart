@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:easy_localization/easy_localization.dart' hide TextDirection;
+import 'package:easy_localization/easy_localization.dart'
+    hide TextDirection;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -13,518 +14,796 @@ import 'package:safir_passengers/theme/app_colors.dart';
 import 'package:safir_passengers/theme/theme_controller.dart';
 import 'package:safir_passengers/widgets/animated_menus.dart';
 
-/// 📂 منوی کناری صفحهٔ اصلی.
-///
-/// فقط میان‌بُرهای عمومی اپ: تغییر سریع زبان و تم، پشتیبانی،
-/// دربارهٔ سفیر، امتیاز به اپ و خروج. موارد مربوط به حساب (سفرها، آدرس‌ها،
-/// دعوت، پیام‌ها، تنظیمات، کد تخفیف) فقط در صفحهٔ پروفایل هستند و اینجا
-/// تکرار نمی‌شوند.
-class SafirDrawer extends StatelessWidget {
+class SafirDrawer extends StatefulWidget {
   const SafirDrawer({super.key});
 
-  String _tr(String key, String fallback) {
-    final String v = key.tr();
-    return v.trim().isEmpty || v == key ? fallback : v;
+  @override
+  State<SafirDrawer> createState() => _SafirDrawerState();
+}
+
+class _SafirDrawerState extends State<SafirDrawer> {
+  bool _busy = false;
+
+  String _tr(
+    BuildContext context,
+    String key,
+    String fallback,
+  ) {
+    final value = context.tr(key);
+
+    if (value.trim().isEmpty || value == key) {
+      return fallback;
+    }
+
+    return value;
   }
 
-  String _displayName() {
-    final String n = userName.trim();
-    if (n.isNotEmpty) return n;
-    final String? a = FirebaseAuth.instance.currentUser?.displayName?.trim();
-    if (a != null && a.isNotEmpty) return a;
-    return _tr('user_default', 'کاربر سفیر');
+  String _displayName(BuildContext context) {
+    final name = userName.trim();
+    if (name.isNotEmpty) return name;
+
+    final authName =
+        FirebaseAuth.instance.currentUser?.displayName?.trim();
+
+    if (authName != null && authName.isNotEmpty) {
+      return authName;
+    }
+
+    return _tr(context, 'user_default', 'کاربر سفیر');
   }
 
   String _displayPhone() {
-    final String p = userPhone.trim();
-    if (p.isNotEmpty) return p;
-    return FirebaseAuth.instance.currentUser?.phoneNumber?.trim() ?? '';
+    final phone = userPhone.trim();
+    if (phone.isNotEmpty) return phone;
+
+    return FirebaseAuth.instance.currentUser?.phoneNumber?.trim() ??
+        '';
   }
 
-  void _openProfile(BuildContext context) {
-    final NavigatorState nav = Navigator.of(context);
-    nav.pop();
-    nav.push(MaterialPageRoute(builder: (_) => const ProfileAnimatedMenu()));
+  Future<void> _closeDrawer() async {
+    if (!mounted) return;
+
+    final scaffold = Scaffold.maybeOf(context);
+
+    if (scaffold == null) {
+      return;
+    }
+
+    if (scaffold.isDrawerOpen || scaffold.isEndDrawerOpen) {
+      Navigator.of(context).pop();
+
+      await Future<void>.delayed(
+        const Duration(milliseconds: 250),
+      );
+    }
   }
 
-  void _showAbout(BuildContext context) {
-    Navigator.pop(context);
-    final BuildContext root = Navigator.of(context, rootNavigator: true).context;
-    showModalBottomSheet<void>(
-      context: root,
-      backgroundColor: AppColors.cardBgLight,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
-      ),
-      builder: (_) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: AppColors.handle,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-              const SizedBox(height: 22),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(18),
-                child: Image.asset(
-                  'assets/images/legacy_192.png',
-                  width: 72,
-                  height: 72,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => Icon(
-                    Icons.local_taxi_rounded,
-                    size: 44,
-                    color: AppColors.primaryBrand,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 14),
-              Text(
-                _tr('app_name', 'سفیر'),
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                _tr(
-                  'about_app_content_short',
-                  'سفیر یک اپلیکیشن حمل‌ونقل شهری است که ثبت و مدیریت سفر را برای مسافران و رانندگان ساده‌تر می‌کند.',
-                ),
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 13.5,
-                  height: 1.7,
-                  color: AppColors.textSecondary,
-                ),
-              ),
-            ],
-          ),
-        ),
+  Future<void> _openProfile() async {
+    await _closeDrawer();
+
+    if (!mounted) return;
+
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => const ProfileAnimatedMenu(),
       ),
     );
   }
 
-  Future<void> _rateApp(BuildContext context) async {
-    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
-    Navigator.pop(context);
+  Future<void> _showAbout() async {
+    await _closeDrawer();
 
-    String url = '';
+    if (!mounted) return;
+
+    final colors = _DrawerColors.of(context);
+
+    await showModalBottomSheet<void>(
+      context: context,
+      useRootNavigator: true,
+      isScrollControlled: true,
+      backgroundColor: colors.surface,
+      elevation: 12,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(26),
+        ),
+      ),
+      builder: (sheetContext) {
+        final sheetColors = _DrawerColors.of(sheetContext);
+
+        return SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(24, 12, 24, 28),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: sheetColors.border,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                const SizedBox(height: 22),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(18),
+                  child: Image.asset(
+                    'assets/images/legacy_192.png',
+                    width: 72,
+                    height: 72,
+                    cacheWidth: 216,
+                    cacheHeight: 216,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) {
+                      return SizedBox(
+                        width: 72,
+                        height: 72,
+                        child: Icon(
+                          Icons.local_taxi_rounded,
+                          size: 44,
+                          color: sheetColors.brand,
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  _tr(sheetContext, 'app_name', 'سفیر'),
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                    color: sheetColors.text,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  _tr(
+                    sheetContext,
+                    'about_app_content_short',
+                    'سفیر یک اپلیکیشن حمل‌ونقل شهری است که ثبت و مدیریت سفر را برای مسافران و رانندگان ساده‌تر می‌کند.',
+                  ),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 13.5,
+                    height: 1.7,
+                    color: sheetColors.secondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _rateApp() async {
+    await _closeDrawer();
+
+    if (!mounted) return;
+
+    String storeUrl = '';
+
     try {
-      final DocumentSnapshot<Map<String, dynamic>> snap = await FirebaseFirestore
-          .instance
+      final snapshot = await FirebaseFirestore.instance
           .collection('settings')
           .doc('app_config')
           .get()
           .timeout(const Duration(seconds: 6));
-      url = snap.data()?['store_url']?.toString().trim() ?? '';
-    } catch (e) {
-      debugPrint('Store url read error: $e');
+
+      storeUrl =
+          snapshot.data()?['store_url']?.toString().trim() ?? '';
+    } catch (error) {
+      debugPrint('Store URL read error: $error');
     }
 
+    if (!mounted) return;
+
     bool opened = false;
-    if (url.isNotEmpty) {
-      try {
-        opened = await launchUrl(
-          Uri.parse(url),
-          mode: LaunchMode.externalApplication,
-        );
-      } catch (e) {
-        debugPrint('Open store error: $e');
+    final uri = Uri.tryParse(storeUrl);
+
+    if (uri != null && uri.hasScheme) {
+      const allowedSchemes = <String>{
+        'http',
+        'https',
+        'market',
+        'itms-apps',
+        'itms-appss',
+      };
+
+      final scheme = uri.scheme.toLowerCase();
+      final isAllowed = allowedSchemes.contains(scheme);
+      final hasValidHost =
+          scheme != 'http' &&
+              scheme != 'https' ||
+          uri.host.isNotEmpty;
+
+      if (isAllowed && hasValidHost) {
+        try {
+          opened = await launchUrl(
+            uri,
+            mode: LaunchMode.externalApplication,
+          );
+        } catch (error) {
+          debugPrint('Open store error: $error');
+        }
       }
     }
 
-    if (!opened) {
-      messenger.hideCurrentSnackBar();
-      messenger.showSnackBar(
-        SnackBar(
-          behavior: SnackBarBehavior.floating,
-          content: Text(
-            _tr('store_link_unavailable', 'لینک اپ هنوز در دسترس نیست'),
-            style: TextStyle(color: AppColors.buttonText),
+    if (!mounted || opened) return;
+
+    _showMessage(
+      _tr(
+        context,
+        'store_link_unavailable',
+        'لینک اپ هنوز در دسترس نیست',
+      ),
+    );
+  }
+
+  Future<void> _signOut() async {
+    await _closeDrawer();
+
+    if (!mounted) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      useRootNavigator: true,
+      builder: (dialogContext) {
+        final colors = _DrawerColors.of(dialogContext);
+
+        return Dialog(
+          backgroundColor: colors.surface,
+          elevation: 0,
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 28,
+            vertical: 24,
           ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(26),
+            side: BorderSide(color: colors.border),
+          ),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(22, 26, 22, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 64,
+                  height: 64,
+                  decoration: BoxDecoration(
+                    color: colors.dangerSoft,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.logout_rounded,
+                    color: colors.danger,
+                    size: 30,
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Text(
+                  _tr(
+                    dialogContext,
+                    'sign_out_title',
+                    'خروج از حساب',
+                  ),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: colors.text,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  _tr(
+                    dialogContext,
+                    'sign_out_confirm',
+                    'آیا مطمئن هستید که می‌خواهید از حساب کاربری خود خارج شوید؟',
+                  ),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: colors.secondary,
+                    fontSize: 14,
+                    height: 1.6,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () {
+                          Navigator.of(dialogContext).pop(false);
+                        },
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: colors.text,
+                          minimumSize: const Size(0, 48),
+                          side: BorderSide(color: colors.border),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 12,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
+                        child: Text(
+                          _tr(
+                            dialogContext,
+                            'cancel',
+                            'انصراف',
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () {
+                          Navigator.of(dialogContext).pop(true);
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: colors.danger,
+                          foregroundColor: Theme.of(dialogContext)
+                              .colorScheme
+                              .onError,
+                          minimumSize: const Size(0, 48),
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 12,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
+                        child: Text(
+                          _tr(
+                            dialogContext,
+                            'sign_out',
+                            'خروج',
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _busy = true);
+
+    try {
+      try {
+        final googleSignIn = GoogleSignIn();
+
+        if (await googleSignIn.isSignedIn()) {
+          await googleSignIn.signOut();
+        }
+      } catch (error) {
+        debugPrint('Google sign out error: $error');
+      }
+
+      await FirebaseAuth.instance.signOut();
+
+      userName = '';
+      userPhone = '';
+
+      if (!mounted) return;
+
+      Navigator.of(
+        context,
+        rootNavigator: true,
+      ).pushAndRemoveUntil<void>(
+        MaterialPageRoute<void>(
+          builder: (_) => const RegisterScreen(),
         ),
+        (_) => false,
       );
+    } catch (error) {
+      debugPrint('Sign out error: $error');
+
+      if (mounted) {
+        _showMessage(
+          _tr(
+            context,
+            'drawer_action_error',
+            'خروج انجام نشد؛ دوباره تلاش کنید.',
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _busy = false);
+      }
     }
   }
 
-  Future<void> _signOut(BuildContext context) async {
-    final NavigatorState nav = Navigator.of(context, rootNavigator: true);
-    Navigator.pop(context); // بستن منو
+  void _showMessage(String message) {
+    final messenger = ScaffoldMessenger.maybeOf(context);
 
-    final bool? confirm = await showDialog<bool>(
-      context: nav.context,
-      builder: (BuildContext ctx) => Dialog(
-        backgroundColor: AppColors.cardBgLight,
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
-        insetPadding: const EdgeInsets.symmetric(horizontal: 28),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(26),
-          side: BorderSide(color: AppColors.fieldBorder),
+    if (messenger == null || !messenger.mounted) return;
+
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          content: Text(message),
         ),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(22, 26, 22, 20),
+      );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = _DrawerColors.of(context);
+    final width = MediaQuery.sizeOf(context).width;
+    final phone = _displayPhone();
+    final isRTL = Directionality.of(context) == TextDirection.rtl;
+
+    return Drawer(
+      width: (width * 0.86).clamp(0.0, 340.0).toDouble(),
+      backgroundColor: colors.background,
+      child: SafeArea(
+        child: AbsorbPointer(
+          absorbing: _busy,
           child: Column(
-            mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                width: 64,
-                height: 64,
-                decoration: BoxDecoration(
-                  color: AppColors.dangerSoft,
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(Icons.logout_rounded,
-                    color: AppColors.danger, size: 30),
-              ),
-              const SizedBox(height: 18),
-              Text(
-                _tr('sign_out_title', 'خروج از حساب'),
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                _tr(
-                  'sign_out_confirm',
-                  'آیا مطمئن هستید که می‌خواهید از حساب کاربری خود خارج شوید؟',
-                ),
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: AppColors.textSecondary,
-                  fontSize: 14,
-                  height: 1.6,
-                ),
-              ),
-              const SizedBox(height: 24),
-              Row(
-                children: [
-                  Expanded(
-                    child: SizedBox(
-                      height: 48,
-                      child: OutlinedButton(
-                        onPressed: () => Navigator.pop(ctx, false),
-                        style: OutlinedButton.styleFrom(
-                          side: BorderSide(color: AppColors.fieldBorder),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(14, 14, 14, 6),
+                child: Material(
+                  color: colors.surface,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                    side: BorderSide(color: colors.border),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: InkWell(
+                    onTap: _openProfile,
+                    child: Padding(
+                      padding: const EdgeInsets.all(14),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 56,
+                            height: 56,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: colors.border,
+                                width: 1.2,
+                              ),
+                            ),
+                            child: ClipOval(
+                              child: Image.asset(
+                                'assets/images/default_profile.png',
+                                width: 56,
+                                height: 56,
+                                cacheWidth: 168,
+                                cacheHeight: 168,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) {
+                                  return ColoredBox(
+                                    color: colors.brand.withOpacity(0.08),
+                                    child: Icon(
+                                      Icons.person_rounded,
+                                      size: 30,
+                                      color: colors.secondary,
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
                           ),
-                        ),
-                        child: Text(
-                          _tr('cancel', 'انصراف'),
-                          style: TextStyle(
-                            color: AppColors.textPrimary,
-                            fontWeight: FontWeight.w700,
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment:
+                                  CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  _displayName(context),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: colors.text,
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                                if (phone.isNotEmpty) ...[
+                                  const SizedBox(height: 3),
+                                  Text(
+                                    phone,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    textDirection: TextDirection.ltr,
+                                    style: TextStyle(
+                                      color: colors.secondary,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
                           ),
-                        ),
+                          Icon(
+                            isRTL
+                                ? Icons.chevron_left_rounded
+                                : Icons.chevron_right_rounded,
+                            color: colors.secondary,
+                            size: 24,
+                          ),
+                        ],
                       ),
                     ),
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: SizedBox(
-                      height: 48,
-                      child: ElevatedButton(
-                        onPressed: () => Navigator.pop(ctx, true),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.danger,
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
+                ),
+              ),
+              Expanded(
+                child: ListView(
+                  physics: const ClampingScrollPhysics(),
+                  padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+                  children: [
+                    _DrawerSectionTitle(
+                      title: _tr(
+                        context,
+                        'quick_settings',
+                        'تنظیمات سریع',
+                      ),
+                    ),
+                    _DrawerCard(
+                      children: [
+                        const _LanguageQuickSwitch(),
+                        Divider(
+                          height: 1,
+                          thickness: 1,
+                          color: colors.border,
                         ),
-                        child: Text(
-                          _tr('sign_out', 'خروج'),
-                          style: TextStyle(
-                            color: AppColors.buttonText,
-                            fontWeight: FontWeight.w800,
+                        const _ThemeQuickSwitch(),
+                      ],
+                    ),
+                    const SizedBox(height: 18),
+                    _DrawerSectionTitle(
+                      title: _tr(
+                        context,
+                        'drawer_general',
+                        'عمومی',
+                      ),
+                    ),
+                    _DrawerCard(
+                      children: [
+                        _DrawerTile(
+                          icon: Icons.support_agent_rounded,
+                          color: colors.brand,
+                          title: _tr(
+                            context,
+                            'help_support',
+                            'مرکز کمک و پشتیبانی',
                           ),
+                          subtitle: _tr(
+                            context,
+                            'help_support_sub',
+                            'تماس مستقیم با پشتیبانی',
+                          ),
+                          onTap: () async {
+                            await _closeDrawer();
+
+                            if (!mounted) return;
+
+                            SupportService.call(context);
+                          },
                         ),
+                        const _DrawerTileDivider(),
+                        _DrawerTile(
+                          icon: Icons.info_outline_rounded,
+                          color: colors.secondary,
+                          title: _tr(
+                            context,
+                            'about_safir',
+                            'دربارهٔ سفیر',
+                          ),
+                          onTap: _showAbout,
+                        ),
+                        const _DrawerTileDivider(),
+                        _DrawerTile(
+                          icon: Icons.star_rounded,
+                          color: AppColors.warning,
+                          title: _tr(
+                            context,
+                            'rate_app',
+                            'امتیاز به اپلیکیشن',
+                          ),
+                          onTap: _rateApp,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+                child: Material(
+                  color: colors.dangerSoft,
+                  borderRadius: BorderRadius.circular(16),
+                  clipBehavior: Clip.antiAlias,
+                  child: InkWell(
+                    onTap: _signOut,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 14,
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.logout_rounded,
+                            color: colors.danger,
+                            size: 22,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              _tr(
+                                context,
+                                'sign_out',
+                                'خروج از حساب کاربری',
+                              ),
+                              style: TextStyle(
+                                color: colors.danger,
+                                fontSize: 14.5,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
-                ],
+                ),
               ),
             ],
           ),
         ),
       ),
     );
-
-    if (confirm != true) return;
-
-    // همان روال خروج صفحهٔ پروفایل: گوگل + فایربیس، سپس صفحهٔ ورود
-    try {
-      try {
-        final GoogleSignIn googleSignIn = GoogleSignIn();
-        if (await googleSignIn.isSignedIn()) {
-          await googleSignIn.signOut();
-        }
-      } catch (e) {
-        debugPrint('Google sign out error: $e');
-      }
-
-      await FirebaseAuth.instance.signOut();
-
-      nav.pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const RegisterScreen()),
-        (route) => false,
-      );
-    } catch (e) {
-      debugPrint('Error signing out: $e');
-    }
   }
+}
 
-  @override
-  Widget build(BuildContext context) {
-    final double width = MediaQuery.of(context).size.width;
-    final String name = _displayName();
-    final String phone = _displayPhone();
+class _DrawerColors {
+  const _DrawerColors({
+    required this.background,
+    required this.surface,
+    required this.text,
+    required this.secondary,
+    required this.border,
+    required this.brand,
+    required this.danger,
+    required this.dangerSoft,
+    required this.selected,
+  });
 
-    return Drawer(
-      width: width * 0.86 > 340 ? 340 : width * 0.86,
-      backgroundColor: AppColors.backgroundLight,
-      surfaceTintColor: Colors.transparent,
-      child: SafeArea(
-        child: Column(
-          children: [
-            // ۱. سربرگ: لمس = رفتن به پروفایل
-            Padding(
-              padding: const EdgeInsets.fromLTRB(14, 14, 14, 6),
-              child: Material(
-                color: AppColors.cardBgLight,
-                borderRadius: BorderRadius.circular(20),
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(20),
-                  onTap: () {
-                    _openProfile(context);
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: AppColors.fieldBorder),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: AppColors.fieldBorder,
-                              width: 1.2,
-                            ),
-                          ),
-                          child: SizedBox(
-                            width: 56,
-                            height: 56,
-                            child: ClipOval(
-                              child: Image.asset(
-                                'assets/images/default_profile.png',
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => Icon(
-                                  Icons.person_rounded,
-                                  size: 30,
-                                  color: AppColors.textSecondary,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                name,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  color: AppColors.textPrimary,
-                                  fontSize: 17,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                              if (phone.isNotEmpty) ...[
-                                const SizedBox(height: 3),
-                                Text(
-                                  phone,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  textDirection: TextDirection.ltr,
-                                  style: TextStyle(
-                                    color: AppColors.textSecondary,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
-                        Icon(
-                          Icons.chevron_right_rounded,
-                          color: AppColors.handle,
-                          size: 24,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
+  factory _DrawerColors.of(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
 
-            Expanded(
-              child: ListView(
-                physics: const BouncingScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
-                children: [
-                  // ۲. زبان و ظاهر (تغییر سریع)
-                  _sectionTitle(_tr('quick_settings', 'تنظیمات سریع')),
-                  _card([
-                    const _LanguageQuickSwitch(),
-                    Divider(
-                      height: 1,
-                      thickness: 1,
-                      color: AppColors.fieldBorder,
-                    ),
-                    const _ThemeQuickSwitch(),
-                  ]),
-                  const SizedBox(height: 18),
+    final brand = isDark
+        ? Color.lerp(
+            AppColors.primaryBrand,
+            Colors.white,
+            0.35,
+          )!
+        : AppColors.primaryBrand;
 
-                  // ۳. عمومی
-                  _sectionTitle(_tr('drawer_general', 'عمومی')),
-                  _card([
-                    _DrawerTile(
-                      icon: Icons.support_agent_rounded,
-                      color: AppColors.originBlue,
-                      title: _tr('help_support', 'مرکز کمک و پشتیبانی'),
-                      subtitle:
-                          _tr('help_support_sub', 'تماس مستقیم با پشتیبانی'),
-                      onTap: () {
-                        Navigator.pop(context);
-                        SupportService.call(context);
-                      },
-                    ),
-                    _DrawerTile(
-                      icon: Icons.info_rounded,
-                      color: AppColors.textSecondary,
-                      title: _tr('about_safir', 'درباره سفیر'),
-                      onTap: () => _showAbout(context),
-                    ),
-                    _DrawerTile(
-                      icon: Icons.star_rounded,
-                      color: AppColors.warning,
-                      title: _tr('rate_app', 'امتیاز به اپلیکیشن'),
-                      onTap: () => _rateApp(context),
-                    ),
-                  ]),
-                ],
-              ),
-            ),
-
-            // ۴. خروج
-            Padding(
-              padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
-              child: Material(
-                color: AppColors.dangerSoft,
-                borderRadius: BorderRadius.circular(16),
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(16),
-                  onTap: () {
-                    _signOut(context);
-                  },
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 14,
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(Icons.logout_rounded,
-                            color: AppColors.danger, size: 22),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            _tr('sign_out', 'خروج از حساب کاربری'),
-                            style: TextStyle(
-                              color: AppColors.danger,
-                              fontSize: 14.5,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
+    return _DrawerColors(
+      background: theme.scaffoldBackgroundColor,
+      surface: scheme.surface,
+      text: scheme.onSurface,
+      secondary: scheme.onSurface.withOpacity(0.66),
+      border: scheme.onSurface.withOpacity(
+        isDark ? 0.14 : 0.10,
+      ),
+      brand: brand,
+      danger: scheme.error,
+      dangerSoft: scheme.error.withOpacity(
+        isDark ? 0.16 : 0.08,
+      ),
+      selected: brand.withOpacity(
+        isDark ? 0.18 : 0.08,
       ),
     );
   }
 
-  Widget _sectionTitle(String title) {
+  final Color background;
+  final Color surface;
+  final Color text;
+  final Color secondary;
+  final Color border;
+  final Color brand;
+  final Color danger;
+  final Color dangerSoft;
+  final Color selected;
+}
+
+class _DrawerSectionTitle extends StatelessWidget {
+  const _DrawerSectionTitle({required this.title});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = _DrawerColors.of(context);
+
     return Padding(
-      padding: const EdgeInsetsDirectional.only(start: 6, bottom: 8),
+      padding: const EdgeInsetsDirectional.only(
+        start: 6,
+        bottom: 8,
+      ),
       child: Text(
         title,
         style: TextStyle(
-          color: AppColors.textSecondary,
+          color: colors.secondary,
           fontSize: 12,
           fontWeight: FontWeight.w800,
         ),
       ),
     );
   }
+}
 
-  Widget _card(List<Widget> children) {
-    final List<Widget> rows = <Widget>[];
-    for (int i = 0; i < children.length; i++) {
-      if (i > 0 && children[i] is _DrawerTile) {
-        rows.add(Divider(
-          height: 1,
-          thickness: 1,
-          indent: 56,
-          color: AppColors.fieldBorder,
-        ));
-      }
-      rows.add(children[i]);
-    }
-    return Container(
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        color: AppColors.cardBgLight,
+class _DrawerCard extends StatelessWidget {
+  const _DrawerCard({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = _DrawerColors.of(context);
+
+    return Material(
+      color: colors.surface,
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.fieldBorder),
+        side: BorderSide(color: colors.border),
       ),
-      child: Column(children: rows),
+      clipBehavior: Clip.antiAlias,
+      child: Column(children: children),
+    );
+  }
+}
+
+class _DrawerTileDivider extends StatelessWidget {
+  const _DrawerTileDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = _DrawerColors.of(context);
+
+    return Padding(
+      padding: const EdgeInsetsDirectional.only(start: 54),
+      child: Divider(
+        height: 1,
+        thickness: 1,
+        color: colors.border,
+      ),
     );
   }
 }
 
 class _DrawerTile extends StatelessWidget {
-  final IconData icon;
-  final Color color;
-  final String title;
-  final String? subtitle;
-  final VoidCallback onTap;
-
   const _DrawerTile({
     required this.icon,
     required this.color,
@@ -533,14 +812,24 @@ class _DrawerTile extends StatelessWidget {
     this.subtitle,
   });
 
+  final IconData icon;
+  final Color color;
+  final String title;
+  final String? subtitle;
+  final VoidCallback onTap;
+
   @override
   Widget build(BuildContext context) {
+    final colors = _DrawerColors.of(context);
+    final isRTL = Directionality.of(context) == TextDirection.rtl;
+
     return InkWell(
-      onTap: () {
-        onTap();
-      },
+      onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+        padding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 13,
+        ),
         child: Row(
           children: [
             Icon(icon, color: color, size: 26),
@@ -552,17 +841,17 @@ class _DrawerTile extends StatelessWidget {
                   Text(
                     title,
                     style: TextStyle(
-                      color: AppColors.textPrimary,
+                      color: colors.text,
                       fontSize: 14,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
                   if (subtitle != null) ...[
-                    const SizedBox(height: 2),
+                    const SizedBox(height: 3),
                     Text(
                       subtitle!,
                       style: TextStyle(
-                        color: AppColors.textSecondary,
+                        color: colors.secondary,
                         fontSize: 11.5,
                       ),
                     ),
@@ -570,8 +859,13 @@ class _DrawerTile extends StatelessWidget {
                 ],
               ),
             ),
-            Icon(Icons.chevron_right_rounded,
-                color: AppColors.handle, size: 22),
+            Icon(
+              isRTL
+                  ? Icons.chevron_left_rounded
+                  : Icons.chevron_right_rounded,
+              color: colors.secondary,
+              size: 22,
+            ),
           ],
         ),
       ),
@@ -579,51 +873,112 @@ class _DrawerTile extends StatelessWidget {
   }
 }
 
-/// چیپ انتخاب (مشترک بین زبان و تم)
-Widget _chip({
-  required bool selected,
-  required VoidCallback onTap,
-  required Widget child,
-}) {
-  return Expanded(
-    child: GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        margin: const EdgeInsets.all(3),
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        decoration: BoxDecoration(
-          color: selected ? AppColors.backgroundLight : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: selected ? AppColors.primaryBrand : Colors.transparent,
-            width: 1.4,
+class _ChoiceChip extends StatelessWidget {
+  const _ChoiceChip({
+    required this.selected,
+    required this.onTap,
+    required this.child,
+    this.enabled = true,
+  });
+
+  final bool selected;
+  final bool enabled;
+  final VoidCallback onTap;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = _DrawerColors.of(context);
+
+    return Expanded(
+      child: Padding(
+        padding: const EdgeInsets.all(3),
+        child: Material(
+          color: selected ? colors.selected : Colors.transparent,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(
+              color: selected ? colors.brand : Colors.transparent,
+              width: 1.2,
+            ),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: enabled ? onTap : null,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                minHeight: 48,
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 4,
+                  vertical: 10,
+                ),
+                child: Center(child: child),
+              ),
+            ),
           ),
         ),
-        child: Center(child: child),
       ),
-    ),
-  );
+    );
+  }
 }
 
-/// تغییر سریع زبان (دری / پښتو / English)
-class _LanguageQuickSwitch extends StatelessWidget {
+class _LanguageQuickSwitch extends StatefulWidget {
   const _LanguageQuickSwitch();
 
-  Future<void> _set(BuildContext context, String code) async {
-    await context.setLocale(Locale(code));
+  @override
+  State<_LanguageQuickSwitch> createState() =>
+      _LanguageQuickSwitchState();
+}
+
+class _LanguageQuickSwitchState
+    extends State<_LanguageQuickSwitch> {
+  bool _saving = false;
+
+  Future<void> _setLanguage(String code) async {
+    if (_saving || context.locale.languageCode == code) {
+      return;
+    }
+
+    final matches = context.supportedLocales.where(
+      (locale) => locale.languageCode == code,
+    );
+
+    if (matches.isEmpty) {
+      debugPrint(
+        'Language "$code" is not included in supportedLocales.',
+      );
+      return;
+    }
+
+    setState(() => _saving = true);
+
     try {
-      final SharedPreferences prefs = await SharedPreferences.getInstance();
-      await prefs.setString('selected_language', code);
-    } catch (e) {
-      debugPrint('Save language error: $e');
+      await context.setLocale(matches.first);
+
+      final preferences =
+          await SharedPreferences.getInstance();
+
+      await preferences.setString(
+        'selected_language',
+        code,
+      );
+    } catch (error) {
+      debugPrint('Language change error: $error');
+    } finally {
+      if (mounted) {
+        setState(() => _saving = false);
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final String current = context.locale.languageCode;
-    final List<(String, String)> langs = [
+    final current = context.locale.languageCode;
+    final colors = _DrawerColors.of(context);
+
+    const languages = <(String, String)>[
       ('fa', 'دری'),
       ('ps', 'پښتو'),
       ('en', 'English'),
@@ -633,21 +988,23 @@ class _LanguageQuickSwitch extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
       child: Row(
         children: [
-          for (final (String code, String label) in langs)
-            _chip(
+          for (final (code, label) in languages)
+            _ChoiceChip(
               selected: current == code,
-              onTap: () => _set(context, code),
+              enabled: !_saving,
+              onTap: () => _setLanguage(code),
               child: Text(
                 label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   fontSize: 13,
-                  fontWeight:
-                      current == code ? FontWeight.w800 : FontWeight.w500,
+                  fontWeight: current == code
+                      ? FontWeight.w800
+                      : FontWeight.w500,
                   color: current == code
-                      ? AppColors.textPrimary
-                      : AppColors.textSecondary,
+                      ? colors.brand
+                      : colors.secondary,
                 ),
               ),
             ),
@@ -657,50 +1014,92 @@ class _LanguageQuickSwitch extends StatelessWidget {
   }
 }
 
-/// تغییر سریع تم (خودکار / روشن / تاریک)
-class _ThemeQuickSwitch extends StatelessWidget {
+class _ThemeQuickSwitch extends StatefulWidget {
   const _ThemeQuickSwitch();
 
-  String _tr(String key, String fallback) {
-    final String v = key.tr();
-    return v.trim().isEmpty || v == key ? fallback : v;
+  @override
+  State<_ThemeQuickSwitch> createState() =>
+      _ThemeQuickSwitchState();
+}
+
+class _ThemeQuickSwitchState extends State<_ThemeQuickSwitch> {
+  bool _saving = false;
+
+  String _tr(
+    BuildContext context,
+    String key,
+    String fallback,
+  ) {
+    final value = context.tr(key);
+
+    return value.trim().isEmpty || value == key
+        ? fallback
+        : value;
+  }
+
+  Future<void> _setTheme(ThemeMode mode) async {
+    if (_saving || ThemeController.instance.mode == mode) {
+      return;
+    }
+
+    setState(() => _saving = true);
+
+    try {
+      await ThemeController.instance.setMode(mode);
+    } catch (error) {
+      debugPrint('Theme change error: $error');
+    } finally {
+      if (mounted) {
+        setState(() => _saving = false);
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final colors = _DrawerColors.of(context);
+
+    final items = <(ThemeMode, IconData, String)>[
+      (
+        ThemeMode.system,
+        Icons.brightness_auto_rounded,
+        _tr(context, 'theme_system', 'خودکار'),
+      ),
+      (
+        ThemeMode.light,
+        Icons.light_mode_rounded,
+        _tr(context, 'theme_light', 'روشن'),
+      ),
+      (
+        ThemeMode.dark,
+        Icons.dark_mode_rounded,
+        _tr(context, 'theme_dark', 'تاریک'),
+      ),
+    ];
+
     return AnimatedBuilder(
       animation: ThemeController.instance,
       builder: (context, _) {
-        final ThemeMode mode = ThemeController.instance.mode;
-
-        final List<(ThemeMode, IconData, String)> items = [
-          (ThemeMode.system, Icons.brightness_auto_rounded,
-              _tr('theme_system', 'خودکار')),
-          (ThemeMode.light, Icons.light_mode_rounded,
-              _tr('theme_light', 'روشن')),
-          (ThemeMode.dark, Icons.dark_mode_rounded,
-              _tr('theme_dark', 'تاریک')),
-        ];
+        final current = ThemeController.instance.mode;
 
         return Padding(
           padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
           child: Row(
             children: [
-              for (final (ThemeMode m, IconData ic, String label) in items)
-                _chip(
-                  selected: mode == m,
-                  onTap: () async {
-                    await ThemeController.instance.setMode(m);
-                  },
+              for (final (mode, icon, label) in items)
+                _ChoiceChip(
+                  selected: current == mode,
+                  enabled: !_saving,
+                  onTap: () => _setTheme(mode),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
-                        ic,
+                        icon,
                         size: 21,
-                        color: mode == m
-                            ? AppColors.textPrimary
-                            : AppColors.textSecondary,
+                        color: current == mode
+                            ? colors.brand
+                            : colors.secondary,
                       ),
                       const SizedBox(height: 4),
                       Text(
@@ -709,11 +1108,12 @@ class _ThemeQuickSwitch extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontSize: 12,
-                          fontWeight:
-                              mode == m ? FontWeight.w800 : FontWeight.w500,
-                          color: mode == m
-                              ? AppColors.textPrimary
-                              : AppColors.textSecondary,
+                          fontWeight: current == mode
+                              ? FontWeight.w800
+                              : FontWeight.w500,
+                          color: current == mode
+                              ? colors.brand
+                              : colors.secondary,
                         ),
                       ),
                     ],
