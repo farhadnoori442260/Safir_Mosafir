@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:easy_localization/easy_localization.dart' hide TextDirection;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
@@ -20,6 +21,7 @@ class AuthenticationProvider extends ChangeNotifier {
 
   String? _uid;
   String? _phoneNumber;
+  int? _resendToken;
   UserModel? _userModel;
 
   UserModel? get userModel => _userModel;
@@ -47,6 +49,35 @@ class AuthenticationProvider extends ChangeNotifier {
       get _usersCollection =>
           firebaseFirestore.collection('users');
 
+  /// پیام‌های خطای قابل‌فهم برای کاربر (به‌جای متن انگلیسی فایربیس)
+  String _authErrorText(FirebaseAuthException e) {
+    String t(String key, String fallback) {
+      final String v = key.tr();
+      return (v.trim().isEmpty || v == key) ? fallback : v;
+    }
+
+    switch (e.code) {
+      case 'invalid-phone-number':
+        return t('auth_invalid_phone', 'شمارهٔ تلفن معتبر نیست');
+      case 'too-many-requests':
+        return t('auth_too_many_requests',
+            'درخواست‌های زیادی ارسال شده؛ کمی بعد دوباره تلاش کنید');
+      case 'quota-exceeded':
+        return t('auth_quota_exceeded',
+            'سقف ارسال پیامک تکمیل شده؛ بعداً دوباره تلاش کنید');
+      case 'network-request-failed':
+        return t('auth_network_error', 'اتصال اینترنت را بررسی کنید');
+      case 'invalid-verification-code':
+        return t('auth_wrong_code', 'کد وارد شده اشتباه است');
+      case 'session-expired':
+        return t('auth_code_expired',
+            'کد منقضی شده است؛ دوباره درخواست کد کنید');
+      case 'user-disabled':
+        return t('auth_user_disabled', 'این حساب غیرفعال شده است');
+    }
+    return e.message ?? e.toString();
+  }
+
   void startLoading() {
     _isLoading = true;
     notifyListeners();
@@ -67,15 +98,20 @@ class AuthenticationProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// [replaceCurrent] = true هنگام «ارسال مجدد» از صفحهٔ کد: صفحهٔ کد قبلی
+  /// با صفحهٔ جدید جایگزین می‌شود (به‌جای انباشته شدن روی هم).
   void signInWithPhone({
     required BuildContext context,
     required String phoneNumber,
+    bool replaceCurrent = false,
   }) async {
     startLoading();
 
     try {
       await firebaseAuth.verifyPhoneNumber(
         phoneNumber: phoneNumber,
+        timeout: const Duration(seconds: 60),
+        forceResendingToken: replaceCurrent ? _resendToken : null,
         verificationCompleted:
             (PhoneAuthCredential credential) async {
           try {
@@ -96,7 +132,7 @@ class AuthenticationProvider extends ChangeNotifier {
             if (!context.mounted) return;
 
             commonMethods.displaySnackBar(
-              e.message ?? e.toString(),
+              _authErrorText(e),
               context,
             );
           }
@@ -108,7 +144,7 @@ class AuthenticationProvider extends ChangeNotifier {
           if (!context.mounted) return;
 
           commonMethods.displaySnackBar(
-            e.message ?? e.toString(),
+            _authErrorText(e),
             context,
           );
         },
@@ -119,6 +155,7 @@ class AuthenticationProvider extends ChangeNotifier {
           stopLoading();
 
           _phoneNumber = phoneNumber;
+          _resendToken = resendToken;
           notifyListeners();
 
           Future.delayed(
@@ -126,14 +163,18 @@ class AuthenticationProvider extends ChangeNotifier {
             () {
               if (!context.mounted) return;
 
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => OTPScreen(
-                    verificationId: verificationId,
-                  ),
+              final Route<dynamic> route = MaterialPageRoute(
+                builder: (context) => OTPScreen(
+                  verificationId: verificationId,
+                  phoneNumber: phoneNumber,
                 ),
               );
+
+              if (replaceCurrent) {
+                Navigator.pushReplacement(context, route);
+              } else {
+                Navigator.push(context, route);
+              }
             },
           );
         },
@@ -200,11 +241,27 @@ class AuthenticationProvider extends ChangeNotifier {
         notifyListeners();
         onSuccess();
       }
+    } on FirebaseAuthException catch (e) {
+      if (!context.mounted) return;
+
+      commonMethods.displaySnackBar(
+        _authErrorText(e),
+        context,
+      );
     } on FirebaseException catch (e) {
       if (!context.mounted) return;
 
       commonMethods.displaySnackBar(
         e.message ?? e.toString(),
+        context,
+      );
+    } catch (e) {
+      debugPrint('verifyOTP error: $e');
+
+      if (!context.mounted) return;
+
+      commonMethods.displaySnackBar(
+        e.toString(),
         context,
       );
     } finally {
@@ -232,6 +289,18 @@ class AuthenticationProvider extends ChangeNotifier {
 
       final String userId = currentUser.uid;
 
+      // فقط برای کاربر «تازه»، فیلدهای مدیریتی (نقش، وضعیت، مسدودی) تنظیم می‌شوند.
+      // قبلاً با هر ویرایش پروفایل همه‌چیز بازنشانی می‌شد: createdAt عوض می‌شد
+      // و کاربر مسدودشده دوباره «بدون مسدودی» ثبت می‌شد.
+      bool isNewUser = true;
+      try {
+        final DocumentSnapshot<Map<String, dynamic>> existing =
+            await _usersCollection.doc(userId).get();
+        isNewUser = !existing.exists;
+      } catch (e) {
+        debugPrint('Could not check existing user doc: $e');
+      }
+
       final Map<String, dynamic> userData = {
         ...userModel.toMap(),
         'id': userId,
@@ -243,16 +312,26 @@ class AuthenticationProvider extends ChangeNotifier {
             : (currentUser.phoneNumber ??
                 _phoneNumber ??
                 ''),
-        'role': 'passenger',
-        'blockStatus': 'no',
-        'isBlocked': false,
-        'isApproved': true,
-        'status': 'active',
-        'createdAt':
-            FieldValue.serverTimestamp(),
+        if (isNewUser) ...{
+          'role': 'passenger',
+          'blockStatus': 'no',
+          'isBlocked': false,
+          'isApproved': true,
+          'status': 'active',
+          'createdAt':
+              FieldValue.serverTimestamp(),
+        },
         'updatedAt':
             FieldValue.serverTimestamp(),
       };
+
+      if (!isNewUser) {
+        userData.remove('blockStatus');
+        userData.remove('role');
+        userData.remove('isBlocked');
+        userData.remove('isApproved');
+        userData.remove('status');
+      }
 
       await _usersCollection.doc(userId).set(
             userData,
@@ -706,8 +785,14 @@ class AuthenticationProvider extends ChangeNotifier {
     startLoading();
 
     try {
+      try {
+        // برای کاربر ورود با تلفن ممکن است خطا بدهد؛ نباید خروج را متوقف کند
+        await googleSignIn.signOut();
+      } catch (e) {
+        debugPrint('Google sign out failed (ignored): $e');
+      }
+
       await firebaseAuth.signOut();
-      await googleSignIn.signOut();
 
       _uid = null;
       _phoneNumber = null;
