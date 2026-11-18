@@ -255,70 +255,93 @@ class _SafirHomeScreenState extends State<SafirHomeScreen> {
     }
   }
 
-  Future<void> _navigateToService(String serviceId) async {
-    if (!mounted || _openingService) return;
+    Future<void> _navigateToService(String serviceId) async {
+    if (!mounted) return;
 
-    setState(() {
-      _openingService = true;
-      _driverPressed = false;
-    });
-
-    try {
-      if (serviceId == 'register') {
-        final appUri = Uri.parse('safirdriver://open');
-        final storeUri =
-            Uri.parse('https://safirapp.com/download-driver');
-
-        try {
-          if (await canLaunchUrl(appUri)) {
-            final opened = await launchUrl(
-              appUri,
-              mode: LaunchMode.externalNonBrowserApplication,
-            );
-
-            if (opened) return;
-          }
-
-          await launchUrl(
-            storeUri,
-            mode: LaunchMode.externalApplication,
-          );
-        } catch (error) {
-          debugPrint('خطا در باز کردن اپ راننده: $error');
-
-          try {
-            await launchUrl(
-              storeUri,
-              mode: LaunchMode.externalApplication,
-            );
-          } catch (fallbackError) {
-            debugPrint('خطا در لینک راننده: $fallbackError');
-          }
-        }
-
-        return;
-      }
-
-      if (!mounted) return;
-
-      final type = serviceId == 'intercity'
-          ? 'intercity'
-          : serviceId == 'cargo'
-              ? 'cargo'
-              : 'taxi';
-
-      await Navigator.push<void>(
-        context,
-        MaterialPageRoute(
-          builder: (_) => SafirMapScreen(serviceType: type),
-        ),
+    if (serviceId == 'register') {
+      final Uri driverAppUri = Uri.parse(
+        'safirdriver://open',
       );
-    } finally {
-      if (mounted) {
-        setState(() => _openingService = false);
+
+      final Uri driverDownloadUri = Uri.parse(
+        'https://github.com/farhadrasa78-a11y/'
+        'safir-downloads/releases/latest/download/'
+        'safir-driver.apk',
+      );
+
+      bool opened = false;
+
+      // ابتدا تلاش برای بازکردن اپ راننده.
+      try {
+        opened = await launchUrl(
+          driverAppUri,
+          mode: LaunchMode.externalApplication,
+        );
+      } catch (error) {
+        debugPrint('Driver app launch error: $error');
       }
+
+      if (opened || !mounted) return;
+
+      // اگر اپ باز نشد، لینک دانلود آخرین APK باز شود.
+      try {
+        opened = await launchUrl(
+          driverDownloadUri,
+          mode: LaunchMode.externalApplication,
+        );
+      } catch (error) {
+        debugPrint('Driver APK link error: $error');
+      }
+
+      if (opened || !mounted) return;
+
+      final String language = context.locale.languageCode;
+      final String message;
+
+      switch (language) {
+        case 'en':
+          message =
+              'Could not open Safir Driver or its download link. '
+              'Please try again.';
+          break;
+
+        case 'ps':
+          message =
+              'د سفیر ډرایور اپ یا د ډاونلوډ لینک خلاص نه شو. '
+              'بیا هڅه وکړئ.';
+          break;
+
+        default:
+          message =
+              'اپ راننده یا لینک دانلود باز نشد؛ '
+              'دوباره تلاش کنید.';
+      }
+
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            behavior: SnackBarBehavior.floating,
+            content: Text(message),
+          ),
+        );
+
+      return;
     }
-  }
+
+    final String type = serviceId == 'intercity'
+        ? 'intercity'
+        : serviceId == 'cargo'
+            ? 'cargo'
+            : 'taxi';
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => SafirMapScreen(serviceType: type),
+      ),
+    );
+    }
 
   void _openMenu() {
     final isRTL = Directionality.of(context) == TextDirection.rtl;
