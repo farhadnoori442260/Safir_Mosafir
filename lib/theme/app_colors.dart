@@ -142,6 +142,25 @@ class AppColors {
   static Color get accentTeal =>
       _p(0xFF0E8F9C, 0xFF4FD1DC);
 
+  // کلید تم (تاریک/روشن): زیر کلید مشکی، مستطیل انتخاب‌شده هم‌رنگ کارت
+
+  static Color get toggleTrack =>
+      _p(0xFFECEEF2, 0xFF0A0A0A);
+
+  static Color get toggleTrackBorder =>
+      _p(0xFFD4D7E2, 0xFF404040);
+
+  static Color get toggleThumbBorder =>
+      _p(0xFFB5BAC8, 0xFF666666);
+
+  // رنگ برند شبکه‌های اجتماعی (در هر دو تم یکسان)
+
+  static Color get brandFacebook =>
+      _p(0xFF1877F2, 0xFF1877F2);
+
+  static Color get brandInstagram =>
+      _p(0xFFE1306C, 0xFFE1306C);
+
   // هم‌نام‌های قدیمی
 
   static Color get primaryPressed =>
