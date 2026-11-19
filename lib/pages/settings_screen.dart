@@ -12,6 +12,9 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:safir_passengers/theme/app_colors.dart';
 import 'package:safir_passengers/theme/theme_controller.dart';
 
+// ضخامت یکسان همهٔ خطوط، کادرها و جداکننده‌ها
+const double _kLine = 1.2;
+
 // لینک واقعی صفحات سفیر را بین کوتیشن‌ها وارد کن.
 const String _safirFacebookUrl = '';
 const String _safirInstagramUrl = '';
@@ -164,7 +167,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       setDialogState(() => selectedTempLang = value);
                     },
                   ),
-                  Divider(height: 1, color: AppColors.fieldBorder),
+                  Divider(height: _kLine, thickness: _kLine, color: AppColors.borderLight),
                   _buildLanguageRadio(
                     title: _localized('lang_pashto', 'پښتو'),
                     value: 'ps',
@@ -174,7 +177,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       setDialogState(() => selectedTempLang = value);
                     },
                   ),
-                  Divider(height: 1, color: AppColors.fieldBorder),
+                  Divider(height: _kLine, thickness: _kLine, color: AppColors.borderLight),
                   _buildLanguageRadio(
                     title: _localized('lang_english', 'English'),
                     value: 'en',
@@ -388,7 +391,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _showLegalDialog(
       title: _localized('services_safir_title', 'خدمات سفیر'),
       icon: Icons.local_taxi_rounded,
-      accentColor: const Color(0xFFF59E0B),
+      accentColor: AppColors.originBlue,
       content: _localized(
         'services_safir_content',
         """سفیر یک پلتفرم حمل‌ونقل شهری است که ارتباط میان مسافران و رانندگان را ساده‌تر می‌سازد.
@@ -406,7 +409,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _showLegalDialog(
       title: _localized('terms_conditions_title', 'شرایط و قوانین استفاده'),
       icon: Icons.description_outlined,
-      accentColor: const Color(0xFF6366F1),
+      accentColor: AppColors.originBlue,
       content: _localized(
         'terms_conditions_content',
         """با ایجاد حساب، ورود یا استفاده از اپلیکیشن سفیر، شما این شرایط و قوانین را می‌پذیرید. اگر با بخشی از این قوانین موافق نیستید، لطفاً از خدمات سفیر استفاده نکنید.
@@ -439,7 +442,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _showLegalDialog(
       title: _localized('privacy_policy_title', 'حریم خصوصی و داده‌ها'),
       icon: Icons.privacy_tip_outlined,
-      accentColor: const Color(0xFF8B5CF6),
+      accentColor: AppColors.originBlue,
       content: _localized(
         'privacy_policy_content',
         """حریم خصوصی کاربران برای سفیر مهم است. این برنامه ممکن است فقط برای ارائه و بهبود خدمات، اطلاعات لازم را دریافت و پردازش کند.
@@ -463,7 +466,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _showLegalDialog(
       title: _localized('about_app_title', 'دربارهٔ اپلیکیشن'),
       icon: Icons.info_outline_rounded,
-      accentColor: const Color(0xFF0EA5E9),
+      accentColor: AppColors.originBlue,
       isAbout: true,
       content: _localized(
         'about_app_content',
@@ -564,9 +567,9 @@ v1.0.0 (Safir Passengers)""",
             ),
             _buildCardGroup([
               _SettingsTile(
-                leading: const Icon(
+                leading: Icon(
                   Icons.language_rounded,
-                  color: Color(0xFF3B82F6),
+                  color: AppColors.originBlue,
                 ),
                 title: Text(
                   _localized('app_language_label', 'زبان برنامه'),
@@ -609,9 +612,10 @@ v1.0.0 (Safir Passengers)""",
                 onChanged: _toggleNotification,
               ),
               Divider(
-                height: 1,
+                height: _kLine,
+                thickness: _kLine,
                 indent: 70,
-                color: AppColors.fieldBorder,
+                color: AppColors.borderLight,
               ),
               _buildSettingSwitchTile(
                 icon: Icons.volume_up_outlined,
@@ -635,9 +639,9 @@ v1.0.0 (Safir Passengers)""",
                           color: AppColors.primaryBrand,
                         ),
                       )
-                    : const Icon(
+                    : Icon(
                         Icons.cleaning_services_outlined,
-                        color: Color(0xFFEC4899),
+                        color: AppColors.originBlue,
                       ),
                 title: Text(
                   _localized('clear_cache_btn', 'پاکسازی حافظه موقت'),
@@ -668,9 +672,9 @@ v1.0.0 (Safir Passengers)""",
             ),
             _buildCardGroup([
               _SettingsTile(
-                leading: const Icon(
+                leading: Icon(
                   Icons.local_taxi_rounded,
-                  color: Color(0xFFF59E0B),
+                  color: AppColors.originBlue,
                 ),
                 title: Text(
                   _localized('services_safir_title', 'خدمات سفیر'),
@@ -694,14 +698,15 @@ v1.0.0 (Safir Passengers)""",
                 onTap: _showServicesDialog,
               ),
               Divider(
-                height: 1,
+                height: _kLine,
+                thickness: _kLine,
                 indent: 70,
-                color: AppColors.fieldBorder,
+                color: AppColors.borderLight,
               ),
               _SettingsTile(
-                leading: const Icon(
+                leading: Icon(
                   Icons.description_outlined,
-                  color: Color(0xFF6366F1),
+                  color: AppColors.originBlue,
                 ),
                 title: Text(
                   _localized(
@@ -728,14 +733,15 @@ v1.0.0 (Safir Passengers)""",
                 onTap: _showTermsDialog,
               ),
               Divider(
-                height: 1,
+                height: _kLine,
+                thickness: _kLine,
                 indent: 70,
-                color: AppColors.fieldBorder,
+                color: AppColors.borderLight,
               ),
               _SettingsTile(
-                leading: const Icon(
+                leading: Icon(
                   Icons.privacy_tip_outlined,
-                  color: Color(0xFF8B5CF6),
+                  color: AppColors.originBlue,
                 ),
                 title: Text(
                   _localized(
@@ -762,14 +768,15 @@ v1.0.0 (Safir Passengers)""",
                 onTap: _showPrivacyDialog,
               ),
               Divider(
-                height: 1,
+                height: _kLine,
+                thickness: _kLine,
                 indent: 70,
-                color: AppColors.fieldBorder,
+                color: AppColors.borderLight,
               ),
               _SettingsTile(
-                leading: const Icon(
+                leading: Icon(
                   Icons.delete_forever_outlined,
-                  color: Color(0xFFEF4444),
+                  color: AppColors.danger,
                 ),
                 title: Text(
                   _localized(
@@ -797,14 +804,15 @@ v1.0.0 (Safir Passengers)""",
                 onTap: _showDeleteAccountDialog,
               ),
               Divider(
-                height: 1,
+                height: _kLine,
+                thickness: _kLine,
                 indent: 70,
-                color: AppColors.fieldBorder,
+                color: AppColors.borderLight,
               ),
               _SettingsTile(
-                leading: const Icon(
+                leading: Icon(
                   Icons.info_outline_rounded,
-                  color: Color(0xFF0EA5E9),
+                  color: AppColors.originBlue,
                 ),
                 title: Text(
                   _localized('about_app_title', 'دربارهٔ اپلیکیشن'),
@@ -845,8 +853,8 @@ v1.0.0 (Safir Passengers)""",
       leading: Icon(
         icon,
         color: icon == Icons.notifications_active_outlined
-            ? const Color(0xFFF97316)
-            : const Color(0xFFA855F7),
+            ? AppColors.originBlue
+            : AppColors.originBlue,
       ),
       title: Text(
         title,
@@ -865,89 +873,146 @@ v1.0.0 (Safir Passengers)""",
     );
   }
 
+  /// انتخاب ظاهر: «خودکار» (مطابق گوشی) + «تاریک | روشن».
+  /// خودکار قفل نیست؛ با لمس تاریک یا روشن همان لحظه دستی می‌شود.
   Widget _buildThemeSelector() {
-    final mode = ThemeController.instance.mode;
+    return ListenableBuilder(
+      listenable: ThemeController.instance,
+      builder: (BuildContext context, Widget? _) {
+        final ThemeMode mode = ThemeController.instance.mode;
 
-    final options = <MapEntry<ThemeMode, List<Object>>>[
-      MapEntry(
-        ThemeMode.system,
-        [
-          Icons.brightness_auto_rounded,
-          _localized('theme_system', 'خودکار'),
-        ],
-      ),
-      MapEntry(
-        ThemeMode.light,
-        [
-          Icons.light_mode_rounded,
-          _localized('theme_light', 'روشن'),
-        ],
-      ),
-      MapEntry(
-        ThemeMode.dark,
-        [
-          Icons.dark_mode_rounded,
-          _localized('theme_dark', 'تاریک'),
-        ],
-      ),
-    ];
+        // آیکن «خودکار» مطابق تم فعلی گوشی
+        final bool phoneIsDark =
+            MediaQuery.platformBrightnessOf(context) == Brightness.dark;
 
-    return Padding(
-      padding: const EdgeInsets.all(12),
-      child: Container(
-        padding: const EdgeInsets.all(4),
-        decoration: BoxDecoration(
-          color: AppColors.backgroundLight,
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: Row(
-          children: [
-            for (final o in options)
-              Expanded(
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
+        Widget option({
+          required String title,
+          required IconData icon,
+          required ThemeMode value,
+        }) {
+          final bool selected = mode == value;
+          final Color fg =
+              selected ? AppColors.textPrimary : AppColors.textSecondary;
+
+          return Semantics(
+            button: true,
+            selected: selected,
+            label: title,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeInOut,
+              height: 42,
+              decoration: BoxDecoration(
+                color:
+                    selected ? AppColors.cardBgLight : Colors.transparent,
+                borderRadius: BorderRadius.circular(7),
+                border: Border.all(
+                  color: selected
+                      ? AppColors.toggleThumbBorder
+                      : Colors.transparent,
+                  width: _kLine,
+                ),
+              ),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(7),
                   onTap: () {
                     HapticFeedback.selectionClick();
-                    ThemeController.instance.setMode(o.key);
+                    ThemeController.instance.setMode(value);
                   },
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    decoration: BoxDecoration(
-                      color: mode == o.key
-                          ? AppColors.primaryButton
-                          : Colors.transparent,
-                      borderRadius: BorderRadius.circular(11),
+                  child: Center(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(icon, size: 17, color: fg),
+                          const SizedBox(width: 6),
+                          Text(
+                            title,
+                            style: TextStyle(
+                              color: fg,
+                              fontSize: 13.5,
+                              fontWeight: selected
+                                  ? FontWeight.w700
+                                  : FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                  ),
+                ),
+              ),
+            ),
+          );
+        }
+
+        Widget shell(Widget child) {
+          return Container(
+            padding: const EdgeInsets.all(3),
+            decoration: BoxDecoration(
+              color: AppColors.toggleTrack,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: AppColors.toggleTrackBorder,
+                width: _kLine,
+              ),
+            ),
+            child: child,
+          );
+        }
+
+        return Directionality(
+          textDirection: ui.TextDirection.ltr,
+          child: Padding(
+            padding: const EdgeInsets.all(10),
+            child: Row(
+              children: [
+                // خودکار: محفظهٔ مستقل
+                Expanded(
+                  flex: 1,
+                  child: shell(
+                    option(
+                      title: _localized('theme_system', 'خودکار'),
+                      icon: phoneIsDark
+                          ? Icons.nightlight_round
+                          : Icons.wb_sunny_rounded,
+                      value: ThemeMode.system,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // تاریک و روشن: محفظهٔ مشترک
+                Expanded(
+                  flex: 2,
+                  child: shell(
+                    Row(
                       children: [
-                        Icon(
-                          o.value[0] as IconData,
-                          size: 18,
-                          color: mode == o.key
-                              ? AppColors.buttonText
-                              : AppColors.textSecondary,
+                        Expanded(
+                          child: option(
+                            title: _localized('theme_dark', 'تاریک'),
+                            icon: Icons.nightlight_round,
+                            value: ThemeMode.dark,
+                          ),
                         ),
-                        const SizedBox(width: 6),
-                        Text(
-                          o.value[1] as String,
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: mode == o.key
-                                ? AppColors.buttonText
-                                : AppColors.textSecondary,
+                        Expanded(
+                          child: option(
+                            title: _localized('theme_light', 'روشن'),
+                            icon: Icons.wb_sunny_rounded,
+                            value: ThemeMode.light,
                           ),
                         ),
                       ],
                     ),
                   ),
                 ),
-              ),
-          ],
-        ),
-      ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -969,11 +1034,11 @@ v1.0.0 (Safir Passengers)""",
     return Container(
       decoration: BoxDecoration(
         color: AppColors.cardBgLight,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.fieldBorder),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.borderLight, width: _kLine),
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(18),
         child: Column(children: children),
       ),
     );
@@ -1012,6 +1077,7 @@ class _ModernSwitch extends StatelessWidget {
             borderRadius: BorderRadius.circular(30),
             border: Border.all(
               color: value ? activeColor : AppColors.borderLight,
+              width: _kLine,
             ),
           ),
           child: AnimatedAlign(
@@ -1026,13 +1092,6 @@ class _ModernSwitch extends StatelessWidget {
               decoration: BoxDecoration(
                 color: AppColors.buttonText,
                 shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black12,
-                    blurRadius: 3,
-                    offset: Offset(0, 1),
-                  ),
-                ],
               ),
             ),
           ),
@@ -1264,6 +1323,7 @@ class _SafirInformationScreen extends StatelessWidget {
                         borderRadius: BorderRadius.circular(28),
                         border: Border.all(
                           color: accentColor.withOpacity(0.18),
+                          width: _kLine,
                         ),
                       ),
                       child: Column(
@@ -1276,6 +1336,7 @@ class _SafirInformationScreen extends StatelessWidget {
                               borderRadius: BorderRadius.circular(25),
                               border: Border.all(
                                 color: accentColor.withOpacity(0.15),
+                                width: _kLine,
                               ),
                             ),
                             child: isAbout
@@ -1327,7 +1388,8 @@ class _SafirInformationScreen extends StatelessWidget {
                         color: AppColors.cardBgLight,
                         borderRadius: BorderRadius.circular(24),
                         border: Border.all(
-                          color: AppColors.fieldBorder,
+                          color: AppColors.borderLight,
+                          width: _kLine,
                         ),
                       ),
                       child: SelectionArea(
@@ -1373,7 +1435,7 @@ class _SafirInformationScreen extends StatelessWidget {
                           _SafirSocialButton(
                             icon: FontAwesomeIcons.facebookF,
                             label: 'Facebook',
-                            color: const Color(0xFF1877F2),
+                            color: AppColors.brandFacebook,
                             onTap: _safirFacebookUrl.trim().isEmpty
                                 ? null
                                 : () => _openSocialLink(
@@ -1384,7 +1446,7 @@ class _SafirInformationScreen extends StatelessWidget {
                           _SafirSocialButton(
                             icon: FontAwesomeIcons.instagram,
                             label: 'Instagram',
-                            color: const Color(0xFFE1306C),
+                            color: AppColors.brandInstagram,
                             onTap: _safirInstagramUrl.trim().isEmpty
                                 ? null
                                 : () => _openSocialLink(
@@ -1441,6 +1503,7 @@ class _SafirSocialButton extends StatelessWidget {
                   color: enabled
                       ? color.withOpacity(0.24)
                       : AppColors.fieldBorder,
+                  width: _kLine,
                 ),
               ),
               clipBehavior: Clip.antiAlias,
