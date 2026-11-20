@@ -60,30 +60,27 @@ class _SafirDrawerState extends State<SafirDrawer> {
         '';
   }
 
-  Future<void> _closeDrawer() async {
-    if (!mounted) return;
-
+  /// منو را فوری می‌بندد. کار بعدی بدون انتظار شروع می‌شود، پس با
+  /// ناوبری/دیالوگ ساخته‌شده از مرجع‌های از‌پیش‌گرفته‌شده انجام می‌شود
+  /// (state منو هنگام بسته شدن از بین می‌رود).
+  void _closeDrawerNow() {
     final scaffold = Scaffold.maybeOf(context);
 
-    if (scaffold == null) {
-      return;
-    }
+    if (scaffold == null) return;
 
-    if (scaffold.isDrawerOpen || scaffold.isEndDrawerOpen) {
-      Navigator.of(context).pop();
-
-      await Future<void>.delayed(
-        const Duration(milliseconds: 250),
-      );
+    if (scaffold.isDrawerOpen) {
+      scaffold.closeDrawer();
+    } else if (scaffold.isEndDrawerOpen) {
+      scaffold.closeEndDrawer();
     }
   }
 
   Future<void> _openProfile() async {
-    await _closeDrawer();
+    final nav = Navigator.of(context, rootNavigator: true);
 
-    if (!mounted) return;
+    _closeDrawerNow();
 
-    await Navigator.of(context).push<void>(
+    await nav.push<void>(
       MaterialPageRoute<void>(
         builder: (_) => const ProfileAnimatedMenu(),
       ),
@@ -91,14 +88,13 @@ class _SafirDrawerState extends State<SafirDrawer> {
   }
 
   Future<void> _showAbout() async {
-    await _closeDrawer();
-
-    if (!mounted) return;
-
+    final nav = Navigator.of(context, rootNavigator: true);
     final colors = _DrawerColors.of(context);
 
+    _closeDrawerNow();
+
     await showModalBottomSheet<void>(
-      context: context,
+      context: nav.context,
       useRootNavigator: true,
       isScrollControlled: true,
       backgroundColor: colors.surface,
@@ -180,9 +176,14 @@ class _SafirDrawerState extends State<SafirDrawer> {
   }
 
   Future<void> _rateApp() async {
-    await _closeDrawer();
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    final failText = _tr(
+      context,
+      'store_link_unavailable',
+      'لینک اپ هنوز در دسترس نیست',
+    );
 
-    if (!mounted) return;
+    _closeDrawerNow();
 
     String storeUrl = '';
 
@@ -198,8 +199,6 @@ class _SafirDrawerState extends State<SafirDrawer> {
     } catch (error) {
       debugPrint('Store URL read error: $error');
     }
-
-    if (!mounted) return;
 
     bool opened = false;
     final uri = Uri.tryParse(storeUrl);
@@ -232,21 +231,20 @@ class _SafirDrawerState extends State<SafirDrawer> {
       }
     }
 
-    if (!mounted || opened) return;
+    if (opened) return;
 
-    _showMessage(
-      _tr(
-        context,
-        'store_link_unavailable',
-        'لینک اپ هنوز در دسترس نیست',
-      ),
-    );
+    _showMessage(messenger, failText);
   }
 
   Future<void> _signOut() async {
-    await _closeDrawer();
-
-    if (!mounted) return;
+    // تا پایان کار، منو باز می‌ماند؛ پس state هم زنده است.
+    final nav = Navigator.of(context, rootNavigator: true);
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    final errorText = _tr(
+      context,
+      'drawer_action_error',
+      'خروج انجام نشد؛ دوباره تلاش کنید.',
+    );
 
     final confirmed = await showDialog<bool>(
       context: context,
@@ -389,9 +387,12 @@ class _SafirDrawerState extends State<SafirDrawer> {
       try {
         final googleSignIn = GoogleSignIn();
 
-        if (await googleSignIn.isSignedIn()) {
-          await googleSignIn.signOut();
-        }
+        // برای اینکه دفعهٔ بعد انتخاب حساب دوباره نمایش داده شود
+        await googleSignIn.signOut();
+
+        try {
+          await googleSignIn.disconnect();
+        } catch (_) {}
       } catch (error) {
         debugPrint('Google sign out error: $error');
       }
@@ -401,12 +402,7 @@ class _SafirDrawerState extends State<SafirDrawer> {
       userName = '';
       userPhone = '';
 
-      if (!mounted) return;
-
-      Navigator.of(
-        context,
-        rootNavigator: true,
-      ).pushAndRemoveUntil<void>(
+      nav.pushAndRemoveUntil<void>(
         MaterialPageRoute<void>(
           builder: (_) => const RegisterScreen(),
         ),
@@ -415,15 +411,7 @@ class _SafirDrawerState extends State<SafirDrawer> {
     } catch (error) {
       debugPrint('Sign out error: $error');
 
-      if (mounted) {
-        _showMessage(
-          _tr(
-            context,
-            'drawer_action_error',
-            'خروج انجام نشد؛ دوباره تلاش کنید.',
-          ),
-        );
-      }
+      _showMessage(messenger, errorText);
     } finally {
       if (mounted) {
         setState(() => _busy = false);
@@ -431,9 +419,10 @@ class _SafirDrawerState extends State<SafirDrawer> {
     }
   }
 
-  void _showMessage(String message) {
-    final messenger = ScaffoldMessenger.maybeOf(context);
-
+  void _showMessage(
+    ScaffoldMessengerState? messenger,
+    String message,
+  ) {
     if (messenger == null || !messenger.mounted) return;
 
     messenger
@@ -456,7 +445,11 @@ class _SafirDrawerState extends State<SafirDrawer> {
     return Drawer(
       width: (width * 0.86).clamp(0.0, 340.0).toDouble(),
       backgroundColor: colors.background,
-      child: SafeArea(
+      elevation: 0,
+      shadowColor: Colors.transparent,
+      surfaceTintColor: Colors.transparent,
+      child: RepaintBoundary(
+        child: SafeArea(
         child: AbsorbPointer(
           absorbing: _busy,
           child: Column(
@@ -598,12 +591,15 @@ class _SafirDrawerState extends State<SafirDrawer> {
                             'help_support_sub',
                             'تماس مستقیم با پشتیبانی',
                           ),
-                          onTap: () async {
-                            await _closeDrawer();
+                          onTap: () {
+                            final rootContext = Navigator.of(
+                              context,
+                              rootNavigator: true,
+                            ).context;
 
-                            if (!mounted) return;
+                            _closeDrawerNow();
 
-                            SupportService.call(context);
+                            SupportService.call(rootContext);
                           },
                         ),
                         const _DrawerTileDivider(),
@@ -676,6 +672,7 @@ class _SafirDrawerState extends State<SafirDrawer> {
               ),
             ],
           ),
+        ),
         ),
       ),
     );
