@@ -78,6 +78,12 @@ class AuthenticationProvider extends ChangeNotifier {
     return e.message ?? e.toString();
   }
 
+  /// شمارهٔ واردشده‌ی هنوز تأییدنشده (تا ساخته شدن سند کاربر نگه داشته می‌شود)
+  void setPendingPhone(String phone) {
+    _phoneNumber = phone;
+    notifyListeners();
+  }
+
   void startLoading() {
     _isLoading = true;
     notifyListeners();
@@ -324,6 +330,11 @@ class AuthenticationProvider extends ChangeNotifier {
         'updatedAt':
             FieldValue.serverTimestamp(),
       };
+
+      // شماره فقط وقتی «تأییدشده» است که با شمارهٔ تأییدشدهٔ حساب یکی باشد
+      final String authPhone = currentUser.phoneNumber ?? '';
+      userData['phoneVerified'] =
+          authPhone.isNotEmpty && authPhone == userData['phone'];
 
       if (!isNewUser) {
         userData.remove('blockStatus');
