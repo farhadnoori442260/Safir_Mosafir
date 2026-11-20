@@ -142,6 +142,11 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   final ThemeController _theme = ThemeController.instance;
 
+  // آخرین تمی که واقعاً روی درخت اعمال شده.
+  // نباید با AppColors.isDark مقایسه شود، چون ThemeController
+  // قبل از صدا زدن شنونده‌ها آن را عوض کرده است.
+  bool _appliedDark = AppColors.isDark;
+
   @override
   void initState() {
     super.initState();
@@ -166,7 +171,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     final bool dark = _theme.resolveDark(
       WidgetsBinding.instance.platformDispatcher.platformBrightness,
     );
-    if (dark == AppColors.isDark) return;
+    if (dark == _appliedDark) return;
+    _appliedDark = dark;
 
     // ۱) پالت جدید فعال می‌شود
     AppColors.isDark = dark;
@@ -185,14 +191,32 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     }
   }
 
+  // رنگ تاریک را از AppColors می‌خواند، مستقل از تم فعلی
+  Color _darkOf(Color Function() pick) {
+    final bool prev = AppColors.isDark;
+    AppColors.isDark = true;
+    try {
+      return pick();
+    } finally {
+      AppColors.isDark = prev;
+    }
+  }
+
   ThemeData _buildTheme(bool dark) {
-    final Color primary = dark ? const Color(0xFF34B27F) : const Color(0xFF117656);
-    final Color bg = dark ? const Color(0xFF0F1412) : Colors.white;
-    final Color surface = dark ? const Color(0xFF1A211E) : Colors.white;
-    final Color title = dark ? const Color(0xFFECF1EF) : const Color(0xFF212121);
-    final Color body = dark ? const Color(0xFFD5DEDA) : const Color(0xFF2D3142);
-    final Color muted = dark ? const Color(0xFF9AA8A1) : Colors.grey;
-    final Color line = dark ? const Color(0xFF2B3631) : Colors.grey.shade300;
+    final Color primary =
+        dark ? _darkOf(() => AppColors.primaryBrand) : const Color(0xFF117656);
+    final Color bg =
+        dark ? _darkOf(() => AppColors.backgroundLight) : Colors.white;
+    final Color surface =
+        dark ? _darkOf(() => AppColors.cardBgLight) : Colors.white;
+    final Color title =
+        dark ? _darkOf(() => AppColors.textPrimary) : const Color(0xFF212121);
+    final Color body =
+        dark ? _darkOf(() => AppColors.textPrimary) : const Color(0xFF2D3142);
+    final Color muted =
+        dark ? _darkOf(() => AppColors.textSecondary) : Colors.grey;
+    final Color line =
+        dark ? _darkOf(() => AppColors.borderLight) : Colors.grey.shade300;
 
     return ThemeData(
       useMaterial3: true,
@@ -240,7 +264,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           fontFamily: _defaultFont,
           fontSize: 13,
           fontWeight: FontWeight.w400,
-          color: dark ? const Color(0xFF6F7C76) : Colors.grey.shade400,
+          color: dark ? muted : Colors.grey.shade400,
         ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
