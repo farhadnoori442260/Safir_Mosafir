@@ -13,6 +13,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:safir_passengers/global/global_var.dart';
 import 'package:safir_passengers/widgets/safir_drawer.dart';
 import 'package:safir_passengers/appInfo/auth_provider.dart';
+import 'package:safir_passengers/authentication/link_phone_screen.dart';
 import 'package:safir_passengers/pages/blocked_screen.dart';
 import 'package:safir_passengers/authentication/register_screen.dart';
 import 'package:safir_passengers/theme/app_colors.dart';
@@ -205,6 +206,26 @@ class _SafirHomeScreenState extends State<SafirHomeScreen> {
           ),
         );
         return;
+      }
+
+      // حساب بدون شمارهٔ تأییدشده (مثلاً ورود قدیمی با گوگل)
+      final phoneUser = FirebaseAuth.instance.currentUser;
+
+      if (phoneUser != null && (phoneUser.phoneNumber ?? '').isEmpty) {
+        final phoneOk = await ensurePhoneLinked(context);
+
+        if (!mounted) return;
+
+        if (!phoneOk) {
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const RegisterScreen(),
+            ),
+            (route) => false,
+          );
+          return;
+        }
       }
 
       final isFilled =
