@@ -611,9 +611,9 @@ class MapBottomSheets {
             : MediaQuery.of(context).size.height;
         final double minFrac = (230.0 / h).clamp(0.26, 0.45).toDouble();
         final double maxFrac =
-            (0.62).clamp(minFrac + 0.10, 0.80).toDouble();
+            (0.58).clamp(minFrac + 0.10, 0.80).toDouble();
         final double midFrac =
-            (0.40).clamp(minFrac + 0.04, maxFrac - 0.04).toDouble();
+            (0.46).clamp(minFrac + 0.04, maxFrac - 0.04).toDouble();
 
         return DraggableScrollableSheet(
         initialChildSize: midFrac,
