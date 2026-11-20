@@ -715,7 +715,7 @@ class MapBottomSheets {
                   },
                 ),
                 Padding(
-                  padding: const EdgeInsets.only(left: 16, right: 16, top: 20, bottom: 24),
+                  padding: const EdgeInsets.only(left: 16, right: 16, top: 32, bottom: 24),
                   child: SizedBox(
                     width: double.infinity,
                     height: 48,
