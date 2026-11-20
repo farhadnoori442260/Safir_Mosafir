@@ -857,6 +857,9 @@
   "link_phone_continue": "Confirm and continue",
   "link_phone_logout": "Cancel and sign out",
   "link_phone_conflict": "This number is registered with another account. Sign in with that number or enter a different one.",
-  "link_phone_relogin": "Please sign out and sign in with Google again, then verify the number."
+  "link_phone_relogin": "Please sign out and sign in with Google again, then verify the number.",
+  "link_phone_title_simple": "Enter your phone number",
+  "link_phone_subtitle_simple": "Your phone number is needed so the driver can contact you."
+ 
 
 }
