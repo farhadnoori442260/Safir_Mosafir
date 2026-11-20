@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 
 // ایمپورت‌های پکیج سفیر مسافر
 import 'package:safir_passengers/appInfo/auth_provider.dart';
+import 'package:safir_passengers/authentication/link_phone_screen.dart';
 import 'package:safir_passengers/authentication/user_information_screen.dart';
 import 'package:safir_passengers/methods/common_methods.dart';
 import 'package:safir_passengers/pages/blocked_screen.dart';
@@ -668,6 +669,13 @@ class _RegisterScreenState
           );
           return;
         }
+
+        // شماره باید به حساب وصل باشد؛ اگر نیست، تأیید با کد پیامکی
+        final bool phoneOk = await ensurePhoneLinked(context);
+
+        if (!mounted) return;
+
+        if (!phoneOk) return;
 
         final bool userExists =
             await authProvider.checkUserExistById();
