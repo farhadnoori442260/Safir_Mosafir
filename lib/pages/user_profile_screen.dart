@@ -9,6 +9,7 @@ import 'package:firebase_database/firebase_database.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:safir_passengers/global/global_var.dart';
+import 'package:safir_passengers/authentication/link_phone_screen.dart';
 import 'package:safir_passengers/authentication/register_screen.dart';
 import 'package:safir_passengers/theme/app_colors.dart';
 
@@ -1694,7 +1695,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 // -------------------------------------------------------------
 
 /// شمارهٔ جدید را برمی‌گرداند؛ اگر کاربر منصرف شود null.
-Future<String?> showChangePhoneSheet(BuildContext context) {
+Future<String?> showChangePhoneSheet(BuildContext context) async {
+  // اگر تأیید پیامکی خاموش باشد، شماره بدون پیامک جایگزین می‌شود
+  final bool verify = await phoneVerificationRequired();
+
+  if (!context.mounted) return null;
+
   return showModalBottomSheet<String>(
     context: context,
     isScrollControlled: true,
@@ -1702,7 +1708,7 @@ Future<String?> showChangePhoneSheet(BuildContext context) {
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
     ),
-    builder: (_) => const _ChangePhoneSheet(),
+    builder: (_) => _ChangePhoneSheet(verify: verify),
   );
 }
 
@@ -1727,7 +1733,9 @@ String? _normalizePhone(String raw) {
 }
 
 class _ChangePhoneSheet extends StatefulWidget {
-  const _ChangePhoneSheet();
+  const _ChangePhoneSheet({required this.verify});
+
+  final bool verify;
 
   @override
   State<_ChangePhoneSheet> createState() => _ChangePhoneSheetState();
@@ -1838,9 +1846,24 @@ class _ChangePhoneSheetState extends State<_ChangePhoneSheet> {
       return;
     }
 
-    final String? current = _normalizePhone(user.phoneNumber ?? '');
+    final String? current =
+        _normalizePhone((user.phoneNumber ?? '').isNotEmpty ? user.phoneNumber! : userPhone);
     if (current != null && current == phone) {
       setState(() => _error = _t('change_phone_err_phone_same', 'این شماره همان شمارهٔ فعلی شما است'));
+      return;
+    }
+
+    // بدون پیامک: فقط ذخیره می‌شود و «تأییدنشده» علامت می‌خورد
+    if (!widget.verify) {
+      setState(() {
+        _busy = true;
+        _error = null;
+      });
+
+      await _saveEverywhere(user, phone, verified: false);
+
+      if (!mounted) return;
+      Navigator.pop(context, phone);
       return;
     }
 
@@ -2029,7 +2052,7 @@ class _ChangePhoneSheetState extends State<_ChangePhoneSheet> {
 
       // جایگزینی شماره روی همین حساب (بدون خروج)
       await user.updatePhoneNumber(credential);
-      await _saveEverywhere(user, _newPhone);
+      await _saveEverywhere(user, _newPhone, verified: true);
 
       if (!mounted) return;
       Navigator.pop(context, _newPhone);
@@ -2059,12 +2082,12 @@ class _ChangePhoneSheetState extends State<_ChangePhoneSheet> {
   }
 
   // شمارهٔ جدید در Firestore و Realtime Database هم جایگزین می‌شود
-  Future<void> _saveEverywhere(User user, String phone) async {
+  Future<void> _saveEverywhere(User user, String phone, {required bool verified}) async {
     try {
       await FirebaseFirestore.instance
           .collection('users')
           .doc(user.uid)
-          .set({'phone': phone}, SetOptions(merge: true));
+          .set({'phone': phone, 'phoneVerified': verified}, SetOptions(merge: true));
     } catch (e) {
       debugPrint('Firestore phone update error: $e');
     }
