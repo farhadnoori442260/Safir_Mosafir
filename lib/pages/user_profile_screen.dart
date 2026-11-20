@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_database/firebase_database.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:safir_passengers/global/global_var.dart';
@@ -23,6 +25,11 @@ String toEnglishDigits(String input) {
     input = input.replaceAll(farsi[i], english[i]).replaceAll(arabic[i], english[i]);
   }
   return input;
+}
+
+String _t(String key, String fallback) {
+  final String v = key.tr();
+  return v.trim().isEmpty || v == key ? fallback : v;
 }
 
 // -------------------------------------------------------------
@@ -124,6 +131,23 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     );
 
     _loadProfileData();
+  }
+
+  Future<void> _changePhone() async {
+    HapticFeedback.lightImpact();
+
+    final String? newPhone = await showChangePhoneSheet(context);
+
+    if (newPhone == null || !mounted) return;
+
+    setState(() => _userPhone = newPhone);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(_t('change_phone_success', 'شماره با موفقیت تغییر کرد')),
+        backgroundColor: AppColors.primaryBrand,
+      ),
+    );
   }
 
   void _showBadgeDetails(String title, String description, IconData icon, Color color) {
@@ -232,14 +256,19 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       try {
         try {
           final GoogleSignIn googleSignIn = GoogleSignIn();
-          if (await googleSignIn.isSignedIn()) {
-            await googleSignIn.signOut();
-          }
+          // برای اینکه دفعهٔ بعد انتخاب حساب دوباره نمایش داده شود
+          await googleSignIn.signOut();
+          try {
+            await googleSignIn.disconnect();
+          } catch (_) {}
         } catch (e) {
           debugPrint("Google sign out error: $e");
         }
 
         await FirebaseAuth.instance.signOut();
+
+        userName = '';
+        userPhone = '';
 
         if (mounted) {
           Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
@@ -592,13 +621,21 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                         children: [
                           ListTile(
                             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
-                            leading: _tileIcon(Icons.switch_account_outlined, AppColors.primaryBrand),
+                            leading: _tileIcon(Icons.phone_android_rounded, AppColors.primaryBrand),
                             title: Text(
-                              "switch_account_title".tr().isEmpty ? "تغییر حساب کاربری" : "switch_account_title".tr(),
+                              _t('change_phone_title', 'تغییر شماره تماس'),
                               style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
                             ),
+                            subtitle: _userPhone.isEmpty
+                                ? null
+                                : Text(
+                                    formatNumberByLocale(context, _userPhone),
+                                    textDirection: ui.TextDirection.ltr,
+                                    textAlign: TextAlign.start,
+                                    style: TextStyle(fontSize: 11.5, color: AppColors.textSecondary),
+                                  ),
                             trailing: _chevron(),
-                            onTap: () => _handleLogout(isSwitchAccount: true),
+                            onTap: _changePhone,
                           ),
                           Divider(height: 1, color: AppColors.fieldBorder, indent: 70, endIndent: 16),
                           ListTile(
@@ -1219,107 +1256,24 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     );
   }
 
-  void _showChangePhoneBottomSheet() {
+  Future<void> _showChangePhoneBottomSheet() async {
     HapticFeedback.lightImpact();
+    FocusScope.of(context).unfocus();
 
-    final TextEditingController newPhoneController =
-        TextEditingController(text: '+93');
+    final String? newPhone = await showChangePhoneSheet(context);
 
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: AppColors.cardBgLight,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    if (newPhone == null || !mounted) return;
+
+    // شماره همین حالا در حساب و دیتابیس ذخیره شده است
+    _initialPhone = newPhone;
+    _phoneController.text = newPhone;
+    _checkChanges();
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(_t('change_phone_success', 'شماره با موفقیت تغییر کرد')),
+        backgroundColor: AppColors.primaryBrand,
       ),
-      builder: (sheetContext) {
-        return Padding(
-          padding: EdgeInsets.only(
-            top: 20,
-            right: 20,
-            left: 20,
-            bottom: MediaQuery.of(sheetContext).viewInsets.bottom + 24,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    _tr('change_phone_title', 'تغییر شماره تماس'),
-                    style: TextStyle(
-                      fontSize: 15.5,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                  IconButton(
-                    icon: Icon(
-                      Icons.close,
-                      color: AppColors.textPrimary,
-                    ),
-                    onPressed: () => Navigator.pop(sheetContext),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Text(
-                _tr(
-                  'change_phone_subtitle',
-                  'شمارهٔ جدید خود را برای دریافت کد تأیید وارد کنید.',
-                ),
-                style: TextStyle(
-                  color: AppColors.textSecondary,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w400,
-                ),
-              ),
-              const SizedBox(height: 20),
-              _buildInputField(
-                controller: newPhoneController,
-                label: _tr('phone_number_label', 'شمارهٔ موبایل'),
-                hintText: '+93 7XX XXX XXX',
-                keyboardType: TextInputType.phone,
-                textInputAction: TextInputAction.done,
-              ),
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primaryButton,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  onPressed: () {
-                    final String cleaned =
-                        toEnglishDigits(newPhoneController.text.trim());
-
-                    if (cleaned.isNotEmpty && cleaned != '+93') {
-                      HapticFeedback.mediumImpact();
-                      _phoneController.text = cleaned;
-                      _checkChanges();
-                      Navigator.pop(sheetContext);
-                    }
-                  },
-                  child: Text(
-                    _tr('continue_btn', 'ادامه'),
-                    style: TextStyle(
-                      color: AppColors.buttonText,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
     );
   }
 
@@ -1733,4 +1687,620 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     super.dispose();
   }
 }
- 
+
+
+// -------------------------------------------------------------
+// ۳. تغییر شماره با تأیید کد (بدون خروج از حساب)
+// -------------------------------------------------------------
+
+/// شمارهٔ جدید را برمی‌گرداند؛ اگر کاربر منصرف شود null.
+Future<String?> showChangePhoneSheet(BuildContext context) {
+  return showModalBottomSheet<String>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: AppColors.cardBgLight,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    builder: (_) => const _ChangePhoneSheet(),
+  );
+}
+
+/// شماره را به قالب بین‌المللی (+93...) درمی‌آورد؛ نامعتبر → null
+String? _normalizePhone(String raw) {
+  String d = toEnglishDigits(raw.trim()).replaceAll(RegExp(r'[\s\-()]'), '');
+
+  if (d.startsWith('+')) {
+    d = d.substring(1);
+  } else if (d.startsWith('00')) {
+    d = d.substring(2);
+  } else if (d.startsWith('0')) {
+    d = '93${d.substring(1)}';
+  } else if (d.length == 9) {
+    d = '93$d';
+  }
+
+  if (!RegExp(r'^\d{8,15}$').hasMatch(d)) return null;
+  if (d.startsWith('93') && d.length != 11) return null;
+
+  return '+$d';
+}
+
+class _ChangePhoneSheet extends StatefulWidget {
+  const _ChangePhoneSheet();
+
+  @override
+  State<_ChangePhoneSheet> createState() => _ChangePhoneSheetState();
+}
+
+class _ChangePhoneSheetState extends State<_ChangePhoneSheet> {
+  // 0: وارد کردن شمارهٔ جدید
+  // 1: کد ارسال‌شده به شمارهٔ جدید
+  // 2: کد ارسال‌شده به شمارهٔ فعلی (تأیید امنیتی)
+  int _step = 0;
+
+  final TextEditingController _phoneCtrl = TextEditingController(text: '+93');
+  final TextEditingController _codeCtrl = TextEditingController();
+
+  bool _busy = false;
+  bool _reauthed = false;
+  bool _forceReauth = false;
+  String? _error;
+
+  String _newPhone = '';
+  String _verificationId = '';
+  int? _resendToken;
+
+  Timer? _timer;
+  int _left = 0;
+
+  User? get _user => FirebaseAuth.instance.currentUser;
+
+  // اگر ورود قدیمی باشد، فایربیس برای تغییر شماره تأیید دوباره می‌خواهد
+  bool get _needsReauth {
+    if (_reauthed) return false;
+    if (_forceReauth) return true;
+
+    final DateTime? last = _user?.metadata.lastSignInTime;
+    if (last == null) return false;
+
+    return DateTime.now().difference(last) > const Duration(minutes: 4);
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _phoneCtrl.dispose();
+    _codeCtrl.dispose();
+    super.dispose();
+  }
+
+  void _startTimer() {
+    _timer?.cancel();
+    setState(() => _left = 60);
+
+    _timer = Timer.periodic(const Duration(seconds: 1), (t) {
+      if (!mounted) {
+        t.cancel();
+        return;
+      }
+
+      if (_left <= 1) {
+        t.cancel();
+        setState(() => _left = 0);
+      } else {
+        setState(() => _left--);
+      }
+    });
+  }
+
+  String _authMessage(String code) {
+    switch (code) {
+      case 'invalid-phone-number':
+        return _t('change_phone_err_phone_invalid', 'شماره معتبر نیست. مثال: 0770123456');
+      case 'invalid-verification-code':
+        return _t('change_phone_err_code_invalid', 'کد وارد شده درست نیست');
+      case 'session-expired':
+      case 'code-expired':
+      case 'invalid-verification-id':
+        return _t('change_phone_err_code_expired', 'کد منقضی شده؛ دوباره ارسال کنید');
+      case 'too-many-requests':
+      case 'quota-exceeded':
+        return _t('change_phone_err_too_many', 'تعداد تلاش‌ها زیاد است؛ کمی بعد دوباره امتحان کنید');
+      case 'network-request-failed':
+        return _t('change_phone_err_network', 'اتصال اینترنت را بررسی کنید');
+      case 'credential-already-in-use':
+      case 'account-exists-with-different-credential':
+        return _t('change_phone_err_phone_in_use', 'این شماره قبلاً با حساب دیگری ثبت شده است');
+      case 'requires-recent-login':
+        return _t('change_phone_err_recent_login', 'برای امنیت لازم است دوباره تأیید کنید؛ ارسال کد را بزنید');
+      case 'user-mismatch':
+        return _t('change_phone_err_account_mismatch', 'حساب انتخاب‌شده با حساب فعلی یکی نیست');
+      default:
+        return _t('change_phone_err_generic', 'خطایی رخ داد؛ دوباره تلاش کنید');
+    }
+  }
+
+  // ---------------- مرحله ۰: دکمهٔ «ارسال کد» ----------------
+  Future<void> _submitPhone() async {
+    if (_busy) return;
+
+    final String? phone = _normalizePhone(_phoneCtrl.text);
+
+    if (phone == null) {
+      setState(() => _error = _t('change_phone_err_phone_invalid', 'شماره معتبر نیست. مثال: 0770123456'));
+      return;
+    }
+
+    final User? user = _user;
+    if (user == null) {
+      Navigator.pop(context);
+      return;
+    }
+
+    final String? current = _normalizePhone(user.phoneNumber ?? '');
+    if (current != null && current == phone) {
+      setState(() => _error = _t('change_phone_err_phone_same', 'این شماره همان شمارهٔ فعلی شما است'));
+      return;
+    }
+
+    _newPhone = phone;
+    _resendToken = null;
+
+    if (_needsReauth) {
+      await _startReauth(user);
+    } else {
+      await _sendCode(_newPhone, forNew: true);
+    }
+  }
+
+  // تأیید هویت قبل از تغییر شماره
+  Future<void> _startReauth(User user) async {
+    final String oldPhone = user.phoneNumber ?? '';
+
+    if (oldPhone.isNotEmpty) {
+      await _sendCode(oldPhone, forNew: false);
+      return;
+    }
+
+    final bool hasGoogle =
+        user.providerData.any((p) => p.providerId == 'google.com');
+
+    if (!hasGoogle) {
+      // راهی برای تأیید دوباره نیست؛ مستقیم تلاش می‌کنیم
+      _reauthed = true;
+      await _sendCode(_newPhone, forNew: true);
+      return;
+    }
+
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+
+    try {
+      final GoogleSignIn google = GoogleSignIn();
+      final GoogleSignInAccount? account = await google.signIn();
+
+      if (account == null) {
+        if (mounted) setState(() => _busy = false);
+        return;
+      }
+
+      final GoogleSignInAuthentication auth = await account.authentication;
+
+      await user.reauthenticateWithCredential(
+        GoogleAuthProvider.credential(
+          accessToken: auth.accessToken,
+          idToken: auth.idToken,
+        ),
+      );
+
+      _reauthed = true;
+      _forceReauth = false;
+
+      await _sendCode(_newPhone, forNew: true);
+    } on FirebaseAuthException catch (e) {
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _error = _authMessage(e.code);
+        });
+      }
+    } catch (e) {
+      debugPrint('Google reauth error: $e');
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _error = _t('change_phone_err_generic', 'خطایی رخ داد؛ دوباره تلاش کنید');
+        });
+      }
+    }
+  }
+
+  // ---------------- ارسال کد پیامکی ----------------
+  Future<void> _sendCode(String phone, {required bool forNew}) async {
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+
+    try {
+      await FirebaseAuth.instance.verifyPhoneNumber(
+        phoneNumber: phone,
+        timeout: const Duration(seconds: 60),
+        forceResendingToken: _resendToken,
+        verificationCompleted: (PhoneAuthCredential credential) {
+          // خواندن خودکار پیامک در اندروید: فقط کد را پر می‌کنیم
+          final String? sms = credential.smsCode;
+          if (mounted && sms != null && sms.isNotEmpty) {
+            _codeCtrl.text = sms;
+          }
+        },
+        verificationFailed: (FirebaseAuthException e) {
+          if (!mounted) return;
+          setState(() {
+            _busy = false;
+            _error = _authMessage(e.code);
+          });
+        },
+        codeSent: (String id, int? token) {
+          if (!mounted) return;
+          setState(() {
+            _verificationId = id;
+            _resendToken = token;
+            _busy = false;
+            _step = forNew ? 1 : 2;
+            _codeCtrl.clear();
+          });
+          _startTimer();
+        },
+        codeAutoRetrievalTimeout: (String id) {
+          _verificationId = id;
+        },
+      );
+    } on FirebaseAuthException catch (e) {
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _error = _authMessage(e.code);
+        });
+      }
+    } catch (e) {
+      debugPrint('verifyPhoneNumber error: $e');
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _error = _t('change_phone_err_generic', 'خطایی رخ داد؛ دوباره تلاش کنید');
+        });
+      }
+    }
+  }
+
+  Future<void> _resend() async {
+    if (_busy || _left > 0) return;
+
+    if (_step == 2) {
+      await _sendCode(_user?.phoneNumber ?? '', forNew: false);
+    } else {
+      await _sendCode(_newPhone, forNew: true);
+    }
+  }
+
+  // ---------------- مرحله ۱ و ۲: تأیید کد ----------------
+  Future<void> _confirmCode() async {
+    if (_busy) return;
+
+    final String code = toEnglishDigits(_codeCtrl.text.trim());
+
+    if (code.length < 6 || _verificationId.isEmpty) {
+      setState(() => _error = _t('change_phone_err_code_invalid', 'کد وارد شده درست نیست'));
+      return;
+    }
+
+    final User? user = _user;
+    if (user == null) {
+      Navigator.pop(context);
+      return;
+    }
+
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+
+    final PhoneAuthCredential credential = PhoneAuthProvider.credential(
+      verificationId: _verificationId,
+      smsCode: code,
+    );
+
+    try {
+      if (_step == 2) {
+        // تأیید امنیتی با شمارهٔ فعلی؛ بعد کد به شمارهٔ جدید می‌رود
+        await user.reauthenticateWithCredential(credential);
+
+        _reauthed = true;
+        _forceReauth = false;
+        _resendToken = null;
+
+        await _sendCode(_newPhone, forNew: true);
+        return;
+      }
+
+      // جایگزینی شماره روی همین حساب (بدون خروج)
+      await user.updatePhoneNumber(credential);
+      await _saveEverywhere(user, _newPhone);
+
+      if (!mounted) return;
+      Navigator.pop(context, _newPhone);
+    } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _busy = false;
+
+        if (e.code == 'requires-recent-login') {
+          _forceReauth = true;
+          _reauthed = false;
+          _step = 0;
+        }
+
+        _error = _authMessage(e.code);
+      });
+    } catch (e) {
+      debugPrint('confirm phone error: $e');
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _error = _t('change_phone_err_generic', 'خطایی رخ داد؛ دوباره تلاش کنید');
+        });
+      }
+    }
+  }
+
+  // شمارهٔ جدید در Firestore و Realtime Database هم جایگزین می‌شود
+  Future<void> _saveEverywhere(User user, String phone) async {
+    try {
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .set({'phone': phone}, SetOptions(merge: true));
+    } catch (e) {
+      debugPrint('Firestore phone update error: $e');
+    }
+
+    try {
+      await FirebaseDatabase.instance
+          .ref()
+          .child('users')
+          .child(user.uid)
+          .update({'phone': phone});
+    } catch (e) {
+      debugPrint('Realtime DB phone update error: $e');
+    }
+
+    userPhone = phone;
+  }
+
+  // ---------------- ظاهر ----------------
+  InputDecoration _decoration(String label, String hint) {
+    final OutlineInputBorder border = OutlineInputBorder(
+      borderRadius: BorderRadius.circular(10),
+      borderSide: BorderSide(color: AppColors.fieldBorder, width: 1.0),
+    );
+
+    return InputDecoration(
+      labelText: label,
+      hintText: hint,
+      counterText: '',
+      labelStyle: TextStyle(color: AppColors.textSecondary, fontSize: 12.5),
+      hintStyle: TextStyle(color: AppColors.handle, fontSize: 13),
+      filled: true,
+      fillColor: AppColors.backgroundLight,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+      border: border,
+      enabledBorder: border,
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: BorderSide(color: AppColors.primaryBrand, width: 1.5),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bool codeStep = _step != 0;
+
+    final String subtitle;
+    if (_step == 0) {
+      subtitle = _t(
+        'change_phone_subtitle',
+        'شمارهٔ جدید خود را برای دریافت کد تأیید وارد کنید.',
+      );
+    } else if (_step == 1) {
+      subtitle = _t('change_phone_code_sent_new', 'کد تأیید به {} ارسال شد.')
+          .replaceAll('{}', _newPhone);
+    } else {
+      subtitle = _t(
+        'change_phone_code_sent_old',
+        'برای امنیت، کد تأیید به شمارهٔ فعلی شما ({}) ارسال شد.',
+      ).replaceAll('{}', _user?.phoneNumber ?? '');
+    }
+
+    final String buttonText = _step == 0
+        ? _t('change_phone_send_code', 'ارسال کد')
+        : _step == 1
+            ? _t('change_phone_confirm', 'تأیید و تغییر شماره')
+            : _t('continue_btn', 'ادامه');
+
+    return Padding(
+      padding: EdgeInsets.only(
+        top: 20,
+        right: 20,
+        left: 20,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    _t('change_phone_title', 'تغییر شماره تماس'),
+                    style: TextStyle(
+                      fontSize: 15.5,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: Icon(Icons.close, color: AppColors.textPrimary),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              subtitle,
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 12,
+                height: 1.5,
+                fontWeight: FontWeight.w400,
+              ),
+            ),
+            const SizedBox(height: 18),
+            if (!codeStep)
+              TextField(
+                controller: _phoneCtrl,
+                enabled: !_busy,
+                keyboardType: TextInputType.phone,
+                textInputAction: TextInputAction.done,
+                textDirection: ui.TextDirection.ltr,
+                textAlign: TextAlign.left,
+                onSubmitted: (_) => _submitPhone(),
+                style: TextStyle(color: AppColors.textPrimary, fontSize: 14),
+                decoration: _decoration(
+                  _t('phone_number_label', 'شمارهٔ موبایل'),
+                  '+93 7XX XXX XXX',
+                ),
+              )
+            else ...[
+              TextField(
+                controller: _codeCtrl,
+                enabled: !_busy,
+                autofocus: true,
+                maxLength: 6,
+                keyboardType: TextInputType.number,
+                textInputAction: TextInputAction.done,
+                textDirection: ui.TextDirection.ltr,
+                textAlign: TextAlign.center,
+                onSubmitted: (_) => _confirmCode(),
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 20,
+                  letterSpacing: 6,
+                  fontWeight: FontWeight.w600,
+                ),
+                decoration: _decoration(
+                  _t('change_phone_code_label', 'کد تأیید'),
+                  '------',
+                ),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  TextButton(
+                    onPressed: _busy || _left > 0 ? null : _resend,
+                    child: Text(
+                      _left > 0
+                          ? _t('change_phone_resend_in', 'ارسال دوباره تا {} ثانیه')
+                              .replaceAll('{}', '$_left')
+                          : _t('change_phone_resend', 'ارسال دوباره'),
+                      style: TextStyle(
+                        color: _left > 0
+                            ? AppColors.textSecondary
+                            : AppColors.primaryBrand,
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  const Spacer(),
+                  if (_step == 1)
+                    TextButton(
+                      onPressed: _busy
+                          ? null
+                          : () => setState(() {
+                                _step = 0;
+                                _error = null;
+                                _timer?.cancel();
+                              }),
+                      child: Text(
+                        _t('change_phone_back', 'تغییر شماره'),
+                        style: TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ],
+            if (_error != null) ...[
+              const SizedBox(height: 6),
+              Text(
+                _error!,
+                style: TextStyle(
+                  color: AppColors.danger,
+                  fontSize: 12.5,
+                  height: 1.5,
+                ),
+              ),
+            ],
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primaryButton,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                onPressed: _busy
+                    ? null
+                    : (_step == 0 ? _submitPhone : _confirmCode),
+                child: _busy
+                    ? SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          color: AppColors.buttonText,
+                          strokeWidth: 2,
+                        ),
+                      )
+                    : Text(
+                        buttonText,
+                        style: TextStyle(
+                          color: AppColors.buttonText,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
