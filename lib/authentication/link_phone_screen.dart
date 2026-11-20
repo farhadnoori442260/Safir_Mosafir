@@ -7,12 +7,34 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:provider/provider.dart';
 
+import 'package:safir_passengers/appInfo/auth_provider.dart';
 import 'package:safir_passengers/global/global_var.dart';
 import 'package:safir_passengers/theme/app_colors.dart';
 
-/// اگر حساب شمارهٔ تأییدشده ندارد (مثلاً ورود با گوگل)، کاربر را مجبور می‌کند
-/// شماره را با کد پیامکی به همان حساب وصل کند.
+/// آیا تأیید شماره با پیامک الزامی است؟
+/// از Firestore: settings/app_config → require_phone_verification (bool)
+/// اگر فیلد نباشد یا خوانده نشود، false است (بدون هزینهٔ پیامک).
+Future<bool> phoneVerificationRequired() async {
+  try {
+    final DocumentSnapshot<Map<String, dynamic>> snap = await FirebaseFirestore
+        .instance
+        .collection('settings')
+        .doc('app_config')
+        .get()
+        .timeout(const Duration(seconds: 4));
+
+    return snap.data()?['require_phone_verification'] == true;
+  } catch (e) {
+    debugPrint('phoneVerificationRequired read error: $e');
+    return false;
+  }
+}
+
+/// حساب باید شماره داشته باشد.
+///  • اگر تأیید پیامکی الزامی باشد: شمارهٔ تأییدشده به حساب وصل می‌شود.
+///  • اگر نباشد: فقط شماره نوشته و ذخیره می‌شود (بدون پیامک).
 ///
 /// true  → حساب شماره دارد (از قبل یا همین حالا وصل شد)
 /// false → کاربر انصراف داد؛ از حساب خارج شده است.
@@ -29,12 +51,31 @@ Future<bool> ensurePhoneLinked(BuildContext context) async {
 
   if ((user.phoneNumber ?? '').isNotEmpty) return true;
 
+  final bool verify = await phoneVerificationRequired();
+
+  // بدون تأیید پیامکی: اگر شماره در حساب ذخیره شده، کافی است
+  if (!verify) {
+    try {
+      final DocumentSnapshot<Map<String, dynamic>> doc = await FirebaseFirestore
+          .instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+
+      final String saved = doc.data()?['phone']?.toString().trim() ?? '';
+
+      if (doc.exists && saved.isNotEmpty) return true;
+    } catch (e) {
+      debugPrint('read saved phone error: $e');
+    }
+  }
+
   if (!context.mounted) return false;
 
   final bool? ok = await Navigator.of(context, rootNavigator: true).push<bool>(
     MaterialPageRoute<bool>(
       fullscreenDialog: true,
-      builder: (_) => const LinkPhoneScreen(),
+      builder: (_) => LinkPhoneScreen(verify: verify),
     ),
   );
 
@@ -75,7 +116,10 @@ class _DigitsFormatter extends TextInputFormatter {
 }
 
 class LinkPhoneScreen extends StatefulWidget {
-  const LinkPhoneScreen({super.key});
+  const LinkPhoneScreen({super.key, this.verify = true});
+
+  /// true: کد پیامکی؛ false: فقط ذخیرهٔ شمارهٔ واردشده
+  final bool verify;
 
   @override
   State<LinkPhoneScreen> createState() => _LinkPhoneScreenState();
@@ -213,6 +257,58 @@ class _LinkPhoneScreenState extends State<LinkPhoneScreen> {
       debugPrint('link phone send error: $e');
       _fail(_message('unknown'));
     }
+  }
+
+  /// بدون پیامک: شماره ذخیره می‌شود و علامت «تأییدنشده» می‌خورد
+  Future<void> _saveUnverified() async {
+    if (_busy) return;
+
+    if (!_phoneValid) {
+      setState(() => _error = _t('invalid_phone_warning',
+          'شماره باید با 07 شروع شود و ۱۰ رقم باشد'));
+      return;
+    }
+
+    final User? user = FirebaseAuth.instance.currentUser;
+
+    if (user == null) {
+      Navigator.pop(context, false);
+      return;
+    }
+
+    final String phone = '+93${_phoneCtrl.text.substring(1)}';
+
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+
+    try {
+      // برای کاربر تازه، سند هنوز ساخته نشده؛ شماره در provider می‌ماند
+      Provider.of<AuthenticationProvider>(context, listen: false)
+          .setPendingPhone(phone);
+
+      final DocumentReference<Map<String, dynamic>> ref =
+          FirebaseFirestore.instance.collection('users').doc(user.uid);
+
+      final DocumentSnapshot<Map<String, dynamic>> snap = await ref.get();
+
+      if (snap.exists) {
+        await ref.set(
+          {'phone': phone, 'phoneVerified': false},
+          SetOptions(merge: true),
+        );
+      }
+    } catch (e) {
+      debugPrint('save unverified phone error: $e');
+      _fail(_message('unknown'));
+      return;
+    }
+
+    userPhone = phone;
+
+    if (!mounted) return;
+    Navigator.pop(context, true);
   }
 
   Future<void> _confirm() async {
@@ -406,7 +502,10 @@ class _LinkPhoneScreenState extends State<LinkPhoneScreen> {
                 ),
                 const SizedBox(height: 20),
                 Text(
-                  _t('link_phone_title', 'شمارهٔ همراه را تأیید کنید'),
+                  widget.verify
+                      ? _t('link_phone_title', 'شمارهٔ همراه را تأیید کنید')
+                      : _t('link_phone_title_simple',
+                          'شمارهٔ همراه خود را وارد کنید'),
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 21,
@@ -420,8 +519,11 @@ class _LinkPhoneScreenState extends State<LinkPhoneScreen> {
                       ? _t('change_phone_code_sent_new',
                               'کد تأیید به {} ارسال شد.')
                           .replaceAll('{}', _fullPhone)
-                      : _t('link_phone_subtitle',
-                          'برای امنیت حساب و تماس راننده، شمارهٔ همراه شما باید به حساب وصل شود.'),
+                      : widget.verify
+                          ? _t('link_phone_subtitle',
+                              'برای امنیت حساب و تماس راننده، شمارهٔ همراه شما باید به حساب وصل شود.')
+                          : _t('link_phone_subtitle_simple',
+                              'شمارهٔ همراه شما برای تماس راننده با شما لازم است.'),
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 13.5,
@@ -474,7 +576,8 @@ class _LinkPhoneScreenState extends State<LinkPhoneScreen> {
                               cursorColor: AppColors.primaryBrand,
                               textAlign: TextAlign.left,
                               onChanged: (_) => setState(() => _error = null),
-                              onSubmitted: (_) => _sendCode(),
+                              onSubmitted: (_) =>
+                                  widget.verify ? _sendCode() : _saveUnverified(),
                               style: TextStyle(
                                 fontSize: 17,
                                 fontWeight: FontWeight.w800,
@@ -616,7 +719,9 @@ class _LinkPhoneScreenState extends State<LinkPhoneScreen> {
                         ? null
                         : (_codeStep
                             ? _confirm
-                            : (_phoneValid ? _sendCode : null)),
+                            : (_phoneValid
+                                ? (widget.verify ? _sendCode : _saveUnverified)
+                                : null)),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primaryButton,
                       disabledBackgroundColor: AppColors.fieldBorder,
@@ -638,7 +743,9 @@ class _LinkPhoneScreenState extends State<LinkPhoneScreen> {
                         : Text(
                             _codeStep
                                 ? _t('link_phone_continue', 'تأیید و ادامه')
-                                : _t('get_otp_btn', 'دریافت کد تأیید'),
+                                : widget.verify
+                                    ? _t('get_otp_btn', 'دریافت کد تأیید')
+                                    : _t('continue_btn', 'ادامه'),
                             style: TextStyle(
                               fontSize: 15.5,
                               fontWeight: FontWeight.w800,
