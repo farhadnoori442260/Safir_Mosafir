@@ -335,9 +335,11 @@ class _SafirHomeScreenState extends State<SafirHomeScreen> {
             ? 'cargo'
             : 'taxi';
 
-    Navigator.push(
+    // تا بازگشت از نقشه منتظر می‌ماند؛ آیکن کشیده‌شده تا آن موقع
+    // در انتها می‌ماند و بعد نرم به جای اول برمی‌گردد.
+    await Navigator.push<void>(
       context,
-      MaterialPageRoute(
+      MaterialPageRoute<void>(
         builder: (_) => SafirMapScreen(serviceType: type),
       ),
     );
@@ -399,15 +401,17 @@ class _SafirHomeScreenState extends State<SafirHomeScreen> {
             return Stack(
               children: [
                 Positioned.fill(
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          palette.backgroundTop,
-                          palette.background,
-                        ],
+                  child: RepaintBoundary(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            palette.backgroundTop,
+                            palette.background,
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -417,7 +421,9 @@ class _SafirHomeScreenState extends State<SafirHomeScreen> {
                   left: 0,
                   right: 0,
                   height: heroHeight,
-                  child: _buildHeroBackground(palette),
+                  child: RepaintBoundary(
+                    child: _buildHeroBackground(palette),
+                  ),
                 ),
                 Positioned(
                   top: 0,
@@ -1134,6 +1140,7 @@ class _SlideServiceCapsuleState
 
   bool _dragging = false;
   bool _busy = false;
+  bool _returning = false;
 
   @override
   void initState() {
@@ -1205,13 +1212,27 @@ class _SlideServiceCapsuleState
       debugPrintStack(stackTrace: stackTrace);
     } finally {
       if (mounted) {
-        setState(() => _busy = false);
+        // آیکن اصلی برمی‌گردد و دستگیره نرم به جای اول می‌لغزد
+        setState(() => _returning = true);
 
-        _controller.animateTo(
-          0,
-          duration: const Duration(milliseconds: 240),
-          curve: Curves.easeOutCubic,
-        );
+        try {
+          await _controller
+              .animateTo(
+                0,
+                duration: const Duration(milliseconds: 520),
+                curve: Curves.easeInOutCubic,
+              )
+              .orCancel;
+        } on TickerCanceled {
+          // خروج ویجت از صفحه
+        }
+
+        if (mounted) {
+          setState(() {
+            _busy = false;
+            _returning = false;
+          });
+        }
       }
     }
   }
@@ -1221,8 +1242,10 @@ class _SlideServiceCapsuleState
         ? AppColors.primaryBrand
         : Colors.white;
 
+    final showCheck = _busy && !_returning;
+
     final fallback = Icon(
-      _busy ? Icons.check_rounded : widget.service.icon,
+      showCheck ? Icons.check_rounded : widget.service.icon,
       color: iconColor,
       size: 31,
       shadows: _kColoredHomeIcons
@@ -1236,7 +1259,7 @@ class _SlideServiceCapsuleState
             ],
     );
 
-    if (_busy) return fallback;
+    if (showCheck) return fallback;
 
     return Image.asset(
       widget.service.iconAsset,
