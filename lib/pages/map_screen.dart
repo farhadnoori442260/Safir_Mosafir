@@ -23,6 +23,7 @@ import 'package:safir_passengers/global/trip_var.dart';
 import 'package:safir_passengers/theme/app_colors.dart';
 import 'package:safir_passengers/pages/saved_addresses_screen.dart' show SavedDestinationBus;
 import 'package:safir_passengers/widgets/rate_driver_sheet.dart';
+import 'package:safir_passengers/widgets/coach_marks.dart';
 import 'package:safir_passengers/widgets/safir_drawer.dart';
 import 'search_destination_place.dart';
 
@@ -616,6 +617,14 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
     // تنظیمات کرایه از پنل ادمین (زنده)
     AppConfigService.instance.start();
     AppConfigService.instance.notifier.addListener(_onConfigChanged);
+
+    // راهنمای اولین ورود به نقشه (فقط مرحلهٔ انتخاب مبدأ)
+    if (!widget.isPickerOnly && !_hasPreset) {
+      Future<void>.delayed(const Duration(milliseconds: 1400), () {
+        if (!mounted || _currentStep != 0 || _isHome) return;
+        CoachMarks.maybeStartMap(context);
+      });
+    }
   }
 
   @override
@@ -3748,6 +3757,21 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
               //   پس برای اینکه «انتهای میله» روی مرکز بنشیند باید نصف ارتفاع
               //   (۲۴) به بالا برود. هنگام حرکت ۲۵ پیکسل بیشتر بالا می‌رود.
               //   (قبلاً مقدار ۲۰ بود و نوک پین ۴ پیکسل پایین‌تر از مرکز می‌ماند.)
+              // نشانگر نامرئی برای راهنما (روی کل پین)
+              if (!widget.isPickerOnly && _currentStep == 0 && !_isHome)
+                IgnorePointer(
+                  child: Center(
+                    child: Transform.translate(
+                      offset: const Offset(0, -24),
+                      child: SizedBox(
+                        key: CoachKeys.mapPin,
+                        width: 56,
+                        height: 84,
+                      ),
+                    ),
+                  ),
+                ),
+
               if (_currentStep < 2 && !_isHome)
                 IgnorePointer(
                   child: Center(
@@ -3827,6 +3851,18 @@ class _SafirMapScreenState extends State<SafirMapScreen> with TickerProviderStat
                         ),
                       ],
                     ),
+                  ),
+                ),
+
+              // نشانگر نامرئی برای راهنمای پنل پایین
+              if (!widget.isPickerOnly && _currentStep == 0 && !_isHome)
+                Positioned(
+                  left: 12,
+                  right: 12,
+                  bottom: 12,
+                  height: 190,
+                  child: IgnorePointer(
+                    child: SizedBox(key: CoachKeys.mapSheet),
                   ),
                 ),
 
