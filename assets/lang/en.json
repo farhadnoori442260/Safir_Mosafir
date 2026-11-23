@@ -859,7 +859,20 @@
   "link_phone_conflict": "This number is registered with another account. Sign in with that number or enter a different one.",
   "link_phone_relogin": "Please sign out and sign in with Google again, then verify the number.",
   "link_phone_title_simple": "Enter your phone number",
-  "link_phone_subtitle_simple": "Your phone number is needed so the driver can contact you."
- 
+  "link_phone_subtitle_simple": "Your phone number is needed so the driver can contact you.",
+  "coach_taxi_title": "Request a taxi",
+  "coach_taxi_text": "Slide the green icon to the right to open the map and choose your pickup and destination.",
+  "coach_search_title": "Where to?",
+  "coach_search_text": "Tap this bar to go straight to the map and tell us your destination.",
+  "coach_menu_title": "Menu",
+  "coach_menu_text": "Profile, language, theme, support and sign out are all here.",
+  "coach_skip": "Skip",
+  "coach_next": "Next",
+  "coach_done": "Start",
+  "replay_guide": "Replay the guide",
+  "coach_map_pin_title": "Set your pickup",
+  "coach_map_pin_text": "Drag the map so the pin sits on your pickup point. After confirming it, choose your destination the same way.",
+  "coach_map_sheet_title": "Search and confirm",
+  "coach_map_sheet_text": "Search an address, pick a saved one, or continue with the confirm button.",
 
 }
