@@ -13,6 +13,7 @@ import 'package:safir_passengers/services/support_service.dart';
 import 'package:safir_passengers/theme/app_colors.dart';
 import 'package:safir_passengers/theme/theme_controller.dart';
 import 'package:safir_passengers/widgets/animated_menus.dart';
+import 'package:safir_passengers/widgets/coach_marks.dart';
 
 class SafirDrawer extends StatefulWidget {
   const SafirDrawer({super.key});
@@ -600,6 +601,20 @@ class _SafirDrawerState extends State<SafirDrawer> {
                             _closeDrawerNow();
 
                             SupportService.call(rootContext);
+                          },
+                        ),
+                        const _DrawerTileDivider(),
+                        _DrawerTile(
+                          icon: Icons.lightbulb_outline_rounded,
+                          color: colors.secondary,
+                          title: _tr(
+                            context,
+                            'replay_guide',
+                            'دیدن دوبارهٔ راهنما',
+                          ),
+                          onTap: () {
+                            _closeDrawerNow();
+                            CoachMarks.requestReplay();
                           },
                         ),
                         const _DrawerTileDivider(),
