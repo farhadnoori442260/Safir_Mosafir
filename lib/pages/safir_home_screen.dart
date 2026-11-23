@@ -17,6 +17,7 @@ import 'package:safir_passengers/authentication/link_phone_screen.dart';
 import 'package:safir_passengers/pages/blocked_screen.dart';
 import 'package:safir_passengers/authentication/register_screen.dart';
 import 'package:safir_passengers/theme/app_colors.dart';
+import 'package:safir_passengers/widgets/coach_marks.dart';
 
 import 'map_screen.dart';
 
@@ -118,6 +119,27 @@ class _SafirHomeScreenState extends State<SafirHomeScreen> {
     super.initState();
     _loadCurrentUserInfo();
     _checkUserStatusInBackground();
+
+    CoachMarks.replayTick.addListener(_onReplay);
+
+    // راهنمای اولین ورود، بعد از پایان انیمیشن ورود کارت‌ها
+    Future<void>.delayed(const Duration(milliseconds: 1600), () {
+      if (!mounted) return;
+      CoachMarks.maybeStart(context);
+    });
+  }
+
+  void _onReplay() {
+    Future<void>.delayed(const Duration(milliseconds: 450), () {
+      if (!mounted) return;
+      CoachMarks.maybeStart(context, force: true);
+    });
+  }
+
+  @override
+  void dispose() {
+    CoachMarks.replayTick.removeListener(_onReplay);
+    super.dispose();
   }
 
   String _tr(String key) {
@@ -513,7 +535,13 @@ class _SafirHomeScreenState extends State<SafirHomeScreen> {
                                       ),
                                     );
                                   },
-                                  child: _SlideServiceCapsule(
+                                  child: KeyedSubtree(
+                                    key: i == 0
+                                        ? CoachKeys.taxi
+                                        : ValueKey(
+                                            'ks_${services[i].id}',
+                                          ),
+                                    child: _SlideServiceCapsule(
                                     key: ValueKey(services[i].id),
                                     service: services[i],
                                     enabled: !_openingService,
@@ -523,6 +551,7 @@ class _SafirHomeScreenState extends State<SafirHomeScreen> {
                                     onCompleted: () =>
                                         _navigateToService(
                                       services[i].id,
+                                    ),
                                     ),
                                   ),
                                 ),
@@ -649,10 +678,16 @@ class _SafirHomeScreenState extends State<SafirHomeScreen> {
         textDirection: TextDirection.ltr,
         child: Row(
           children: [
-            _buildMenuButton(),
+            KeyedSubtree(
+              key: CoachKeys.menu,
+              child: _buildMenuButton(),
+            ),
             const SizedBox(width: 10),
             Expanded(
-              child: _buildSearchBar(appDirection),
+              child: KeyedSubtree(
+                key: CoachKeys.search,
+                child: _buildSearchBar(appDirection),
+              ),
             ),
             const SizedBox(width: 10),
             _buildBrandMark(),
