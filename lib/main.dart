@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -347,7 +350,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
         // رنگ آیکون‌های نوار وضعیت و نوار پایین متناسب با تم
         builder: (context, child) {
-          return AnnotatedRegion<SystemUiOverlayStyle>(
+          return _AccountGate(
+            child: AnnotatedRegion<SystemUiOverlayStyle>(
             value: SystemUiOverlayStyle(
               statusBarColor: Colors.transparent,
               statusBarIconBrightness:
@@ -359,6 +363,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
               systemNavigationBarContrastEnforced: false,
             ),
             child: child ?? const SizedBox.shrink(),
+            ),
           );
         },
 
@@ -510,6 +515,174 @@ class _AuthCheckState extends State<AuthCheck> {
             if (!mounted) return;
             setState(() => _animationDone = true);
           },
+        ),
+      ),
+    );
+  }
+}
+
+/// 🔒 نگهبان حساب: اگر مدیر حساب مسافر را مسدود کند، همان لحظه (بدون نیاز
+/// به خروج و ورود دوباره) یک صفحهٔ تمام‌صفحه روی کل اپ می‌آید.
+/// سند users/{uid} زنده خوانده می‌شود؛ در صورت خطای شبکه یا دسترسی، اپ
+/// مسدود نمی‌شود (فقط مسدودی صریح اعمال می‌شود).
+class _AccountGate extends StatefulWidget {
+  final Widget child;
+
+  const _AccountGate({required this.child});
+
+  @override
+  State<_AccountGate> createState() => _AccountGateState();
+}
+
+class _AccountGateState extends State<_AccountGate> {
+  StreamSubscription<User?>? _authSub;
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _docSub;
+  bool _blocked = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _authSub = FirebaseAuth.instance.authStateChanges().listen(_onUser);
+  }
+
+  @override
+  void dispose() {
+    _docSub?.cancel();
+    _authSub?.cancel();
+    super.dispose();
+  }
+
+  void _onUser(User? user) {
+    _docSub?.cancel();
+    _docSub = null;
+
+    if (user == null) {
+      if (_blocked && mounted) setState(() => _blocked = false);
+      return;
+    }
+
+    _docSub = FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .snapshots()
+        .listen(
+      (snap) {
+        final bool blocked = _isBlocked(snap.data());
+        if (blocked != _blocked && mounted) {
+          setState(() => _blocked = blocked);
+        }
+      },
+      onError: (Object e) => debugPrint('AccountGate error: $e'),
+    );
+  }
+
+  bool _isBlocked(Map<String, dynamic>? d) {
+    if (d == null) return false;
+    if (d['isBlocked'] == true) return true;
+    final String b = (d['blockStatus'] ?? '').toString().toLowerCase();
+    final String st = (d['status'] ?? '').toString().toLowerCase();
+    return b == 'yes' || st == 'blocked';
+  }
+
+  Future<void> _signOut() async {
+    try {
+      await FirebaseAuth.instance.signOut();
+    } catch (_) {}
+
+    ChatBannerService.instance.navigatorKey.currentState?.pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const RegisterScreen()),
+      (route) => false,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        widget.child,
+        if (_blocked)
+          Positioned.fill(
+            child: _BlockedOverlay(onSignOut: _signOut),
+          ),
+      ],
+    );
+  }
+}
+
+class _BlockedOverlay extends StatelessWidget {
+  final VoidCallback onSignOut;
+
+  const _BlockedOverlay({required this.onSignOut});
+
+  String _t(BuildContext context, String fa, String ps, String en) {
+    switch (Localizations.localeOf(context).languageCode) {
+      case 'ps':
+        return ps;
+      case 'en':
+        return en;
+      default:
+        return fa;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+
+    return PopScope(
+      canPop: false,
+      child: Scaffold(
+        backgroundColor: theme.scaffoldBackgroundColor,
+        body: SafeArea(
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 28),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.block_rounded,
+                    size: 72,
+                    color: theme.colorScheme.error,
+                  ),
+                  const SizedBox(height: 18),
+                  Text(
+                    _t(
+                      context,
+                      'حساب شما مسدود شده است',
+                      'ستاسو حساب بند شوی دی',
+                      'Your account has been blocked',
+                    ),
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.titleLarge,
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    _t(
+                      context,
+                      'برای اطلاعات بیشتر با پشتیبانی سفیر تماس بگیرید.',
+                      'د نورو معلوماتو لپاره د سفیر ملاتړ سره اړیکه ونیسئ.',
+                      'Please contact Safir support for more information.',
+                    ),
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.bodyMedium,
+                  ),
+                  const SizedBox(height: 26),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: OutlinedButton(
+                      onPressed: onSignOut,
+                      child: Text(
+                        _t(context, 'خروج از حساب', 'له حساب وتل',
+                            'Sign out'),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ),
       ),
     );
